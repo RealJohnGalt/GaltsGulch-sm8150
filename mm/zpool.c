@@ -388,21 +388,29 @@ u64 zpool_get_total_size(struct zpool *zpool)
 }
 
 /**
- * zpool_evictable() - Test if zpool is potentially evictable
- * @pool	The zpool to test
+ * zpool_compact() - trigger backend-specific pool compaction
+ * @pool	The zpool to compact
  *
- * Zpool is only potentially evictable when it's created with struct
- * zpool_ops.evict and its driver implements struct zpool_driver.shrink.
+ * This returns the total size in bytes of the pool.
  *
- * However, it doesn't necessarily mean driver will use zpool_ops.evict
- * in its implementation of zpool_driver.shrink. It could do internal
- * defragmentation instead.
- *
- * Returns: true if potentially evictable; false otherwise.
+ * Returns: Number of pages compacted
  */
-bool zpool_evictable(struct zpool *zpool)
+unsigned long zpool_compact(struct zpool *zpool)
 {
-	return zpool->evictable;
+	return zpool->driver->compact ?
+		zpool->driver->compact(zpool->pool) : 0;
+}
+
+/**
+ * zpool_get_num_compacted() - get the number of migrated/compacted pages
+ * @stats       stats to fill in
+ *
+ * Returns: the total number of migrated pages for the pool
+ */
+unsigned long zpool_get_num_compacted(struct zpool *zpool)
+{
+	return zpool->driver->get_num_compacted ?
+		zpool->driver->get_num_compacted(zpool->pool) : 0;
 }
 
 MODULE_LICENSE("GPL");
