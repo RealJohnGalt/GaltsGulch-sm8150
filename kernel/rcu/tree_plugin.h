@@ -570,10 +570,18 @@ rcu_preempt_deferred_qs_irqrestore(struct task_struct *t, unsigned long flags)
 			raw_spin_unlock_irqrestore_rcu_node(rnp, flags);
 		}
 
-		/* Unboost if we were boosted. */
+		/*
+		 * Unboost if we were boosted.
+		 * Disable preemption to make sure completion is signalled
+		 * without having the task de-scheduled with its priority
+		 * lowered (in which case we're left with no boosted thread
+		 * and possible RCU starvation).
+		 */
 		if (IS_ENABLED(CONFIG_RCU_BOOST) && drop_boost_mutex) {
+			preempt_disable();
 			rt_mutex_futex_unlock(&rnp->boost_mtx);
 			complete(&rnp->boost_completion);
+			preempt_enable();
 		}
 
 		/*
