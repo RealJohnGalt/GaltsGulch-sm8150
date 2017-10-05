@@ -785,7 +785,6 @@ static void rcu_eqs_enter_common(bool user)
 	rdtp->dynticks_nesting = 0;
 	rcu_dynticks_eqs_enter();
 	rcu_dynticks_task_enter();
-
 }
 
 /*
