@@ -2898,8 +2898,8 @@ static bool should_skip_mm(struct mm_struct *mm, struct mm_walk_args *args)
 			       get_mm_counter(mm, MM_SHMEMPAGES);
 	}
 
-	pgtables = PTRS_PER_PTE * sizeof(pte_t) * atomic_long_read(&mm->nr_ptes);
-	pgtables += PTRS_PER_PMD * sizeof(pmd_t) * mm_nr_pmds(mm);
+	pgtables = PTRS_PER_PTE * sizeof(pte_t) * atomic_long_read(&mm->pgtables_bytes);
+	pgtables += PTRS_PER_PMD * sizeof(pmd_t) * mm_pgtables_bytes(mm);
 
 	/* leave the legwork to the rmap if mappings are too sparse */
 	if (size < max(SWAP_CLUSTER_MAX, pgtables / PAGE_SIZE))
