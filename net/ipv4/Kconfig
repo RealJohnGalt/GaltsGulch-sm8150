@@ -675,6 +675,17 @@ config TCP_CONG_BBR
 	bufferbloat, policers, or AQM schemes that do not provide a delay
 	signal. It requires the fq ("Fair Queue") pacing packet scheduler.
 
+config TCP_CONG_AGILESD
+        tristate "Agile-SD Congestion control"
+        default n
+        ---help---
+        
+        This is version 1.0 of Agile-SD TCP. It is a sender-side only. 
+        It contributes the Agility Factor (AF) to shorten the epoch time 
+        and to make TCP independent from RTT. AF reduces the sensitivity 
+        to packet losses, which in turn Agile-SD to achieve better throughput 
+        over high-speed networks.
+
 choice
 	prompt "Default TCP congestion control"
 	default DEFAULT_CUBIC
@@ -706,6 +717,9 @@ choice
 	config DEFAULT_DCTCP
 		bool "DCTCP" if TCP_CONG_DCTCP=y
 
+	config DEFAULT_AGILESD
+		bool "AGILESD" if TCP_CONG_AGILESD=y
+
 	config DEFAULT_CDG
 		bool "CDG" if TCP_CONG_CDG=y
 
@@ -736,6 +750,7 @@ config DEFAULT_TCP_CONG
 	default "dctcp" if DEFAULT_DCTCP
 	default "cdg" if DEFAULT_CDG
 	default "bbr" if DEFAULT_BBR
+	default "agilesd" if DEFAULT_AGILESD
 	default "cubic"
 
 config TCP_MD5SIG
