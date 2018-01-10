@@ -163,8 +163,6 @@ struct request {
 
 	int internal_tag;
 
-	unsigned long atomic_flags;
-
 	/* the following two fields are internal, NEVER access directly */
 	unsigned int __data_len;	/* total data len */
 	int tag;
