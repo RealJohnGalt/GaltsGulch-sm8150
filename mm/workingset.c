@@ -464,7 +464,7 @@ static enum lru_status shadow_lru_isolate(struct list_head *item,
 
 	/* Coming from the list, invert the lock order */
 	if (!spin_trylock(&mapping->tree_lock)) {
-		spin_unlock(lru_lock);
+		spin_unlock_irq(lru_lock);
 		ret = LRU_RETRY;
 		goto out;
 	}
@@ -502,13 +502,11 @@ static enum lru_status shadow_lru_isolate(struct list_head *item,
 				 workingset_update_node, mapping);
 
 out_invalid:
-	spin_unlock(&mapping->tree_lock);
+	spin_unlock_irq(&mapping->tree_lock);
 	ret = LRU_REMOVED_RETRY;
 out:
-	local_irq_enable();
 	cond_resched();
-	local_irq_disable();
-	spin_lock(lru_lock);
+	spin_lock_irq(lru_lock);
 	return ret;
 }
 
