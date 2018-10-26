@@ -397,7 +397,7 @@ static unsigned long count_shadow_nodes(struct shrinker *shrinker,
 {
 	unsigned long max_nodes;
 	unsigned long nodes;
-	unsigned long cache;
+	unsigned long pages;
 
 	nodes = list_lru_shrink_count(&shadow_nodes, sc);
 
@@ -423,14 +423,20 @@ static unsigned long count_shadow_nodes(struct shrinker *shrinker,
 	 *
 	 * PAGE_SIZE / radix_tree_nodes / node_entries * 8 / PAGE_SIZE
 	 */
+#ifdef CONFIG_MEMCG
 	if (sc->memcg) {
-		cache = mem_cgroup_node_nr_lru_pages(sc->memcg, sc->nid,
-						     LRU_ALL_FILE);
-	} else {
-		cache = node_page_state(NODE_DATA(sc->nid), NR_ACTIVE_FILE) +
-			node_page_state(NODE_DATA(sc->nid), NR_INACTIVE_FILE);
-	}
-	max_nodes = cache >> (RADIX_TREE_MAP_SHIFT - 3);
+		struct lruvec *lruvec;
+
+		pages = mem_cgroup_node_nr_lru_pages(sc->memcg, sc->nid,
+						     LRU_ALL);
+		lruvec = mem_cgroup_lruvec(NODE_DATA(sc->nid), sc->memcg);
+		pages += lruvec_lru_size(lruvec, NR_SLAB_RECLAIMABLE, MAX_NR_ZONES);
+		pages += lruvec_lru_size(lruvec, NR_SLAB_UNRECLAIMABLE, MAX_NR_ZONES);
+	} else
+#endif
+		pages = node_present_pages(sc->nid);
+
+	max_nodes = pages >> (RADIX_TREE_MAP_SHIFT - 3);
 
 	if (nodes <= max_nodes)
 		return 0;
