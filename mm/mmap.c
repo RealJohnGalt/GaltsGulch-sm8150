@@ -2788,8 +2788,8 @@ int split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
  * work.  This now handles partial unmappings.
  * Jeremy Fitzhardinge <jeremy@goop.org>
  */
-int __do_munmap(struct mm_struct *mm, unsigned long start, size_t len,
-	      struct list_head *uf, bool downgrade)
+static int __do_munmap(struct mm_struct *mm, unsigned long start, size_t len,
+		       struct list_head *uf, bool downgrade)
 {
 	unsigned long end;
 	struct vm_area_struct *vma, *prev, *last;
@@ -2871,6 +2871,15 @@ int __do_munmap(struct mm_struct *mm, unsigned long start, size_t len,
 				mm->locked_vm -= vma_pages(tmp);
 				munlock_vma_pages_all(tmp);
 			}
+
+			/*
+			 * Unmapping vmas, which have VM_HUGETLB or VM_PFNMAP,
+			 * need get done with write mmap_sem held since they may
+			 * update vm_flags.
+			 */
+			if (downgrade &&
+			    (tmp->vm_flags & (VM_HUGETLB | VM_PFNMAP)))
+				downgrade = false;
 
 			tmp = tmp->vm_next;
 		}
