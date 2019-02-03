@@ -7401,6 +7401,30 @@ static int cpu_stats_show(struct seq_file *sf, void *v)
 
 	return 0;
 }
+#else
+static s64 cpu_cfs_quota_read_s64(struct cgroup_subsys_state *css,
+				  struct cftype *cft)
+{
+	return 0;
+}
+
+static int cpu_cfs_quota_write_s64(struct cgroup_subsys_state *css,
+				   struct cftype *cftype, s64 cfs_quota_us)
+{
+	return 0;
+}
+
+static u64 cpu_cfs_period_read_u64(struct cgroup_subsys_state *css,
+				   struct cftype *cft)
+{
+	return 0;
+}
+
+static int cpu_cfs_period_write_u64(struct cgroup_subsys_state *css,
+				    struct cftype *cftype, u64 cfs_period_us)
+{
+	return 0;
+}
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
@@ -7438,7 +7462,6 @@ static struct cftype cpu_files[] = {
 		.write_u64 = cpu_shares_write_u64,
 	},
 #endif
-#ifdef CONFIG_CFS_BANDWIDTH
 	{
 		.name = "cfs_quota_us",
 		.read_s64 = cpu_cfs_quota_read_s64,
@@ -7449,6 +7472,7 @@ static struct cftype cpu_files[] = {
 		.read_u64 = cpu_cfs_period_read_u64,
 		.write_u64 = cpu_cfs_period_write_u64,
 	},
+#ifdef CONFIG_CFS_BANDWIDTH
 	{
 		.name = "stat",
 		.seq_show = cpu_stats_show,
