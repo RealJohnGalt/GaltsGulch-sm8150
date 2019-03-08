@@ -209,6 +209,8 @@ unsigned int sysctl_sched_min_task_util_for_colocation = 35;
 
 static unsigned int __maybe_unused sched_small_task_threshold = 102;
 
+static unsigned int __maybe_unused sched_small_task_threshold = 102;
+
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
 	lw->weight += inc;
