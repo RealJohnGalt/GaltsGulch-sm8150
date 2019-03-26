@@ -363,6 +363,7 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &sysctl_sched_group_upmigrate_pct,
 	},
+#if 0
 	{
 		.procname	= "sched_boost",
 		.data		= &sysctl_sched_boost,
@@ -372,6 +373,7 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &neg_three,
 		.extra2		= &three,
 	},
+#endif
 	{
 		.procname	= "sched_many_wakeup_threshold",
 		.data		= &sysctl_sched_many_wakeup_threshold,
