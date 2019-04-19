@@ -3957,7 +3957,7 @@ update_cfs_rq_load_avg(u64 now, struct cfs_rq *cfs_rq)
 
 static inline void adjust_cpus_for_packing(struct task_struct *p,
 			int *target_cpu, int *best_idle_cpu,
-			int target_cpus_count,
+			int target_cpus_count, int shallowest_idle_cstate,
 			struct find_best_target_env *fbt_env,
 			bool boosted)
 {
@@ -3967,7 +3967,7 @@ static inline void adjust_cpus_for_packing(struct task_struct *p,
 		return;
 
 	if (task_placement_boost_enabled(p) || fbt_env->need_idle || boosted ||
-			idle_get_state_idx(cpu_rq(*best_idle_cpu)) == -1) {
+			shallowest_idle_cstate == -1) {
 		*target_cpu = -1;
 		return;
 	}
@@ -3988,8 +3988,13 @@ static inline void adjust_cpus_for_packing(struct task_struct *p,
 	 * If there is only one active CPU and it is already above its current
 	 * capacity, avoid placing additional task on the CPU.
 	 */
-	if (estimated_capacity > capacity_curr_of(*target_cpu))
+	if (estimated_capacity > capacity_curr_of(*target_cpu)) {
 		*target_cpu = -1;
+		return;
+	}
+
+	if (fbt_env->rtg_target)
+		*best_idle_cpu = -1;
 }
 
 int update_rt_rq_load_avg(u64 now, int cpu, struct rt_rq *rt_rq, int running)
@@ -8241,8 +8246,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	}
 
 	adjust_cpus_for_packing(p, &target_cpu, &best_idle_cpu,
-				active_cpus_count, fbt_env,
-				boosted);
+				active_cpus_count, shallowest_idle_cstate,
+				fbt_env, boosted);
 
 	/*
 	 * For non latency sensitive tasks, cases B and C in the previous loop,
