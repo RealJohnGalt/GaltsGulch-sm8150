@@ -17,6 +17,7 @@
 #include <linux/preempt.h>
 #include <linux/stat.h>
 #include <linux/uaccess.h>
+#include <asm/uaccess.h>
 
 #define CREATE_TRACE_POINTS
 #include "perf_trace_user.h"
