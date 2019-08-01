@@ -651,10 +651,10 @@ config ARCH_SUPPORTS_LTO_CLANG
 config ARCH_SUPPORTS_THINLTO
 	bool
 	help
-	  An architecture should select this if it supports Clang ThinLTO.
+	  An architecture should select this if it supports clang's ThinLTO.
 
 config THINLTO
-	bool "Use Clang's ThinLTO (EXPERIMENTAL)"
+	bool "Use clang ThinLTO (EXPERIMENTAL)"
 	depends on LTO_CLANG && ARCH_SUPPORTS_THINLTO
 	default y
 	help
