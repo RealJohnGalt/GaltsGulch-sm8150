@@ -17,6 +17,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/msm_drm_notify.h>
 #include <linux/power_supply.h>
+#include <drm/drm_panel.h>
 #include <uapi/linux/sched/types.h>
 
 #include "f2fs.h"
@@ -314,23 +315,28 @@ static int msm_drm_notifier_callback(struct notifier_block *self,
 	int *blank;
 
 	if (event != MSM_DRM_EVENT_BLANK)
-		return NOTIFY_DONE;
+		goto out;
 
-	if (!evdata || !evdata->data || evdata->id != MSM_DRM_PRIMARY_DISPLAY)
-		return NOTIFY_DONE;
+	if (!evdata || !evdata->data)
+		goto out;
 
 	blank = evdata->data;
 	switch (*blank) {
 	case MSM_DRM_BLANK_POWERDOWN:
+		if (!screen_on)
+			goto out;
 		screen_on = false;
 		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
 		break;
 	case MSM_DRM_BLANK_UNBLANK:
+		if (screen_on)
+			goto out;
 		screen_on = true;
 		queue_work(system_power_efficient_wq, &rapid_gc_fb_worker);
 		break;
 	}
 
+out:
 	return NOTIFY_OK;
 }
 
@@ -338,11 +344,17 @@ static struct notifier_block fb_notifier_block = {
 	.notifier_call = msm_drm_notifier_callback,
 };
 
+extern struct drm_panel *lcd_active_panel;
+
 void __init f2fs_init_rapid_gc(void)
 {
 	INIT_WORK(&rapid_gc_fb_worker, rapid_gc_fb_work);
 	gc_wakelock = wakeup_source_register(NULL, "f2fs_rapid_gc_wakelock");
-	msm_drm_register_client(&fb_notifier_block);
+	if (lcd_active_panel) {
+		drm_panel_notifier_register(lcd_active_panel, &fb_notifier_block);
+	} else {
+		pr_err("lcd_active_panel is null\n");
+	}
 }
 
 void __exit f2fs_destroy_rapid_gc(void)
