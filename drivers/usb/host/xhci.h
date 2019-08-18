@@ -1976,11 +1976,31 @@ static inline void xhci_print_run_regs(struct xhci_hcd *xhci)
 {
 }
 
+static inline void xhci_print_trb_offsets(struct xhci_hcd *xhci, union xhci_trb *trb)
+{
+}
+
+static inline void xhci_debug_segment(struct xhci_hcd *xhci, struct xhci_segment *seg)
+{
+}
+
+static inline void xhci_debug_ring(struct xhci_hcd *xhci, struct xhci_ring *ring)
+{
+}
+
 static inline void xhci_dbg_erst(struct xhci_hcd *xhci, struct xhci_erst *erst)
 {
 }
 
 static inline void xhci_dbg_cmd_ptrs(struct xhci_hcd *xhci)
+{
+}
+
+static inline void xhci_dbg_ring_ptrs(struct xhci_hcd *xhci, struct xhci_ring *ring)
+{
+}
+
+static inline void xhci_dbg_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx, unsigned int last_ep)
 {
 }
 
@@ -1994,6 +2014,7 @@ static inline void xhci_dbg_trace(struct xhci_hcd *xhci, void (*trace)(struct va
 			const char *fmt, ...)
 {
 }
+
 #endif
 
 /* xHCI memory management */
