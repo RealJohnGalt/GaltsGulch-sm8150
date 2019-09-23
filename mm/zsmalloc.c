@@ -468,19 +468,17 @@ static unsigned long zs_zpool_get_compacted(void *pool)
 }
 
 static struct zpool_driver zs_zpool_driver = {
-	.type =		"zsmalloc",
-	.owner =	THIS_MODULE,
-	.create =	zs_zpool_create,
-	.destroy =	zs_zpool_destroy,
-	.malloc =	zs_zpool_malloc,
-	.free =		zs_zpool_free,
-	.map =		zs_zpool_map,
-	.unmap =	zs_zpool_unmap,
-	.compact =	zs_zpool_compact,
-	.get_num_compacted =	zs_zpool_get_compacted,
-	.total_size =	zs_zpool_total_size,
-	.compact =	zs_zpool_compact,
-	.get_num_compacted =	zs_zpool_get_compacted,
+	.type =			  "zsmalloc",
+	.owner =		  THIS_MODULE,
+	.create =		  zs_zpool_create,
+	.destroy =		  zs_zpool_destroy,
+	.malloc_support_movable = true,
+	.malloc =		  zs_zpool_malloc,
+	.free =			  zs_zpool_free,
+	.shrink =		  zs_zpool_shrink,
+	.map =			  zs_zpool_map,
+	.unmap =		  zs_zpool_unmap,
+	.total_size =		  zs_zpool_total_size,
 };
 
 MODULE_ALIAS("zpool-zsmalloc");
