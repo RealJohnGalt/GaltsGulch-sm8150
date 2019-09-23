@@ -942,12 +942,6 @@ static int zswap_frontswap_store(unsigned type, pgoff_t offset,
 	u8 *src, *dst;
 	struct zswap_header zhdr = { .swpentry = swp_entry(type, offset) };
 
-	/* THP isn't supported */
-	if (PageTransHuge(page)) {
-		ret = -EINVAL;
-		goto reject;
-	}
-
 	if (!zswap_enabled || !tree) {
 		ret = -ENODEV;
 		goto reject;
@@ -958,15 +952,6 @@ static int zswap_frontswap_store(unsigned type, pgoff_t offset,
 		zswap_pool_limit_hit++;
 		if (zswap_shrink()) {
 			zswap_reject_reclaim_fail++;
-			ret = -ENOMEM;
-			goto reject;
-		}
-
-		/* A second zswap_is_full() check after
-		 * zswap_shrink() to make sure it's now
-		 * under the max_pool_percent
-		 */
-		if (zswap_is_full()) {
 			ret = -ENOMEM;
 			goto reject;
 		}
