@@ -1362,9 +1362,8 @@
 			timing@2{
 				qcom,display-topology = <1 1 1>,<2 2 1>;
 				qcom,default-topology-index = <1>;
-				qcom,mdss-mdp-transfer-time-us = <8000>; //for 60fps
-				//qcom,mdss-dsi-timing-default;
-				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-mdp-transfer-time-us = <8000>; //for 90fps
+				qcom,mdss-dsi-panel-framerate = <90>;
 				qcom,mdss-dsi-panel-clockrate = <1100000000>;
 				qcom,mdss-dsi-panel-width = <1440>;
 				qcom,mdss-dsi-panel-height = <3120>;
