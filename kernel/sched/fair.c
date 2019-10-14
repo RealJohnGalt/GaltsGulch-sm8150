@@ -7467,7 +7467,7 @@ static bool is_packing_eligible(struct task_struct *p, int target_cpu,
 }
 
 static int start_cpu(struct task_struct *p, bool boosted,
-		     struct cpumask *rtg_target)
+		     bool sync_boost, struct cpumask *rtg_target)
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = -1;
@@ -7477,6 +7477,11 @@ static int start_cpu(struct task_struct *p, bool boosted,
 		    task_fits_max(p, rd->mid_cap_orig_cpu))
 			return rd->mid_cap_orig_cpu;
 		return rd->max_cap_orig_cpu;
+	}
+
+	if (sync_boost) {
+		if (rd->mid_cap_orig_cpu != -1)
+			return rd->mid_cap_orig_cpu;
 	}
 
 	/* A task always fits on its rtg_target */
@@ -7508,7 +7513,7 @@ enum fastpaths {
 };
 
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
-				   bool boosted, bool prefer_idle,
+				   bool boosted, bool sync_boost, bool prefer_idle,
 				   struct find_best_target_env *fbt_env)
 {
 	unsigned long min_util = boosted_task_util(p);
@@ -7551,7 +7556,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		target_capacity = 0;
 
 	/* Find start CPU based on boost value */
-	cpu = start_cpu(p, boosted, fbt_env->rtg_target);
+	cpu = start_cpu(p, boosted, sync_boost, fbt_env->rtg_target);
 	if (cpu < 0)
 		return -1;
 
@@ -8215,6 +8220,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 				     int sync)
 {
 	int use_fbt = sched_feat(FIND_BEST_TARGET);
+	int use_sync_boost = sched_feat(SYNC_BOOST);
 	int cpu_iter, eas_cpu_idx = EAS_CPU_NXT;
 	int delta = 0;
 	int target_cpu = -1;
@@ -8226,6 +8232,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 	u64 start_t = 0;
 	int next_cpu = -1, backup_cpu = -1;
 	int boosted = (schedtune_task_boost(p) > 0 || per_task_boost(p) > 0);
+	bool sync_boost = false;
 	bool about_to_idle = (cpu_rq(cpu)->nr_running < 2);
 
 	fbt_env.fastpath = 0;
@@ -8241,6 +8248,12 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		target_cpu = cpu;
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto out;
+	}
+
+	if (use_sync_boost) {
+		sync_boost = sync && cpu >= cpu_rq(cpu)->rd->mid_cap_orig_cpu;
+	} else {
+		sync_boost = false;
 	}
 
 	/* prepopulate energy diff environment */
@@ -8299,7 +8312,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 
 		/* Find a cpu with sufficient capacity */
 		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
-					      boosted, prefer_idle, &fbt_env);
+					      boosted, sync_boost, prefer_idle, &fbt_env);
 		if (target_cpu < 0)
 			goto out;
 
@@ -8350,7 +8363,7 @@ out:
 	trace_sched_task_util(p, next_cpu, backup_cpu, target_cpu, sync,
 			need_idle, fbt_env.fastpath, placement_boost,
 			rtg_target ? cpumask_first(rtg_target) : -1, start_t,
-			boosted);
+			boosted, sync_boost);
 	return target_cpu;
 }
 
