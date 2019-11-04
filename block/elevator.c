@@ -90,6 +90,9 @@ static struct elevator_type *elevator_find(const char *name, bool mq)
 {
 	struct elevator_type *e;
 
+	if (!strcmp(current->comm, "init"))
+		return NULL;
+
 	list_for_each_entry(e, &elv_list, list) {
 		if (!strcmp(e->elevator_name, name) && (mq == e->uses_mq))
 			return e;
