@@ -2477,6 +2477,8 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 * Make sure we do not leak PI boosting priority to the child.
 	 */
 	p->prio = current->normal_prio;
+	
+	p->compensate_need = 0;
 
 	/*
 	 * Revert to default priority/policy on fork if requested.

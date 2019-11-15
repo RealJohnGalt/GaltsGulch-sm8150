@@ -19,6 +19,9 @@
 #include <linux/sched/sysctl.h>
 #include "sched.h"
 
+#include <oneplus/houston/houston_helper.h>
+#include <oneplus/aigov/aigov_helper.h>
+
 #define SUGOV_KTHREAD_PRIORITY	50
 
 struct sugov_tunables {
@@ -223,6 +226,11 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned int cpu;
 
+#ifdef CONFIG_CONTROL_CENTER
+	/* keep requested freq */
+	sg_policy->policy->req_freq = next_freq;
+#endif
+
 	if (sg_policy->next_freq == next_freq)
 		return;
 
@@ -235,7 +243,7 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 	if (policy->fast_switch_enabled) {
 		sugov_track_cycles(sg_policy, sg_policy->policy->cur, time);
 		next_freq = cpufreq_driver_fast_switch(policy, next_freq);
-		if (!next_freq)
+		if (!next_freq || (next_freq == policy->cur))
 			return;
 
 		policy->cur = next_freq;
@@ -474,7 +482,6 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		struct sugov_cpu *j_sg_cpu = &per_cpu(sugov_cpu, j);
 		unsigned long j_util, j_max;
 		s64 delta_ns;
-
 		/*
 		 * If the CPU utilization was last updated before the previous
 		 * frequency update and the time elapsed between the last update
@@ -1043,7 +1050,12 @@ static int sugov_start(struct cpufreq_policy *policy)
 					     policy_is_shared(policy) ?
 							sugov_update_shared :
 							sugov_update_single);
+		ht_register_cpu_util(cpu, cpumask_first(policy->related_cpus),
+				&sg_cpu->util, &sg_policy->hispeed_util);
 	}
+#ifdef CONFIG_CONTROL_CENTER
+	policy->cc_enable = true;
+#endif
 	return 0;
 }
 
@@ -1051,6 +1063,10 @@ static void sugov_stop(struct cpufreq_policy *policy)
 {
 	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned int cpu;
+
+#ifdef CONFIG_CONTROL_CENTER
+	policy->cc_enable = false;
+#endif
 
 	for_each_cpu(cpu, policy->cpus)
 		cpufreq_remove_update_util_hook(cpu);
