@@ -280,8 +280,7 @@ static void dwc3_frame_length_adjustment(struct dwc3 *dwc)
 
 	reg = dwc3_readl(dwc->regs, DWC3_GFLADJ);
 	dft = reg & DWC3_GFLADJ_30MHZ_MASK;
-	if (!dev_WARN_ONCE(dwc->dev, dft == dwc->fladj,
-	    "request value same as default, ignoring\n")) {
+	if (dft != dwc->fladj) {
 		reg &= ~DWC3_GFLADJ_30MHZ_MASK;
 		reg |= DWC3_GFLADJ_30MHZ_SDBND_SEL | dwc->fladj;
 		dwc3_writel(dwc->regs, DWC3_GFLADJ, reg);
@@ -1079,7 +1078,7 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	u8			hird_threshold;
 
 	/* default to highest possible threshold */
-	lpm_nyet_threshold = 0xff;
+	lpm_nyet_threshold = 0xf;
 
 	/* default to -3.5dB de-emphasis */
 	tx_de_emphasis = 1;
@@ -1171,6 +1170,9 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	dwc->disable_clk_gating = device_property_read_bool(dev,
 					"snps,disable-clk-gating");
 
+	dwc->dis_metastability_quirk = device_property_read_bool(dev,
+				"snps,dis_metastability_quirk");
+
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
 	dwc->tx_de_emphasis = tx_de_emphasis;
 
@@ -1248,6 +1250,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	void __iomem		*regs;
 	int			irq;
+	char			dma_ipc_log_ctx_name[40];
 
 	if (count >= DWC_CTRL_COUNT) {
 		dev_err(dev, "Err dwc instance %d >= %d available\n",
@@ -1350,6 +1353,13 @@ static int dwc3_probe(struct platform_device *pdev)
 					dev_name(dwc->dev), 0);
 	if (!dwc->dwc_ipc_log_ctxt)
 		dev_err(dwc->dev, "Error getting ipc_log_ctxt\n");
+
+	snprintf(dma_ipc_log_ctx_name, sizeof(dma_ipc_log_ctx_name),
+					"%s.ep_events", dev_name(dwc->dev));
+	dwc->dwc_dma_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
+						dma_ipc_log_ctx_name, 0);
+	if (!dwc->dwc_dma_ipc_log_ctxt)
+		dev_err(dwc->dev, "Error getting ipc_log_ctxt for ep_events\n");
 
 	dwc3_instance[count] = dwc;
 	dwc->index = count;

@@ -401,7 +401,8 @@ static void dp_display_hdcp_cb_work(struct work_struct *work)
 
 	dp_display_update_hdcp_status(dp, false);
 
-	if (dp->debug->force_encryption && ops && ops->force_encryption)
+	if (status->hdcp_state != HDCP_STATE_AUTHENTICATED &&
+		dp->debug->force_encryption && ops && ops->force_encryption)
 		ops->force_encryption(data, dp->debug->force_encryption);
 
 	switch (status->hdcp_state) {
@@ -974,13 +975,16 @@ static void dp_display_clean(struct dp_display_private *dp)
 
 		dp_panel = dp->active_panels[idx];
 
+		if (dp_panel->audio_supported)
+			dp_panel->audio->off(dp_panel->audio);
+
 		dp_display_stream_pre_disable(dp, dp_panel);
 		dp_display_stream_disable(dp, dp_panel);
 		dp_panel->deinit(dp_panel, 0);
 	}
 
 	dp->power_on = false;
-
+	dp->is_connected = false;
 	dp->ctrl->off(dp->ctrl);
 }
 

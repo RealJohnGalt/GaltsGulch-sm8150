@@ -259,6 +259,24 @@ static int ipa3_clean_modem_rule(void)
 	return val;
 }
 
+static int ipa3_clean_mhip_dl_rule(void)
+{
+	struct ipa_remove_offload_connection_req_msg_v01 req;
+
+	memset(&req, 0, sizeof(struct
+		ipa_remove_offload_connection_req_msg_v01));
+
+	req.clean_all_rules_valid = true;
+	req.clean_all_rules = true;
+
+	if (ipa3_qmi_rmv_offload_request_send(&req)) {
+		IPAWANDBG("clean dl rule cache failed\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
@@ -1862,7 +1880,10 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		memset(&nat_del, 0, sizeof(nat_del));
 		nat_del.table_index = 0;
 		retval = ipa3_nat_del_cmd(&nat_del);
-		retval = ipa3_clean_modem_rule();
+		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+			retval = ipa3_clean_mhip_dl_rule();
+		else
+			retval = ipa3_clean_modem_rule();
 		ipa3_counter_id_remove_all();
 		break;
 
@@ -2438,7 +2459,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				((struct ipa_ioc_mdfy_flt_rule_v2 *)
 				header)->rule_mdfy_size);
 		/* modify the rule pointer to the kernel pointer */
-		((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+		((struct ipa_ioc_mdfy_flt_rule_v2 *)header)->rules =
 			(uintptr_t)kptr;
 		if (ipa3_mdfy_flt_rule_v2
 			((struct ipa_ioc_mdfy_flt_rule_v2 *)header)) {
@@ -2461,6 +2482,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_FNR_COUNTER_ALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		if (copy_from_user(header, (const void __user *)arg,
 			sizeof(struct ipa_ioc_flt_rt_counter_alloc))) {
 			IPAERR("copy_from_user fails\n");
@@ -2504,6 +2531,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_DEALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		hdl = (int)arg;
 		if (hdl < 0) {
 			IPAERR("IPA_FNR_COUNTER_DEALLOC failed: hdl %d\n",
@@ -2515,6 +2548,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		if (copy_from_user(header, (const void __user *)arg,
 			sizeof(struct ipa_ioc_flt_rt_query))) {
 			IPAERR_RL("copy_from_user fails\n");
