@@ -178,6 +178,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
 	struct internal_dev *internal_dev;
 	struct net_device *dev;
 	int err;
+	bool free_vport = true;
 
 	vport = ovs_vport_alloc(0, &ovs_internal_vport_ops, parms);
 	if (IS_ERR(vport)) {
@@ -225,7 +226,8 @@ error_unlock:
 error_free_netdev:
 	free_netdev(dev);
 error_free_vport:
-	ovs_vport_free(vport);
+	if (free_vport)
+		ovs_vport_free(vport);
 error:
 	return ERR_PTR(err);
 }
