@@ -649,7 +649,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
-	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->special_work);
 
 	if (sfr_info && sfr_info->buf_addr) {
