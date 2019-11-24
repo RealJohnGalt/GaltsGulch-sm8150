@@ -4095,7 +4095,6 @@
 	};
 };
 
-#include "atoll-audio.dtsi"
 #include "atoll-thermal.dtsi"
 #include "atoll-camera.dtsi"
 #include "atoll-sde-pll.dtsi"
