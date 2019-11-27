@@ -138,11 +138,12 @@ struct rq *task_rq_lock(struct task_struct *p, struct rq_flags *rf)
 		 *					[L] ->on_rq
 		 *	RELEASE (rq->lock)
 		 *
-		 * If we observe the old cpu in task_rq_lock, the acquire of
+		 * If we observe the old CPU in task_rq_lock(), the acquire of
 		 * the old rq->lock will fully serialize against the stores.
 		 *
-		 * If we observe the new CPU in task_rq_lock, the acquire will
-		 * pair with the WMB to ensure we must then also see migrating.
+		 * If we observe the new CPU in task_rq_lock(), the address
+		 * dependency headed by '[L] rq = task_rq()' and the acquire
+		 * will pair with the WMB to ensure we then also see migrating.
 		 */
 		if (likely(rq == task_rq(p) && !task_on_rq_migrating(p))) {
 			rq_pin_lock(rq, rf);
@@ -971,11 +972,16 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
 {
 	lockdep_assert_held(&rq->lock);
 
-	p->on_rq = TASK_ON_RQ_MIGRATING;
+	WRITE_ONCE(p->on_rq, TASK_ON_RQ_MIGRATING);
 	dequeue_task(rq, p, DEQUEUE_NOCLOCK);
+#ifdef CONFIG_SCHED_WALT
 	double_lock_balance(rq, cpu_rq(new_cpu));
 	set_task_cpu(p, new_cpu);
 	double_rq_unlock(cpu_rq(new_cpu), rq);
+#else
+	set_task_cpu(p, new_cpu);
+	rq_unlock(rq, rf);
+#endif
 
 	rq = cpu_rq(new_cpu);
 
@@ -2603,6 +2609,7 @@ void wake_up_new_task(struct task_struct *p)
 	 * Use __set_task_cpu() to avoid calling sched_class::migrate_task_rq,
 	 * as we're not fully set-up yet.
 	 */
+	p->recent_used_cpu = task_cpu(p);
 	__set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0, 1));
 #endif
 	rq = __task_rq_lock(p, &rf);
@@ -4926,60 +4933,6 @@ out_put_task:
 	return retval;
 }
 
-char sched_lib_name[LIB_PATH_LENGTH];
-unsigned int sched_lib_mask_force;
-bool is_sched_lib_based_app(pid_t pid)
-{
-	const char *name = NULL;
-	struct vm_area_struct *vma;
-	char path_buf[LIB_PATH_LENGTH];
-	bool found = false;
-	struct task_struct *p;
-	struct mm_struct *mm;
-
-	if (strnlen(sched_lib_name, LIB_PATH_LENGTH) == 0)
-		return false;
-
-	rcu_read_lock();
-
-	p = find_process_by_pid(pid);
-	if (!p) {
-		rcu_read_unlock();
-		return false;
-	}
-
-	/* Prevent p going away */
-	get_task_struct(p);
-	rcu_read_unlock();
-
-	mm = get_task_mm(p);
-	if (!mm)
-		goto put_task_struct;
-
-	down_read(&mm->mmap_sem);
-	for (vma = mm->mmap; vma ; vma = vma->vm_next) {
-		if (vma->vm_file && vma->vm_flags & VM_EXEC) {
-			name = d_path(&vma->vm_file->f_path,
-					path_buf, LIB_PATH_LENGTH);
-			if (IS_ERR(name))
-				goto release_sem;
-
-			if (strnstr(name, sched_lib_name,
-					strnlen(name, LIB_PATH_LENGTH))) {
-				found = true;
-				break;
-			}
-		}
-	}
-
-release_sem:
-	up_read(&mm->mmap_sem);
-	mmput(mm);
-put_task_struct:
-	put_task_struct(p);
-	return found;
-}
-
 static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
 			     struct cpumask *new_mask)
 {
@@ -6507,6 +6460,7 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
+		rq->extra_flags = 0;
 		walt_sched_init_rq(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
