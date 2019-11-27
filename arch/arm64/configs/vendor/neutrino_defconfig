@@ -4950,7 +4950,7 @@ CONFIG_AW8697_HAPTIC=y
 #
 # LED Triggers
 #
-CONFIG_OPCHAIN=y
+# CONFIG_OPCHAIN is not set
 # CONFIG_MEMPLUS is not set
 # CONFIG_SMART_BOOST is not set
 # CONFIG_DEFRAG is not set
