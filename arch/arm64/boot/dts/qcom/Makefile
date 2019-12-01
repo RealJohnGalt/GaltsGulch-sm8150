@@ -88,9 +88,9 @@ guacamole-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamoleb-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamole-sdx50m-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamoles-sdx50m-overlay-pvt.dtbo-base := sm8150-v2.dtb
-hotdog-overlay-pvt.dtbo-base := sm8150.dtb sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
-hotdogb-overlay-pvt.dtbo-base := sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
-hotdogb-overlay-pvt-second.dtbo-base := sm8150-v2.dtb sm8150p.dtb sm8150p-v2.dtb
+hotdog-overlay-pvt.dtbo-base := sm8150-v2.dtb
+hotdogb-overlay-pvt.dtbo-base := sm8150-v2.dtb
+hotdogb-overlay-pvt-second.dtbo-base := sm8150-v2.dtb
 
 else
 dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
