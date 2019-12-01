@@ -40,7 +40,7 @@ int __initdata rd_doload;	/* 1 = load RAM disk, 0 = don't load */
 
 int root_mountflags = MS_RDONLY | MS_SILENT;
 static char * __initdata root_device_name;
-static char __initdata saved_root_name[64] = "PARTLABEL=system";
+static char __initdata saved_root_name[64];
 static int root_wait;
 
 dev_t ROOT_DEV;
@@ -378,11 +378,11 @@ EXPORT_SYMBOL_GPL(name_to_dev_t);
 
 static int __init root_dev_setup(char *line)
 {
-	strncat(saved_root_name, line, 3);
+	strlcpy(saved_root_name, line, sizeof(saved_root_name));
 	return 1;
 }
 
-__setup("androidboot.slot_suffix=", root_dev_setup);
+__setup("root=", root_dev_setup);
 
 static int __init rootwait_setup(char *str)
 {
@@ -662,6 +662,13 @@ void __init prepare_namespace(void)
 	md_run_setup();
 	dm_run_setup();
 
+	// Try to mount partition labeled "system" first
+	ROOT_DEV = name_to_dev_t("PARTLABEL=system");
+	if (ROOT_DEV) {
+		pr_info("system partition found, mounting it directly to /\n");
+		goto mount;
+	}
+
 	if (saved_root_name[0]) {
 		root_device_name = saved_root_name;
 		if (!strncmp(root_device_name, "mtd", 3) ||
@@ -692,6 +699,7 @@ void __init prepare_namespace(void)
 	if (is_floppy && rd_doload && rd_load_disk(0))
 		ROOT_DEV = Root_RAM0;
 
+mount:
 	mount_root();
 out:
 	devtmpfs_mount("dev");
