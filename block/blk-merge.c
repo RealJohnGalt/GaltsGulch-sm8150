@@ -663,11 +663,6 @@ static void blk_account_io_merge(struct request *req)
 		part_stat_unlock();
 	}
 }
-
-static bool crypto_not_mergeable(const struct bio *bio, const struct bio *nxt)
-{
-	return (!pfk_allow_merge_bio(bio, nxt));
-}
 /*
  * Two cases of handling DISCARD merge:
  * If max_discard_segments > 1, the driver takes every bio
@@ -692,6 +687,11 @@ enum elv_merge blk_try_req_merge(struct request *req, struct request *next)
 		return ELEVATOR_BACK_MERGE;
 
 	return ELEVATOR_NO_MERGE;
+}
+
+static bool crypto_not_mergeable(const struct bio *bio, const struct bio *nxt)
+{
+	return (!pfk_allow_merge_bio(bio, nxt));
 }
 
 /*
