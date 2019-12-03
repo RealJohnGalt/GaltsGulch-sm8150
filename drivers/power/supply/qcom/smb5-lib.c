@@ -50,6 +50,10 @@
 #include "op_charge.h"
 #include <linux/oneplus/boot_mode.h>
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 #define SOC_INVALID                   0x7E
 #define SOC_DATA_REG_0                0x88D
 #define SOC_FLAG_REG                  0x88E
@@ -1423,6 +1427,13 @@ static int set_sdp_current(struct smb_charger *chg, int icl_ua)
 	int rc;
 	u8 icl_options;
 	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge > 0 && icl_ua == USBIN_500MA)
+	{
+		icl_ua = USBIN_900MA;
+	}
+#endif
 
 	/* power source is SDP */
 	switch (icl_ua) {
@@ -7248,6 +7259,10 @@ static void op_handle_usb_removal(struct smb_charger *chg)
 	chg->count_run = 0;
 	vote(chg->fcc_votable,
 		DEFAULT_VOTER, true, SDP_CURRENT_UA);
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	set_sdp_current(chg, USBIN_500MA);
+	chg->ffc_count = 0;
+#endif
 	op_battery_temp_region_set(chg, BATT_TEMP_INVALID);
 }
 
