@@ -120,7 +120,7 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
-unsigned int __read_mostly walt_disabled = 1;
+unsigned int __read_mostly walt_disabled = 0;
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
@@ -3372,6 +3372,7 @@ void walt_sched_init_rq(struct rq *rq)
 	rq->window_start = 0;
 	rq->cum_window_start = 0;
 	rq->walt_stats.nr_big_tasks = 0;
+	rq->walt_flags = 0;
 	rq->cur_irqload = 0;
 	rq->avg_irqload = 0;
 	rq->irqload_ts = 0;
