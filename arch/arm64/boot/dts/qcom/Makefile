@@ -82,13 +82,15 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		guacamoles-sdx50m-overlay-pvt.dtbo \
 		hotdogb-overlay-pvt.dtbo \
 		hotdogb-overlay-pvt-second.dtbo \
-		hotdog-overlay-pvt.dtbo
+		hotdog-overlay-pvt.dtbo \
+		hotdogg-sdx55m-overlay-pvt.dtbo
 
 guacamole-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamoleb-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamole-sdx50m-overlay-pvt.dtbo-base := sm8150-v2.dtb
 guacamoles-sdx50m-overlay-pvt.dtbo-base := sm8150-v2.dtb
 hotdog-overlay-pvt.dtbo-base := sm8150-v2.dtb
+hotdogg-sdx55m-overlay-pvt.dtbo-base := sm8150-v2.dtb
 hotdogb-overlay-pvt.dtbo-base := sm8150-v2.dtb
 hotdogb-overlay-pvt-second.dtbo-base := sm8150-v2.dtb
 
