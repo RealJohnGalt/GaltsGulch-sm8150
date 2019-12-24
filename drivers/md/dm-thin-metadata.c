@@ -773,7 +773,7 @@ static int __write_changed_details(struct dm_pool_metadata *pmd)
 			return r;
 
 		if (td->open_count)
-			td->changed = 0;
+			td->changed = false;
 		else {
 			list_del(&td->list);
 			kfree(td);
@@ -1063,7 +1063,7 @@ static int __set_snapshot_details(struct dm_pool_metadata *pmd,
 	if (r)
 		return r;
 
-	td->changed = 1;
+	td->changed = true;
 	td->snapshotted_time = time;
 
 	snap->mapped_blocks = td->mapped_blocks;
@@ -1569,7 +1569,7 @@ static int __insert(struct dm_thin_device *td, dm_block_t block,
 	if (r)
 		return r;
 
-	td->changed = 1;
+	td->changed = true;
 	if (inserted)
 		td->mapped_blocks++;
 
@@ -1600,7 +1600,7 @@ static int __remove(struct dm_thin_device *td, dm_block_t block)
 		return r;
 
 	td->mapped_blocks--;
-	td->changed = 1;
+	td->changed = true;
 
 	return 0;
 }
@@ -1654,7 +1654,7 @@ static int __remove_range(struct dm_thin_device *td, dm_block_t begin, dm_block_
 	}
 
 	td->mapped_blocks -= total_count;
-	td->changed = 1;
+	td->changed = true;
 
 	/*
 	 * Reinsert the mapping tree.
