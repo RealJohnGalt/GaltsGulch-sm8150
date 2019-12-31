@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 config ZRAM
 	tristate "Compressed RAM block device support"
-	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
-	select CRYPTO_LZO
+	depends on BLOCK && SYSFS && CRYPTO
+	select ZPOOL
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -14,20 +14,6 @@ config ZRAM
 	  disks and maybe many more.
 
 	  See Documentation/blockdev/zram.txt for more information.
-
-config ZRAM_DEDUP
-	bool "Deduplication support for ZRAM data"
-	depends on ZRAM
-	default n
-	help
-	  Deduplicate ZRAM data to reduce amount of memory consumption.
-	  Advantage largely depends on the workload. In some cases, this
-          option reduces memory usage to the half. However, if there is no
-	  duplicated data, the amount of memory consumption would be
-	  increased due to additional metadata usage. And, there is
-	  computation time trade-off. Please check the benefit before
-	  enabling this option. Experiment shows the positive effect when
-	  the zram is used as blockdev and is used to store build output.
 
 config ZRAM_WRITEBACK
        bool "Write back incompressible or idle page to backing device"
@@ -53,3 +39,34 @@ config ZRAM_MEMORY_TRACKING
 	  /sys/kernel/debug/zram/zramX/block_state.
 
 	  See Documentation/blockdev/zram.txt for more information.
+
+if ZRAM
+
+choice
+	prompt "Default zRAM backend"
+	default DEFAULT_ZRAM_ZSMALLOC
+	help
+	  Select the memory allocator that will be used by default to store
+	  compressed pages for all zRAM devices.
+
+	config DEFAULT_ZRAM_ZBUD
+		bool "zbud" if ZBUD=y
+
+	config DEFAULT_ZRAM_Z3FOLD
+		bool "z3fold" if Z3FOLD=y
+
+	config DEFAULT_ZRAM_ZSMALLOC
+		bool "zsmalloc" if ZSMALLOC=y
+endchoice
+
+config ZRAM_DEFAULT_BACKEND
+	string
+	default "zbud" if DEFAULT_ZRAM_ZBUD
+	default "z3fold" if DEFAULT_ZRAM_Z3FOLD
+	default "zsmalloc"
+
+endif
+
+config ZRAM_DEFAULT_COMP_ALGORITHM
+	string "Default ZRAM compression algorithm"
+	default "zstd"
