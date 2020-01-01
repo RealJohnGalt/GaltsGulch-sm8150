@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.160 Kernel Configuration
+# Linux/arm64 4.14.164 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -47,7 +47,7 @@ CONFIG_THREAD_INFO_IN_TASK=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 CONFIG_CROSS_COMPILE=""
 # CONFIG_COMPILE_TEST is not set
-CONFIG_LOCALVERSION="-NeutrinoKernel-alderaan"
+CONFIG_LOCALVERSION="-NeutrinoKernel-bespin"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_DEFAULT_HOSTNAME="(none)"
 CONFIG_SWAP=y
@@ -5439,7 +5439,6 @@ CONFIG_DEFAULT_SECURITY="selinux"
 #
 CONFIG_INIT_STACK_NONE=y
 # CONFIG_INIT_STACK_ALL is not set
-CONFIG_XOR_BLOCKS=y
 CONFIG_CRYPTO=y
 
 #
