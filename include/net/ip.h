@@ -648,4 +648,8 @@ extern int sysctl_icmp_msgs_burst;
 int ip_misc_proc_init(void);
 #endif
 
+#ifdef CONFIG_WIREGUARD
+#undef totalram_pages
+#endif
+
 #endif	/* _IP_H */
