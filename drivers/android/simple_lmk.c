@@ -18,12 +18,6 @@
 #include <uapi/linux/sched/types.h>
 #endif
 
-/* MIN_NICE isn't present and MAX_RT_PRIO is elsewhere in older kernels */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)
-#include <linux/sched/rt.h>
-#define MIN_NICE -20
-#endif
-
 /* SEND_SIG_FORCED isn't present in newer kernels */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 #define SIG_INFO_TYPE SEND_SIG_FORCED
