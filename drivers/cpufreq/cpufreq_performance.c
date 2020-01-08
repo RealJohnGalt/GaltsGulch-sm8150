@@ -30,7 +30,7 @@ static void cpufreq_gov_performance_limits(struct cpufreq_policy *policy)
 		|| (get_boot_mode() ==  MSM_BOOT_MODE__FACTORY)) {
 		if (first_cpu != cpumask_first(policy->related_cpus))
 			first_cpu = cpumask_first(policy->related_cpus);
-			table = policy->freq_table;
+		table = policy->freq_table;
 			if (!table) {
 				pr_err("Failed to get freqtable\n");
 			} else {
