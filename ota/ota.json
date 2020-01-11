@@ -1,0 +1,13 @@
+{
+  "kernel": {
+    "name": "Neutrino Kernel",
+    "version": "4.14.160-NeutrinoKernel-alderaan",
+    "link": "https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/releases/download/4.14.160-NeutrinoKernel-alderaan/NeutrinoKernel-hotdogb-alderaan.zip",
+    "changelog_url": "https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/ota/changelog",
+    "date": "2019-12-31",
+    "sha1": "79fb10b095b519fb664ae6cf4c45c510bafd699c"
+  },
+  "support": {
+    "link": "https://t.me/OnePlusDevelopment"
+  }
+}

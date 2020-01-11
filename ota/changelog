@@ -1,0 +1,56 @@
+**Neutrino Kernel release for OnePlus 7T (hotdogb)**
+Linux Version: [4.14.160](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ce2bbbb9b204612d9e394cb0c886a35b23bd47bf)
+Neutrino Subversion: alderaan
+
+---
+**Initial NeutrinoKernel release for OnePlus 7T† (OxygenOS):**
+
+- [Manual rebase](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b3684ef52e8dbd5a403b956b7ff4a7b934d3e62d#diff-5b850c3ef29634324680dbf7308c44ae) of @OnePlusOSS source based on CAF 4.14, omitting unwanted OEM additions
+  * Eliminate OnePlus scheduling & memory management changes
+- Update to [Linux 4.14.160](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ce2bbbb9b204612d9e394cb0c886a35b23bd47bf)
+- Update to latest CAF 4.14 sources
+  * [LA.UM.8.1.r1-12800-sm8150.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/a301be54f0e37f4e5681e039aefa2783d87c0081)
+  * [LA.UM.8.11.r1-01900-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/476bc4b9292087aeced883d000968dff9b3619ed)
+  * [LA.UM.8.9.r1-07100-SM6xx.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8ca5a1efe603975e708b02ad09a53696969296c2)
+  * [LV.AU.0.0.1-13310-gen3meta.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/0be130af329fd80d25f555a3309095549baa98d8)
+- Import CAF WLAN drivers 5.2.03.16T
+  * LA.UM.8.9.r1-07100-SM6xx.0 ([qcacld-3.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/231fff09505d588c3fad1595600dc3071e3f9646), [qcacmn](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/64a91b8dbc325e1251f94be130751e1e69f79de5), [fw-api](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/530f0fb6dc435ea281d8883e4c1e55a010313ff4))
+- Update to mainline [f2fs-stable](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/664505a00767b28a29268f471e83bcef285c3f88#diff-9e44216d8d30c09f81a853e6f08c48dc) (5.4-rc1-4.14)
+- In-kernel [oneplus_brain_service](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/4d641bea43f22457617f039a229bfed2a23a0ab0) control
+- Extensive upstream EAS/scheduling optimizations
+  * Pure PELT based on floral implementation
+  * Optimize [Houston](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c0e97d53f0369fd19435043a3f52a9b4850f21ac#diff-4f1a1609b08c89607f0579828283116a) for PELT compatibility
+  * Preserve [sched_boost](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/342ad43d540610e744e3c3e19e790554e6d5aa0c#diff-99e5389415cdd1d6dbf020da863c1ef5) functionality
+- Custom CPU boosting and frequency control
+- [Simple Low Memory Killer](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/87cfe2cb8cd2f695b8cdf79c888da81726fb5e74#diff-dc031a66f1a1f7b2ef4c120ab5ab4d61)
+- vDSO32 support
+- Substantial touchscreen driver optimization
+- Checkout zRAM drivers to ACK [android-4.14](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/3ba43c4e4e5ef10ae44159a31618a5f36fd35e3b)
+  * Enable z3fold and checkout to [mainline 5.3](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/69cb7b98ded0350a64fdaf3c08e923a5a81a1375)
+  * Enable zpool
+  * Enable zstd and merge [Samsung optimizations](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ad113aca4984fe15629963ac2e1486189a62dbd4)
+- Mainline vmalloc memory allocation patches
+- Default upstreamed CFQ I/O scheduler
+- Modernize and enable [Maple I/O scheduler](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/1eb906e8ef6945f2631b237922f9dc1b6983fbe2#diff-3dc345123ae56bd154ec81cc073ca33a)
+- Mainline BBR updates (Default TCP algorithm)
+- Import [Agile-SD](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ce873d33ef2f7d7601bbe57c3a46bffe3910c878) TCP algorithm
+- Treewide VLA removal
+- Treewide dynamic memory alloc avoidance
+- Treewide [interrupt logging](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/bcd15609ae0096110d1c92162394eeebf5edbf0c) removal
+- Eliminate GPU debug logging
+- Disable kernel log writeback debugging
+- Enable display panel [ULPS](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/54da4174f233b6c41b0fcdc2506d1aee3e7eb7e5)
+- Various UFS optimizations
+- [USB fast charge](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/897d6174bef33225b0b1fde024fbbac4cff454bb) support
+- [Haptic feedback](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/4002d0f5407bfc976c4c702a8b66ae627dd1fea6) control
+- [KCAL](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/a977aa546bad000b6349916dab75b0a18fc8846a) gamma control
+- [Wireguard support](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/9943a834aaf4d23f279cb14c9613e9efe4a2840e#diff-b4ce3416fb12ed0371b6781a3068de25) (0.0.20191127)
+- Numerous optimizations courtesy of @kerneltoast, @arter97
+- Complete in-kernel configuration and init protection (No scripts, no modules, no problems)
+- Compiled with custom upstream [Clang 10](https://github.com/0ctobot/build-tools-clang) toolchains
+
+_† Neutrino maintains a unified kernel source and as such should be equally compatible with all OnePlus 7 variant devices (7, 7 Pro, 7T, 7T Pro). However I am only personally testing, and thus can only make guarantees regarding these builds in terms of their performance on my personal device, OnePlus 7T. I am relying on potential users of other OnePlus 7 variants to assist me in addressing any device-specific issues they might encounter, should there be any (which I don't expect to be the case). This build specifically is intended for use with OxygenOS which is, and always will be the priority of this project. At this time I will not be offering secondary, official support for custom ROMs, this is subject to change going forward. However, test variants of my OOS releases for custom ROMs are available in my telegram [development group](https://t.me/OnePlusDevelopment) as well as general support for all users of this kernel. Incremental beta/testing builds between official releases are also available via Neutrino's dedicated [announcement channel](https://t.me/NeutrinoKernelOP7T)._
+
+([Complete Changelog](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commits/neutrino-msm-hotdogb-4.14))
+
+Signed-off-by: Adam W. Willis <<return.of.octobot@gmail.com>>
