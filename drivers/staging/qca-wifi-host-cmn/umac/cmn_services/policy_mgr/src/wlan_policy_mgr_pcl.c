@@ -722,8 +722,8 @@ QDF_STATUS policy_mgr_get_pcl(struct wlan_objmgr_psoc *psoc,
 		break;
 	}
 
-	policy_mgr_debug("index1:%d index2:%d index3:%d pcl:%d dbs:%d",
-		first_index, second_index, third_index,
+	policy_mgr_debug("index1:%d index2:%d pcl:%d dbs:%d",
+		first_index, second_index,
 		pcl, policy_mgr_is_hw_dbs_capable(psoc));
 
 	/* once the PCL enum is obtained find out the exact channel list with
