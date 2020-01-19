@@ -91,7 +91,6 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/cpufreq_times.h>
-#include <linux/simple_lmk.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 
@@ -962,7 +961,6 @@ static inline void __mmput(struct mm_struct *mm)
 	}
 	if (mm->binfmt)
 		module_put(mm->binfmt->module);
-	simple_lmk_mm_freed(mm);
 	mmdrop(mm);
 }
 
