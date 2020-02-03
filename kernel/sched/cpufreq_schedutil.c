@@ -20,9 +20,6 @@
 #include <linux/sched/sysctl.h>
 #include "sched.h"
 
-#include <oneplus/houston/houston_helper.h>
-#include <oneplus/aigov/aigov_helper.h>
-
 #define SUGOV_KTHREAD_PRIORITY	50
 
 struct sugov_tunables {
