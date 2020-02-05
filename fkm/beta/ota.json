@@ -1,0 +1,13 @@
+{
+  "kernel": {
+    "name": "Neutrino Kernel (BETA)",
+    "version": "4.14.169-NeutrinoKernel-coruscant-PR1",
+    "link": "https://bitbucket.org/0ctobot/neutrino_kernel_oneplus_sm8150/downloads/NeutrinoKernel-hotdogb-coruscant-PR1.zip",
+    "changelog_url": "https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/fkm/beta/changelog",
+    "date": "2020-02-03",
+    "sha1": "a7cdcb81f13f2667ba313525cc2f11a28d6536d2"
+  },
+  "support": {
+    "link": "https://t.me/OnePlusDevelopment"
+  }
+}

@@ -3,7 +3,7 @@
     "name": "Neutrino Kernel",
     "version": "4.14.164-NeutrinoKernel-bespin",
     "link": "https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/releases/download/4.14.164-NeutrinoKernel-bespin/NeutrinoKernel-hotdogb-bespin.zip",
-    "changelog_url": "https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/ota/changelog",
+    "changelog_url": "https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/fkm/stable/changelog",
     "date": "2020-01-13",
     "sha1": "4ac9d26da5b7676b940197b866d2bdc62fae3379"
   },

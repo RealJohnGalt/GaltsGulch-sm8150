@@ -1,0 +1,15 @@
+**4.14.169-NeutrinoKernel-coruscant**
+(Prerelease 1)
+
+---
+- **Fix [mac address fallback](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d4ad899c3c188cfa7bb1790f34c35a634faf4077) for in-kernel WLAN drivers**
+- **Refine initial [ION rewrite](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/bc0e978b0b03c4822ea217b084d5be6dbf229ae8) to avoid undefined behavior**
+- **Fix [sched_boost integration](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/baccd114a41f3bf1aa8dd88f63346f2b237d07bf) to sustain CPU boosts during interaction**
+- **Expand [devfreq boosting](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/dfb901eb27cc0a32c2ef0a17e9484a1b7ab3c653) to handle multiple DDR devices**
+  * Align [DDR boosts](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c3556139591bd320667c4bf76bb9d4a7d9ab1afc) with Pixel 4 power HAL
+- **Extensive elimination of remaining, unwanted [OnePlus code](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/e8a25783ded78b7d52e5daf8dc57301180576c43)**
+
+**Complete Changelog:**
+(https://bit.ly/2rNOdN2)
+
+@OnePlusDevelopment
