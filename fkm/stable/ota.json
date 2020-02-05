@@ -1,11 +1,11 @@
 {
   "kernel": {
     "name": "Neutrino Kernel",
-    "version": "4.14.164-NeutrinoKernel-bespin",
-    "link": "https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/releases/download/4.14.164-NeutrinoKernel-bespin/NeutrinoKernel-hotdogb-bespin.zip",
+    "version": "4.14.170-NeutrinoKernel-coruscant",
+    "link": "https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/releases/download/4.14.170-NeutrinoKernel-coruscant/NeutrinoKernel-hotdogb-coruscant.zip",
     "changelog_url": "https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/fkm/stable/changelog",
-    "date": "2020-01-13",
-    "sha1": "4ac9d26da5b7676b940197b866d2bdc62fae3379"
+    "date": "2020-02-05",
+    "sha1": "a9546269014b1a4da7b736a112587bcd7b3994b7"
   },
   "support": {
     "link": "https://t.me/OnePlusDevelopment"
