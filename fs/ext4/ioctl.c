@@ -287,20 +287,6 @@ static int ext4_ioctl_setflags(struct inode *inode,
 			goto flags_out;
 	}
 
-	/*
-	 * Wait for all pending directio and then flush all the dirty pages
-	 * for this file.  The flush marks all the pages readonly, so any
-	 * subsequent attempt to write to the file (particularly mmap pages)
-	 * will come through the filesystem and fail.
-	 */
-	if (S_ISREG(inode->i_mode) && !IS_IMMUTABLE(inode) &&
-	    (flags & EXT4_IMMUTABLE_FL)) {
-		inode_dio_wait(inode);
-		err = filemap_write_and_wait(inode->i_mapping);
-		if (err)
-			goto flags_out;
-	}
-
 	if ((flags ^ oldflags) & EXT4_CASEFOLD_FL) {
 		if (!ext4_has_feature_casefold(sb)) {
 			err = -EOPNOTSUPP;
@@ -316,6 +302,20 @@ static int ext4_ioctl_setflags(struct inode *inode,
 			err = -ENOTEMPTY;
 			goto flags_out;
 		}
+	}
+
+	/*
+	 * Wait for all pending directio and then flush all the dirty pages
+	 * for this file.  The flush marks all the pages readonly, so any
+	 * subsequent attempt to write to the file (particularly mmap pages)
+	 * will come through the filesystem and fail.
+	 */
+	if (S_ISREG(inode->i_mode) && !IS_IMMUTABLE(inode) &&
+	    (flags & EXT4_IMMUTABLE_FL)) {
+		inode_dio_wait(inode);
+		err = filemap_write_and_wait(inode->i_mapping);
+		if (err)
+			goto flags_out;
 	}
 
 	handle = ext4_journal_start(inode, EXT4_HT_INODE, 1);
