@@ -965,6 +965,9 @@ int dsi_panel_op_set_hbm_mode(struct dsi_panel *panel, int level)
 	mutex_lock(&panel->panel_lock);
 
 	mode = panel->cur_mode;
+	if (panel->hbm_mode == 5) {
+        level = 1;
+    }
 	switch (level) {
 	case 0:
 		count = mode->priv_info->cmd_sets[DSI_CMD_SET_HBM_OFF].count;
