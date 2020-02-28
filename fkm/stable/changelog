@@ -1,37 +1,36 @@
 **Neutrino Kernel release for OnePlus 7T (hotdogb)**
-Linux Version: [4.14.170](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/6db11b169914fba226ee2e78ea9793bcf860d8b6)
-Neutrino Subversion: coruscant
+Linux Version: [4.14.174](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/0d56071395ea6747586d8da43cc7b6837de8f046)
+Neutrino Subversion: dagobah
 
 ---
-- Update to [Linux 4.14.170](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/6db11b169914fba226ee2e78ea9793bcf860d8b6)
-- Extensive elimination of remaining, unwanted [OnePlus code](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/9846950b702026dcf4855075aa56083a038cbcc6)
-- Fix [sched_boost integration](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/a704a537faa28b519a893d2bd80b22ac32d1b163) to sustain CPU boosts during interaction
-- Expand [devfreq boosting](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/27a37f5f0bc3d51e856baeabf04dfdc3180f24db) to handle multiple DDR devices
-  * Align [DDR boosts](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b012b3b67417bb1e8764c2a37e2e54e3a3139c44) with Pixel 4 power HAL
-- Rewrite of [ION](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d3712a4b0e7adafbeb4717333ec242d59a490537)/[iommu](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/e992488522a402ef96fb36f734eb808d17a995bd) for improved performance
-- Additional [dynamic memory allocation](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c5e384cea94cef4fad0d289f759f65f3a7219bfc) avoidance
-- Enable [Pressure Stall Information](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/7803e7ce6d56708baf6b3520f85e4c11f3ef85f9)
-  * Improve lmkd performance and accuracy
-  * Mainline PSI updates and bug fixes
-- Restore in-tree [Wireguard source](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/a3afee8c4339a4ab3fafb4ce57ce75cb5a2d8bce#diff-b4ce3416fb12ed0371b6781a3068de25)
-  * Fix Wireguard compilation during inline builds
-  * Update to [version 0.0.20200105](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8cbd2df503eedbb989eb18e78c299432af8fa3f8#diff-b4ce3416fb12ed0371b6781a3068de25)
-- Disable [DEBUG_KERNEL](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8b0af923837259e47e7ab05e01abb3261b94319c)/[FTRACE](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/0b2119ee59db53da330d07457e75b4a0c910125d)
-- Fix [mac address fallback](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/7f35ad49240c2b675c7817b99bf10391cf00c25f) for in-kernel WLAN drivers
-- Suppress various spammy dmesg loggers
-- Recompile toolchains and update to Clang 11
-- Introduce [beta channel](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/23120d5506c5f5314d707c410c7091db8da0df02) OTAs and update FKM config URLs †
+- Update to [Linux 4.14.174](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/0d56071395ea6747586d8da43cc7b6837de8f046)
+- Update to [LA.UM.8.11.r1-02600-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b9973942e5eef44781d550fa5a8a2e7c74620c77)
+- Update to [LA.UM.8.1.r1-14500-sm8150.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d80e0a56de8ea0a1770da3e04684e8b8ac06fff5)
+- Update to [LA.UM.8.9.r1-08400-SM6xx.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/36747ac5b7d2605f5ad77773945ed63491f36b33)
+- Update to [LV.AU.0.2.0-01800-gen3meta.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ec930ffa0d5874af950a37555ae3c0ffb5abd6e3)
+- Update WLAN drivers to 5.2.03.22Q ([qcacld-3.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/f6de892dab563df23aac5297ced05b502f68cd39), [qcacmn](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d433c61c3f2e1486ed531a385724221a7014ed8c), [fw-api](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/30105787ef7c7f8311bde9d59d8b30e0e016e2cd))
+  * Utilize in-kernel OxygenOS-based WCNSS config
+- Merge f2fs-stable [5.6-rc1-4.14](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/39352415c4c5c4d712758adeb3a652e599866821) release
+- Merge [ASB-2020-03-05_4.14-q](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c353b46054cfd1006eecf98777f1fc51a3a84dd5) security patches
+- Enable [s2idle](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/4a2bee6e1d15a289e354ef8bd432518fddc2ad3d) as default suspend mode
+- Fast-forward [binder](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/203633515e0c6d805dc9c76a38a79d94f54f3d9c) to android-4.19
+- Clean up problematic [stack allocations](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2)
+- Enable [exfat](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/1db80268bcf8cecf988d34331e7f0b842d0ea841) support
+  * Import updated exfat drivers ([2.2.0-3arter97](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/7ccae90337f86c58aa5b86bfa69cc831fb30e7d6))
+- Update WireGuard to [0.0.20200215](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d8529dcf823d42547ae6a1efbd40543ad1fdc15b)
+- Rollback extensive [ion/iommu rewrites](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/2688c71853c96f4440717aec02d46650dfba3034)
+  * Update ion inline with SM8250
+- Restore updated and improved [Simple LMK](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2)
+- Enable [USB UASP](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8b20a6ebca88c5cf722a133ea199c171ce4f5729) support
+- Mainline/Coral [EAS updates](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/3970bd7e725cb580842bfa2cddf853947e8b6916) and PELT improvements
+- Reduced network socket memory allocations
+- Enable [Berkeley Packet Filter](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b86d4087abff02473747fcdd10544ab637c00bf4) JIT
+- Extensive mainline atomic/locking updates
+- Numerous patches adapted from 865/R-DP2 source
+- AnyKernel3: Ship separate dtb to ensure installation
+  * Fix broken cameras on 7 Pro custom ROMs
 
-_† This is the last time you'll be asked to update FKM URLs, but I wanted to restructure things a bit now that I'm maintaining two different OTA configs. Please ensure FKM is updated in accordance with the following, in order to ensure access to the latest builds:_
+**Complete Changelog:**
+(https://bit.ly/2rNOdN2)
 
-**Stable Channel:**
-
-https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/fkm/stable/ota.json
-
-**Beta Channel:**
-
-https://raw.githubusercontent.com/0ctobot/neutrino_kernel_oneplus_sm8150/neutrino-msm-hotdogb-4.14/fkm/beta/ota.json
-
-([Complete Changelog](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commits/neutrino-msm-hotdogb-4.14))
-
-Signed-off-by: Adam W. Willis <<return.of.octobot@gmail.com>>
+Signed-off-by: Adam W. Willis <return.of.octobot@gmail.com>

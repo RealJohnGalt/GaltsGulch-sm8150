@@ -1,13 +1,28 @@
-**4.14.169-NeutrinoKernel-coruscant**
+**4.14.173-NeutrinoKernel-dagobah**
 (Prerelease 1)
 
 ---
-- **Fix [mac address fallback](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d4ad899c3c188cfa7bb1790f34c35a634faf4077) for in-kernel WLAN drivers**
-- **Refine initial [ION rewrite](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/bc0e978b0b03c4822ea217b084d5be6dbf229ae8) to avoid undefined behavior**
-- **Fix [sched_boost integration](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/baccd114a41f3bf1aa8dd88f63346f2b237d07bf) to sustain CPU boosts during interaction**
-- **Expand [devfreq boosting](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/dfb901eb27cc0a32c2ef0a17e9484a1b7ab3c653) to handle multiple DDR devices**
-  * Align [DDR boosts](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c3556139591bd320667c4bf76bb9d4a7d9ab1afc) with Pixel 4 power HAL
-- **Extensive elimination of remaining, unwanted [OnePlus code](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/e8a25783ded78b7d52e5daf8dc57301180576c43)**
+- **Update to [Linux 4.14.173](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b0dfdb3e7509f1e07d350469c732fb19d7bf0071)**
+- Update to [LA.UM.8.11.r1-02400-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/17a5da129063f0baad5b33fe67644fe4159d300d)
+- Update to [LA.UM.8.11.r1-02600-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b9973942e5eef44781d550fa5a8a2e7c74620c77)
+- Update to [LA.UM.8.1.r1-14300-sm8150.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fc74aa9c03a53f523177353c834a403fe0561533)
+- Update to [LA.UM.8.9.r1-08100-SM6xx.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c02e1bfd66cf9cfddfc3b9a411a85d24459ec596)
+- Update to [LV.AU.0.2.0-01800-gen3meta.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ec930ffa0d5874af950a37555ae3c0ffb5abd6e3)
+- Update WLAN drivers to 5.2.03.20C ([qcacld-3.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/405e9f640db763dcf08dd38be47747bdd276bb2a), [qcacmn](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ec50194f9270acae06907cff468f7fa0483458e0), [fw-api](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/933dae54c5fb6f44dec41d0dda65ba034c102e8d))
+- Merge f2fs-stable [5.6-rc1-4.14](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/39352415c4c5c4d712758adeb3a652e599866821) release
+- **Merge [ASB-2020-03-05_4.14-q](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c353b46054cfd1006eecf98777f1fc51a3a84dd5) security patches**
+- **Enable [s2idle](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/3593cb97a551b6c652b74a3a01f72d7973195938) as default suspend mode**
+- **Fast-forward [binder](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/6f65b2f0e4961cdfb217d1f612ff8d972e6f80bf) to android-4.19**
+- **Clean up problematic [stack allocations](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2)**
+- Enable [exfat support](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/bb19a9f53088dd3017c76959c5826426f8e03e9a)
+- Update WireGuard to [0.0.20200215](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d8529dcf823d42547ae6a1efbd40543ad1fdc15b)
+- Rollback extensive [ion/iommu rewrites](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/2688c71853c96f4440717aec02d46650dfba3034)
+  * Update ion inline with SM8250
+- **Optimize [vmpressure](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2) to accomodate SLMK**
+- Enable [USB UASP](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8b20a6ebca88c5cf722a133ea199c171ce4f5729) support
+- **EAS [scheduling/sync boost](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/572927eec082d84d9f354cb6fda7d211a5f1c95b) optimizations**
+- Extensive mainline atomic/locking updates
+- Numerous patches adapted from 865/4.19 source
 
 **Complete Changelog:**
 (https://bit.ly/2rNOdN2)
