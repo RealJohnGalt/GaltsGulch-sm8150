@@ -660,7 +660,6 @@ void __init prepare_namespace(void)
 	wait_for_device_probe();
 
 	md_run_setup();
-	dm_run_setup();
 
 	// Try to mount partition labeled "system" first
 	ROOT_DEV = name_to_dev_t("PARTLABEL=system");
