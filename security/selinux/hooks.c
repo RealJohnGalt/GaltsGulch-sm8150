@@ -1510,7 +1510,8 @@ static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dent
 	u32 task_sid, sid = 0;
 	u16 sclass;
 	struct dentry *dentry;
-	char context_onstack[SZ_1K];
+#define INITCONTEXTLEN 255
+	char context_onstack[INITCONTEXTLEN + 1];
 	char *context = NULL;
 	unsigned len = 0;
 	int rc = 0;
@@ -1573,10 +1574,10 @@ static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dent
 			goto out;
 		}
 
-		context_onstack[sizeof(context_onstack) - 1] = '\0';
-		rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX,
-					   context_onstack,
-					   sizeof(context_onstack));
+		len = INITCONTEXTLEN;
+		context = context_onstack;
+		context[len] = '\0';
+		rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX, context, len);
 		if (rc == -ERANGE) {
 			/* Need a larger buffer.  Query for the right size. */
 			rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX, NULL, 0);
@@ -1593,8 +1594,6 @@ static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dent
 			}
 			context[len] = '\0';
 			rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX, context, len);
-		} else {
-			context = context_onstack;
 		}
 		dput(dentry);
 		if (rc < 0) {
@@ -1636,7 +1635,6 @@ static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dent
 		}
 		if (context != context_onstack)
 			kfree(context);
-		isec->sid = sid;
 		break;
 	case SECURITY_FS_USE_TASK:
 		sid = task_sid;
