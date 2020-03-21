@@ -5345,7 +5345,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	 * utilization updates, so do it here explicitly with the IOWAIT flag
 	 * passed.
 	 */
-	if (p->in_iowait)
+	if (p->in_iowait && prefer_idle)
 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
 
 	for_each_sched_entity(se) {
@@ -7427,8 +7427,12 @@ static inline bool task_fits_capacity(struct task_struct *p,
 {
 	unsigned int margin;
 
+	/*
+	 * Derive upmigration/downmigrate margin wrt the src/dest
+	 * CPU.
+	 */
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
-		margin = sched_capacity_margin_down[task_cpu(p)];
+		margin = sched_capacity_margin_down[cpu];
 	else
 		margin = sched_capacity_margin_up[task_cpu(p)];
 
@@ -7896,8 +7900,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			active_cpus_count++;
 
 			/* Favor CPUs with maximum spare capacity */
-			if (capacity_orig >= target_capacity &&
-			    spare_cap < target_max_spare_cap)
+			if (spare_cap < target_max_spare_cap)
 				continue;
 
 			target_max_spare_cap = spare_cap;
@@ -9160,7 +9163,6 @@ enum group_type {
 #define LBF_SOME_PINNED	0x08
 #define LBF_IGNORE_BIG_TASKS 0x100
 #define LBF_IGNORE_PREFERRED_CLUSTER_TASKS 0x200
-#define LBF_IGNORE_STUNE_BOOSTED_TASKS 0x400
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -9360,11 +9362,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 #endif
 
-	/* Don't allow boosted tasks to be pulled to small cores */
-	if (env->flags & LBF_IGNORE_STUNE_BOOSTED_TASKS &&
-		(schedtune_task_boost(p) > 10))
-		return 0;
-
 	if (task_running(env->src_rq, p)) {
 		schedstat_inc(p->se.statistics.nr_failed_migrations_running);
 		return 0;
@@ -9478,9 +9475,6 @@ static int detach_tasks(struct lb_env *env)
 	if (cpu_capacity(env->dst_cpu) < cpu_capacity(env->src_cpu))
 		env->flags |= LBF_IGNORE_BIG_TASKS;
 
-	if (is_min_capacity_cpu(env->dst_cpu) && !is_min_capacity_cpu(env->src_cpu))
-		env->flags |= LBF_IGNORE_STUNE_BOOSTED_TASKS;
-
 redo:
 	while (!list_empty(tasks)) {
 		/*
@@ -9554,12 +9548,10 @@ next:
 	}
 
 	if (env->flags & (LBF_IGNORE_BIG_TASKS |
-			LBF_IGNORE_PREFERRED_CLUSTER_TASKS |
-			LBF_IGNORE_STUNE_BOOSTED_TASKS) && !detached) {
+			LBF_IGNORE_PREFERRED_CLUSTER_TASKS) && !detached) {
 		tasks = &env->src_rq->cfs_tasks;
 		env->flags &= ~(LBF_IGNORE_BIG_TASKS |
-				LBF_IGNORE_PREFERRED_CLUSTER_TASKS |
-				LBF_IGNORE_STUNE_BOOSTED_TASKS);
+				LBF_IGNORE_PREFERRED_CLUSTER_TASKS);
 		env->loop = orig_loop;
 		goto redo;
 	}
@@ -13256,8 +13248,8 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 		rcu_read_lock();
 		new_cpu = find_energy_efficient_cpu(sd, p, cpu, prev_cpu, 0, 1);
 		rcu_read_unlock();
-		if ((new_cpu != prev_cpu) && (capacity_orig_of(new_cpu) >
-					capacity_orig_of(prev_cpu))) {
+		if ((new_cpu != -1) && (new_cpu != prev_cpu) &&
+		    (capacity_orig_of(new_cpu) > capacity_orig_of(prev_cpu))) {
 			active_balance = kick_active_balance(rq, p, new_cpu);
 			if (active_balance) {
 				mark_reserved(new_cpu);
