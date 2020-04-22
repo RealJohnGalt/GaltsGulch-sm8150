@@ -1,28 +1,26 @@
-**4.14.173-NeutrinoKernel-dagobah**
-(Prerelease 1)
+**4.14.178-NeutrinoKernel-exegol**
+(Beta 2.5 **†**)
 
 ---
-- **Update to [Linux 4.14.173](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b0dfdb3e7509f1e07d350469c732fb19d7bf0071)**
-- Update to [LA.UM.8.11.r1-02400-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/17a5da129063f0baad5b33fe67644fe4159d300d)
-- Update to [LA.UM.8.11.r1-02600-NICOBAR.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/b9973942e5eef44781d550fa5a8a2e7c74620c77)
-- Update to [LA.UM.8.1.r1-14300-sm8150.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fc74aa9c03a53f523177353c834a403fe0561533)
-- Update to [LA.UM.8.9.r1-08100-SM6xx.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c02e1bfd66cf9cfddfc3b9a411a85d24459ec596)
-- Update to [LV.AU.0.2.0-01800-gen3meta.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ec930ffa0d5874af950a37555ae3c0ffb5abd6e3)
-- Update WLAN drivers to 5.2.03.20C ([qcacld-3.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/405e9f640db763dcf08dd38be47747bdd276bb2a), [qcacmn](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/ec50194f9270acae06907cff468f7fa0483458e0), [fw-api](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/933dae54c5fb6f44dec41d0dda65ba034c102e8d))
-- Merge f2fs-stable [5.6-rc1-4.14](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/39352415c4c5c4d712758adeb3a652e599866821) release
-- **Merge [ASB-2020-03-05_4.14-q](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/c353b46054cfd1006eecf98777f1fc51a3a84dd5) security patches**
-- **Enable [s2idle](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/3593cb97a551b6c652b74a3a01f72d7973195938) as default suspend mode**
-- **Fast-forward [binder](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/6f65b2f0e4961cdfb217d1f612ff8d972e6f80bf) to android-4.19**
-- **Clean up problematic [stack allocations](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2)**
-- Enable [exfat support](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/bb19a9f53088dd3017c76959c5826426f8e03e9a)
-- Update WireGuard to [0.0.20200215](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/d8529dcf823d42547ae6a1efbd40543ad1fdc15b)
-- Rollback extensive [ion/iommu rewrites](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/2688c71853c96f4440717aec02d46650dfba3034)
-  * Update ion inline with SM8250
-- **Optimize [vmpressure](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fbe5c4f500bebeb8b2c350437699eac2753081a2) to accomodate SLMK**
-- Enable [USB UASP](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/8b20a6ebca88c5cf722a133ea199c171ce4f5729) support
-- **EAS [scheduling/sync boost](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/572927eec082d84d9f354cb6fda7d211a5f1c95b) optimizations**
-- Extensive mainline atomic/locking updates
-- Numerous patches adapted from 865/4.19 source
+- **Update to [Linux 4.14.178](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/935ff05970c2d16711657c8fa1b7fa2cacc3f577)**
+- Update to [LA.UM.8.1.r1-14700-sm8150.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/002f82232d1c3b829f8f30ef502d61d93ad00b18)
+  * Merge latest [audio](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/4c1caf267305c8d457e5a6fb998d4b1e28c525f8)/[data](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/03abdbc7195797df8ab5f3956c58d1a629f35abd)-kernel(s)
+  * Update WLAN drivers to 5.2.03.24P ([qcacld-3.0](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/0f66262de959f501a5f1b96dffed8383e43d9305), [qcacmn](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/3a9d0af2a2a73d9f1fc11dfa4e883865545e5438), [fw-api](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/cc68f70e5600a17c9aa088f0de6ed8f6affede87))
+- Merge April security patches ([ASB-2020-04-05_4.14-q](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/96d60ec4057396cb50a9516d7f63fd605cbf8da0))
+- Update to [WireGuard](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/891d58852b8bf07a2fbe62f62317486fdbc32658) version 1.0.20200413
+- **Merge OEM [optimized charging](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/76b58e0aec9b0dbcbcd2081fc843fef2fe5df9e2) framework**
+- Merge latest [Simple LMK](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/232d3b2931e054209288694bf21875144f780a1e) patches
+- **Numerous [QoS/cpuidle](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/232d3b2931e054209288694bf21875144f780a1e) optimizations**
+- **Update boosting framework**
+  * Rollback recent CIB changes
+  * Boost during [fingerprint scan](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/dd44cfec5b7d2254620e1718858f7d584c52e414)
+- Disable [partial display updates](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/db3d2d546c8cba8d8ff86bb1f23abb905be48051) on all platforms
+- Improve performance critical IRQ API
+- **[Scheduler/PELT](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/5cce9f9401626b176822b7ffb084b7b755465098) updates from floral, CAF 4.19**
+- **Use 300HZ preemption [tick rate](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/fb116a89772a3fcfe41e32c6b7ddb659ea2a2963)**
+- **Enable [gesture support](https://github.com/0ctobot/neutrino_kernel_oneplus_sm8150/commit/9c3ee6f8ee0f1b262a4790e489ca6be3e6b18cf2) for AOSPA-based ROMs**
+
+**† NOTE:** _This is intended as a replacement for the recent **4.14.177-exegol** beta release with some minor alterations to clean up recent scheduler changes and mitigate prime core misbehavior, as well as test some experimental QoS/cpuidle optimizations._
 
 **Complete Changelog:**
 (https://bit.ly/2rNOdN2)
