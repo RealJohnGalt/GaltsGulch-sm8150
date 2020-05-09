@@ -661,6 +661,7 @@ err_free_inst:
 static struct crypto_template crypto_tmpl = {
 	.name = "lrw",
 	.create = create,
+	.free = free_inst,
 	.module = THIS_MODULE,
 };
 
