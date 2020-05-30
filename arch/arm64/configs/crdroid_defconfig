@@ -1,4 +1,4 @@
-CONFIG_LOCALVERSION="-crDroid-Kernel"
+CONFIG_LOCALVERSION="-NeutrinoKernel-crDroid-mod"
 # CONFIG_LOCALVERSION_AUTO is not set
 # CONFIG_FHANDLE is not set
 CONFIG_NO_HZ=y
