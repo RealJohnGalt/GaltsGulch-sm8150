@@ -292,4 +292,12 @@ static inline void cpuidle_set_idle_cpu(unsigned int cpu) { }
 static inline void cpuidle_clear_idle_cpu(unsigned int cpu) { }
 #endif
 
+#ifdef CONFIG_SMP
+void cpuidle_set_idle_cpu(unsigned int cpu);
+void cpuidle_clear_idle_cpu(unsigned int cpu);
+#else
+static inline void cpuidle_set_idle_cpu(unsigned int cpu) { }
+static inline void cpuidle_clear_idle_cpu(unsigned int cpu) { }
+#endif
+
 #endif /* _LINUX_CPUIDLE_H */
