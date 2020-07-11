@@ -51,6 +51,8 @@
 struct rq;
 struct cpuidle_state;
 
+#define TASK_BITS (PID_MAX_DEFAULT + BITS_PER_LONG)
+
 extern __read_mostly bool sched_predl;
 
 #ifdef CONFIG_SCHED_WALT
