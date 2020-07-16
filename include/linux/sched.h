@@ -829,6 +829,17 @@ struct task_struct {
 	 */
 	int				recent_used_cpu;
 	int				wake_cpu;
+#ifdef CONFIG_UCLAMP_TASK
+	/*
+	 * Clamp values requested for a scheduling entity.
+	 * Must be updated with task_rq_lock() held.
+	 */
+	struct uclamp_se		uclamp_req[UCLAMP_CNT];
+	/*
+	 * Effective clamp values used for a scheduling entity.
+	 * Must be updated with task_rq_lock() held.
+	 */
+	struct uclamp_se		uclamp[UCLAMP_CNT];
 #endif
 	int				on_rq;
 
@@ -1435,6 +1446,11 @@ struct task_struct {
 	int etask_claim;
 	int claim_cpu;
 	bool utask_slave;
+extern void sched_post_fork(struct task_struct *p);
+#ifdef CONFIG_SCHED_WALT
+extern void sched_exit(struct task_struct *p);
+#else
+static inline void sched_exit(struct task_struct *p) { }
 #endif
 
 	/*
