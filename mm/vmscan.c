@@ -2280,7 +2280,7 @@ static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 		inactive_ratio = 0;
 	} else {
 		gb = (inactive + active) >> (30 - PAGE_SHIFT);
-		if (gb)
+		if (gb && is_file_lru(inactive_lru))
 			inactive_ratio = int_sqrt(10 * gb);
 		else
 			inactive_ratio = 1;
