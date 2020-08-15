@@ -24,7 +24,6 @@
 #include <linux/clk.h>
 #include <linux/uaccess.h>
 #include <linux/msm-bus.h>
-#include <linux/pm_qos.h>
 #include <linux/dma-buf.h>
 
 #include "mdss.h"
@@ -38,152 +37,6 @@
 
 /* Master structure to hold all the information about the DSI/panel */
 static struct mdss_dsi_data *mdss_dsi_res;
-
-#define DSI_DISABLE_PC_LATENCY 100
-#define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
-
-static struct pm_qos_request mdss_dsi_pm_qos_request;
-
-void mdss_dump_dsi_debug_bus(u32 bus_dump_flag,
-	u32 **dump_mem)
-{
-	struct mdss_dsi_data *sdata = mdss_dsi_res;
-	struct mdss_dsi_ctrl_pdata *m_ctrl, *s_ctrl;
-	bool in_log, in_mem;
-	u32 *dump_addr = NULL;
-	u32 status0 = 0, status1 = 0;
-	phys_addr_t phys = 0;
-	int list_size = 0;
-	int i;
-	bool dsi0_active = false, dsi1_active = false;
-
-	if (!sdata || !sdata->dbg_bus || !sdata->dbg_bus_size)
-		return;
-
-	m_ctrl = sdata->ctrl_pdata[0];
-	s_ctrl = sdata->ctrl_pdata[1];
-
-	if (!m_ctrl)
-		return;
-
-	if (m_ctrl && m_ctrl->shared_data->dsi0_active)
-		dsi0_active = true;
-	if (s_ctrl && s_ctrl->shared_data->dsi1_active)
-		dsi1_active = true;
-
-	list_size = (sdata->dbg_bus_size * sizeof(sdata->dbg_bus[0]) * 4);
-
-	in_log = (bus_dump_flag & MDSS_DBG_DUMP_IN_LOG);
-	in_mem = (bus_dump_flag & MDSS_DBG_DUMP_IN_MEM);
-
-	if (in_mem) {
-		if (!(*dump_mem))
-			*dump_mem = dma_alloc_coherent(&sdata->pdev->dev,
-				list_size, &phys, GFP_KERNEL);
-
-		if (*dump_mem) {
-			dump_addr = *dump_mem;
-			pr_info("%s: start_addr:0x%pK end_addr:0x%pK\n",
-				__func__, dump_addr, dump_addr + list_size);
-		} else {
-			in_mem = false;
-			pr_err("dump_mem: allocation fails\n");
-		}
-	}
-
-	pr_info("========= Start DSI Debug Bus =========\n");
-
-	mdss_dsi_clk_ctrl(m_ctrl, m_ctrl->dsi_clk_handle,
-			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
-
-	for (i = 0; i < sdata->dbg_bus_size; i++) {
-		if (dsi0_active) {
-			writel_relaxed(sdata->dbg_bus[i],
-					m_ctrl->ctrl_base + 0x124);
-			wmb(); /* ensure register is committed */
-		}
-		if (dsi1_active) {
-			writel_relaxed(sdata->dbg_bus[i],
-					s_ctrl->ctrl_base + 0x124);
-			wmb(); /* ensure register is committed */
-		}
-
-		if (dsi0_active) {
-			status0 = readl_relaxed(m_ctrl->ctrl_base + 0x128);
-			if (in_log)
-				pr_err("CTRL:0 bus_ctrl: 0x%x status: 0x%x\n",
-					sdata->dbg_bus[i], status0);
-		}
-		if (dsi1_active) {
-			status1 = readl_relaxed(s_ctrl->ctrl_base + 0x128);
-			if (in_log)
-				pr_err("CTRL:1 bus_ctrl: 0x%x status: 0x%x\n",
-					sdata->dbg_bus[i], status1);
-		}
-
-		if (dump_addr && in_mem) {
-			dump_addr[i*4]     = sdata->dbg_bus[i];
-			dump_addr[i*4 + 1] = status0;
-			dump_addr[i*4 + 2] = status1;
-			dump_addr[i*4 + 3] = 0x0;
-		}
-	}
-
-	mdss_dsi_clk_ctrl(m_ctrl, m_ctrl->dsi_clk_handle,
-			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
-
-	pr_info("========End DSI Debug Bus=========\n");
-}
-
-static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	struct irq_info *irq_info;
-
-	if (!ctrl_pdata || !ctrl_pdata->shared_data)
-		return;
-
-	irq_info = ctrl_pdata->dsi_hw->irq_info;
-
-	if (!irq_info)
-		return;
-
-	mutex_lock(&ctrl_pdata->shared_data->pm_qos_lock);
-	if (!ctrl_pdata->shared_data->pm_qos_req_cnt) {
-		pr_debug("%s: add request irq\n", __func__);
-
-		mdss_dsi_pm_qos_request.type = PM_QOS_REQ_AFFINE_IRQ;
-		mdss_dsi_pm_qos_request.irq = irq_info->irq;
-		pm_qos_add_request(&mdss_dsi_pm_qos_request,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-	}
-	ctrl_pdata->shared_data->pm_qos_req_cnt++;
-	mutex_unlock(&ctrl_pdata->shared_data->pm_qos_lock);
-}
-
-static void mdss_dsi_pm_qos_remove_request(struct dsi_shared_data *sdata)
-{
-	if (!sdata)
-		return;
-
-	mutex_lock(&sdata->pm_qos_lock);
-	if (sdata->pm_qos_req_cnt) {
-		sdata->pm_qos_req_cnt--;
-		if (!sdata->pm_qos_req_cnt) {
-			pr_debug("%s: remove request", __func__);
-			pm_qos_remove_request(&mdss_dsi_pm_qos_request);
-		}
-	} else {
-		pr_warn("%s: unbalanced pm_qos ref count\n", __func__);
-	}
-	mutex_unlock(&sdata->pm_qos_lock);
-}
-
-static void mdss_dsi_pm_qos_update_request(int val)
-{
-	pr_debug("%s: update request %d", __func__, val);
-	pm_qos_update_request(&mdss_dsi_pm_qos_request, val);
-}
-
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
@@ -1739,7 +1592,6 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 			__func__, ctrl_pdata, ctrl_pdata->ndx,
 		pdata->panel_info.panel_power_state, ctrl_pdata->ctrl_state);
 
-	mdss_dsi_pm_qos_update_request(DSI_DISABLE_PC_LATENCY);
 
 	if (mdss_dsi_is_ctrl_clk_master(ctrl_pdata))
 		sctrl = mdss_dsi_get_ctrl_clk_slave();
@@ -1787,8 +1639,6 @@ error:
 	if (sctrl)
 		mdss_dsi_clk_ctrl(sctrl, sctrl->dsi_clk_handle,
 				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
-
-	mdss_dsi_pm_qos_update_request(DSI_ENABLE_PC_LATENCY);
 
 	pr_debug("%s-:\n", __func__);
 
@@ -3798,7 +3648,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	pr_info("%s: Dsi Ctrl->%d initialized, DSI rev:0x%x, PHY rev:0x%x\n",
 		__func__, index, ctrl_pdata->shared_data->hw_rev,
 		ctrl_pdata->shared_data->phy_rev);
-	mdss_dsi_pm_qos_add_request(ctrl_pdata);
 
 	if (index == 0)
 		ctrl_pdata->shared_data->dsi0_active = true;
@@ -4004,7 +3853,6 @@ static int mdss_dsi_res_init(struct platform_device *pdev)
 		}
 
 		mutex_init(&sdata->phy_reg_lock);
-		mutex_init(&sdata->pm_qos_lock);
 
 		for (i = 0; i < DSI_CTRL_MAX; i++) {
 			mdss_dsi_res->ctrl_pdata[i] = devm_kzalloc(&pdev->dev,
@@ -4274,8 +4122,6 @@ static int mdss_dsi_ctrl_remove(struct platform_device *pdev)
 		pr_err("%s: no driver data\n", __func__);
 		return -ENODEV;
 	}
-
-	mdss_dsi_pm_qos_remove_request(ctrl_pdata->shared_data);
 
 	if (msm_dss_config_vreg(&pdev->dev,
 			ctrl_pdata->panel_power_data.vreg_config,
