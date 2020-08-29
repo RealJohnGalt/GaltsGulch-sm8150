@@ -4002,34 +4002,6 @@ static void clk_core_evict_parent_cache(struct clk_core *core)
 
 }
 
-static void clk_core_evict_parent_cache_subtree(struct clk_core *root,
-						struct clk_core *target)
-{
-	int i;
-	struct clk_core *child;
-
-	for (i = 0; i < root->num_parents; i++)
-		if (root->parents[i] == target)
-			root->parents[i] = NULL;
-
-	hlist_for_each_entry(child, &root->children, child_node)
-		clk_core_evict_parent_cache_subtree(child, target);
-}
-
-/* Remove this clk from all parent caches */
-static void clk_core_evict_parent_cache(struct clk_core *core)
-{
-	struct hlist_head **lists;
-	struct clk_core *root;
-
-	lockdep_assert_held(&prepare_lock);
-
-	for (lists = all_lists; *lists; lists++)
-		hlist_for_each_entry(root, *lists, child_node)
-			clk_core_evict_parent_cache_subtree(root, core);
-
-}
-
 /**
  * clk_unregister - unregister a currently registered clock
  * @clk: clock to unregister
