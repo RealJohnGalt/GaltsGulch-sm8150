@@ -639,13 +639,11 @@ config ZSMALLOC_STAT
 
 config DIRECT_RECLAIM_FILE_PAGES_ONLY
 	bool "Reclaim file pages only on direct reclaim path"
-	depends on ZSWAP
-	default n
+	default y
 
 config FIX_INACTIVE_RATIO
 	bool "Fix active:inactive anon ratio to 1:1"
-	depends on ZSWAP
-	default n
+	default y
 
 config SWAP_ENABLE_READAHEAD
 	bool "Enable readahead on page swap in"
