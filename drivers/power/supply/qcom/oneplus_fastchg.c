@@ -1250,8 +1250,12 @@ static long  dash_dev_ioctl(struct file *filp, unsigned int cmd,
 				di->fast_chg_ing = true;
 				volt = onplus_get_battery_mvolts();
 				temp = onplus_get_battery_temperature();
+#ifdef CONFIG_REMOVE_OP_CAPACITY
+				remain_cap = -EINVAL;
+#else /* !CONFIG_REMOVE_OP_CAPACITY */
 				remain_cap =
 				onplus_get_batt_remaining_capacity();
+#endif /* CONFIG_REMOVE_OP_CAPACITY */
 				soc = onplus_get_battery_soc();
 				current_now = onplus_get_average_current();
 				pr_debug("volt:%d,temp:%d,remain_cap:%d,soc:%d,current:%d\n",
