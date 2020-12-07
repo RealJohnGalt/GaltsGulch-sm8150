@@ -141,10 +141,3 @@ SCHED_FEAT(SCHEDTUNE_BOOST_UTIL, false)
  * should be used.
  */
 SCHED_FEAT(SYNC_BOOST, true)
-
-/*
- * Inflate the effective utilization of SchedTune-boosted tasks, which
- * generally leads to usage of higher frequencies.
- * If disabled, boosts will only bias tasks to higher-capacity CPUs.
- */
-SCHED_FEAT(SCHEDTUNE_BOOST_UTIL, true)
