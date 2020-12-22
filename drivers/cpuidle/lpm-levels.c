@@ -1449,7 +1449,7 @@ static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
 	spin_unlock(&s2idle_lock);
 
 	if (s2idle_aborted) {
-		pr_err("Aborting s2idle suspend: too many iterations\n");
+		pr_debug("Aborting s2idle suspend: too many iterations\n");
 		pm_system_wakeup();
 		goto exit;
 	}
