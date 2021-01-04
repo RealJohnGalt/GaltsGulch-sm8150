@@ -110,152 +110,6 @@ static ssize_t show_fw_version(struct kobject *kobj,
 	return ret_val;
 };
 
-struct power_stats_priv {
-	struct power_stats_response power_stats;
-};
-
-static void hdd_power_debugstats_dealloc(void *priv)
-{
-	struct power_stats_priv *stats = priv;
-
-	qdf_mem_free(stats->power_stats.debug_registers);
-	stats->power_stats.debug_registers = NULL;
-}
-
-static void hdd_power_debugstats_cb(struct power_stats_response *response,
-				    void *context)
-{
-	struct osif_request *request;
-	struct power_stats_priv *priv;
-	uint32_t *debug_registers;
-	uint32_t debug_registers_len;
-
-	hdd_enter();
-
-	request = osif_request_get(context);
-	if (!request) {
-		hdd_err("Obsolete request");
-		return;
-	}
-
-	priv = osif_request_priv(request);
-
-	/* copy fixed-sized data */
-	priv->power_stats = *response;
-
-	/* copy variable-size data */
-	if (response->num_debug_register) {
-		debug_registers_len = (sizeof(response->debug_registers[0]) *
-				       response->num_debug_register);
-		debug_registers = qdf_mem_malloc(debug_registers_len);
-		priv->power_stats.debug_registers = debug_registers;
-		if (debug_registers) {
-			qdf_mem_copy(debug_registers,
-				     response->debug_registers,
-				     debug_registers_len);
-		} else {
-			hdd_err("Power stats memory alloc fails!");
-			priv->power_stats.num_debug_register = 0;
-		}
-	}
-	osif_request_complete(request);
-	osif_request_put(request);
-	hdd_exit();
-}
-
-static ssize_t __show_device_power_stats(struct kobject *kobj,
-					 struct kobj_attribute *attr,
-					 char *buf)
-{
-	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
-	QDF_STATUS status;
-	struct power_stats_response *chip_power_stats;
-	ssize_t ret_cnt = 0;
-	int j;
-	void *cookie;
-	struct osif_request *request;
-	struct power_stats_priv *priv;
-	static const struct osif_request_params params = {
-		.priv_size = sizeof(*priv),
-		.timeout_ms = WLAN_WAIT_TIME_STATS,
-		.dealloc = hdd_power_debugstats_dealloc,
-	};
-
-	hdd_enter();
-
-	ret_cnt = wlan_hdd_validate_context(hdd_ctx);
-	if (ret_cnt)
-		return ret_cnt;
-
-	request = osif_request_alloc(&params);
-	if (!request) {
-		hdd_err("Request allocation failure");
-		return -ENOMEM;
-	}
-	cookie = osif_request_cookie(request);
-
-	status = sme_power_debug_stats_req(hdd_ctx->mac_handle,
-					   hdd_power_debugstats_cb,
-					   cookie);
-	if (QDF_IS_STATUS_ERROR(status)) {
-		hdd_err("chip power stats request failed");
-		ret_cnt = qdf_status_to_os_return(status);
-		goto cleanup;
-	}
-
-	ret_cnt = osif_request_wait_for_response(request);
-	if (ret_cnt) {
-		hdd_err("Target response timed out Power stats");
-		ret_cnt = -ETIMEDOUT;
-		goto cleanup;
-	}
-	priv = osif_request_priv(request);
-	chip_power_stats = &priv->power_stats;
-
-	ret_cnt += scnprintf(buf, PAGE_SIZE,
-			"POWER DEBUG STATS\n=================\n"
-			"cumulative_sleep_time_ms: %d\n"
-			"cumulative_total_on_time_ms: %d\n"
-			"deep_sleep_enter_counter: %d\n"
-			"last_deep_sleep_enter_tstamp_ms: %d\n"
-			"debug_register_fmt: %d\n"
-			"num_debug_register: %d\n",
-			chip_power_stats->cumulative_sleep_time_ms,
-			chip_power_stats->cumulative_total_on_time_ms,
-			chip_power_stats->deep_sleep_enter_counter,
-			chip_power_stats->last_deep_sleep_enter_tstamp_ms,
-			chip_power_stats->debug_register_fmt,
-			chip_power_stats->num_debug_register);
-
-	for (j = 0; j < chip_power_stats->num_debug_register; j++) {
-		if ((PAGE_SIZE - ret_cnt) > 0)
-			ret_cnt += scnprintf(buf + ret_cnt,
-					PAGE_SIZE - ret_cnt,
-					"debug_registers[%d]: 0x%x\n", j,
-					chip_power_stats->debug_registers[j]);
-		else
-			j = chip_power_stats->num_debug_register;
-	}
-
-cleanup:
-	osif_request_put(request);
-	hdd_exit();
-	return ret_cnt;
-}
-
-static ssize_t show_device_power_stats(struct kobject *kobj,
-				       struct kobj_attribute *attr,
-				       char *buf)
-{
-	ssize_t ret_val;
-
-	cds_ssr_protect(__func__);
-	ret_val = __show_device_power_stats(kobj, attr, buf);
-	cds_ssr_unprotect(__func__);
-
-	return ret_val;
-}
-
 #ifdef WLAN_FEATURE_BEACON_RECEPTION_STATS
 struct beacon_reception_stats_priv {
 	struct bcn_reception_stats_rsp beacon_stats;
@@ -408,8 +262,6 @@ static struct kobj_attribute dr_ver_attribute =
 	__ATTR(driver_version, 0440, show_driver_version, NULL);
 static struct kobj_attribute fw_ver_attribute =
 	__ATTR(version, 0440, show_fw_version, NULL);
-static struct kobj_attribute power_stats_attribute =
-	__ATTR(power_stats, 0444, show_device_power_stats, NULL);
 
 void hdd_sysfs_create_version_interface(struct wlan_objmgr_psoc *psoc)
 {
@@ -468,29 +320,6 @@ void hdd_sysfs_destroy_version_interface(void)
 		kobject_put(fw_kobject);
 		fw_kobject = NULL;
 	}
-}
-
-void hdd_sysfs_create_powerstats_interface(void)
-{
-	int error;
-
-	if (!driver_kobject) {
-		hdd_err("could not get driver kobject!");
-		return;
-	}
-
-	error = sysfs_create_file(driver_kobject, &power_stats_attribute.attr);
-	if (error)
-		hdd_err("could not create power_stats sysfs file");
-}
-
-void hdd_sysfs_destroy_powerstats_interface(void)
-{
-	if (!driver_kobject) {
-		hdd_err("could not get driver kobject!");
-		return;
-	}
-	sysfs_remove_file(driver_kobject, &power_stats_attribute.attr);
 }
 
 void hdd_sysfs_create_driver_root_obj(void)
