@@ -642,6 +642,7 @@ config LD_GOLD
 
 config LD_LLD
 	bool "lld"
+	default y
 	help
 	  Use the alternative lld linker from LLVM.
 
