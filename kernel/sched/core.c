@@ -4721,7 +4721,8 @@ static void __setscheduler_params(struct task_struct *p,
 	else
 		policy &= ~SCHED_RESET_ON_FORK;
 
-	p->policy = policy;
+	/* Replace SCHED_FIFO with SCHED_RR to reduce latency */
+	p->policy = policy == SCHED_FIFO ? SCHED_RR : policy;
 
 	if (dl_policy(policy))
 		__setparam_dl(p, attr);
