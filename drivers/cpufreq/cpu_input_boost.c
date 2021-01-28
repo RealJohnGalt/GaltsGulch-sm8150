@@ -148,7 +148,7 @@ static void update_online_cpu_policy(void)
 	cpufreq_update_policy(cpu);
 	cpu = cpumask_first_and(cpu_perf_mask, cpu_online_mask);
 	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_perfp_mask, cpu_online_mask);
+	cpu = cpumask_first_and(cpu_prime_mask, cpu_online_mask);
 	cpufreq_update_policy(cpu);
 	put_online_cpus();
 }
@@ -417,7 +417,7 @@ static int __init cpu_input_boost_init(void)
 		goto unregister_handler;
 	}
 
-	thread = kthread_run_perf_critical(cpu_boost_thread, b, "cpu_boostd");
+	thread = kthread_run_perf_critical(cpu_prime_mask, cpu_boost_thread, b, "cpu_boostd");
 	if (IS_ERR(thread)) {
 		ret = PTR_ERR(thread);
 		pr_err("Failed to start CPU boost thread, err: %d\n", ret);
