@@ -1384,7 +1384,7 @@ static int setup_ipc_irq(struct platform_device *pdev,
 		drvdata->fw_ipc.irq,
 		NULL,
 		qbt1000_ipc_irq_handler,
-		IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+		IRQF_ONESHOT | IRQF_TRIGGER_RISING | IRQF_PRIME_AFFINE,
 		desc,
 		drvdata);
 
