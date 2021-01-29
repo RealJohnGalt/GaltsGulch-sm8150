@@ -2847,7 +2847,7 @@ int f2fs_sanity_check_ckpt(struct f2fs_sb_info *sbi)
 
 	valid_user_blocks = le64_to_cpu(ckpt->valid_block_count);
 	if (valid_user_blocks > user_block_count) {
-		f2fs_warn(sbi->sb, KERN_ERR,
+		f2fs_warn(sbi, KERN_ERR,
 			"Wrong valid_user_blocks: %u, user_block_count: %u",
 			valid_user_blocks, user_block_count);
 		return 1;
@@ -2857,7 +2857,7 @@ int f2fs_sanity_check_ckpt(struct f2fs_sb_info *sbi)
 	avail_node_count = sbi->total_node_count - sbi->nquota_files -
 						F2FS_RESERVED_NODE_NUM;
 	if (valid_node_count > avail_node_count) {
-		f2fs_warn(sbi->sb, KERN_ERR,
+		f2fs_warn(sbi, KERN_ERR,
 			"Wrong valid_node_count: %u, avail_node_count: %u",
 			valid_node_count, avail_node_count);
 		return 1;
@@ -2937,7 +2937,7 @@ int f2fs_sanity_check_ckpt(struct f2fs_sb_info *sbi)
 
 	if (__is_set_ckpt_flags(ckpt, CP_LARGE_NAT_BITMAP_FLAG) &&
 		le32_to_cpu(ckpt->checksum_offset) != CP_MIN_CHKSUM_OFFSET) {
-		f2fs_warn(sbi->sb, KERN_WARNING,
+		f2fs_warn(sbi, KERN_WARNING,
 			"layout of large_nat_bitmap is deprecated, "
 			"run fsck to repair, chksum_offset: %u",
 			le32_to_cpu(ckpt->checksum_offset));
@@ -2946,7 +2946,7 @@ int f2fs_sanity_check_ckpt(struct f2fs_sb_info *sbi)
 
 	if (__is_set_ckpt_flags(ckpt, CP_LARGE_NAT_BITMAP_FLAG) &&
 		le32_to_cpu(ckpt->checksum_offset) != CP_MIN_CHKSUM_OFFSET) {
-		f2fs_warn(sbi->sb, KERN_WARNING,
+		f2fs_warn(sbi, KERN_WARNING,
 			"layout of large_nat_bitmap is deprecated, "
 			"run fsck to repair, chksum_offset: %u",
 			le32_to_cpu(ckpt->checksum_offset));
