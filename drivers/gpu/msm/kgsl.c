@@ -5165,7 +5165,7 @@ static long kgsl_run_one_worker_perf(struct kthread_worker *worker,
 		struct task_struct **thread, const char *name)
 {
 	kthread_init_worker(worker);
-	*thread = kthread_run_perf_critical(cpu_perf_first_mask,
+	*thread = kthread_run_perf_critical(cpu_perf_mask,
 		kthread_worker_fn, worker, name);
 	if (IS_ERR(*thread)) {
 		pr_err("unable to start %s\n", name);
