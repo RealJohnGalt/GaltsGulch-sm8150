@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.218 Kernel Configuration
+# Linux/arm64 4.14.221 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -122,6 +122,7 @@ CONFIG_RCU_FANOUT_LEAF=16
 CONFIG_RCU_FAST_NO_HZ=y
 # CONFIG_RCU_BOOST is not set
 CONFIG_RCU_NOCB_CPU=y
+CONFIG_RCU_NOCB_CPU_BIND_LP=y
 CONFIG_BUILD_BIN2C=y
 CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
