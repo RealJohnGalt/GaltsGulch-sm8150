@@ -901,21 +901,10 @@ static void send_file_work(struct work_struct *data)
 
 	mtp_log("(%lld %lld)\n", offset, count);
 
-	if (dev->xfer_file_length >= FILE_LENGTH) {
-		pm_qos_update_request(&devfreq_mtp_request, MAX_CPUFREQ - 1);
-		pm_qos_update_request(&little_cpu_mtp_freq, MAX_CPUFREQ);
-		pm_qos_update_request(&big_cpu_mtp_freq, MAX_CPUFREQ);
-		pm_qos_update_request(&big_plus_cpu_mtp_freq, MAX_CPUFREQ);
-	} else {
-		pm_qos_update_request_timeout(&devfreq_mtp_request,
-		MAX_CPUFREQ - 1, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&little_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&big_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&big_plus_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
-	}
+	pm_qos_update_request(&devfreq_mtp_request, MAX_CPUFREQ - 1);
+	pm_qos_update_request(&little_cpu_mtp_freq, MAX_CPUFREQ);
+	pm_qos_update_request(&big_cpu_mtp_freq, MAX_CPUFREQ);
+	pm_qos_update_request(&big_plus_cpu_mtp_freq, MAX_CPUFREQ);
 
 	if (dev->xfer_send_header) {
 		hdr_size = sizeof(struct mtp_data_header);
@@ -1272,14 +1261,14 @@ static long mtp_send_receive_ioctl(struct file *fp, unsigned int code,
 	ret = dev->xfer_result;
 	if (mtp_receive_flag) {
 		mtp_receive_flag = false;
-		pm_qos_update_request_timeout(&devfreq_mtp_request,
-		MAX_CPUFREQ - 1, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&little_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&big_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
-		pm_qos_update_request_timeout(&big_plus_cpu_mtp_freq,
-		MAX_CPUFREQ, PM_QOS_TIMEOUT);
+		pm_qos_update_request(&devfreq_mtp_request,
+		MAX_CPUFREQ - 1);
+		pm_qos_update_request(&little_cpu_mtp_freq,
+		MAX_CPUFREQ);
+		pm_qos_update_request(&big_cpu_mtp_freq,
+		MAX_CPUFREQ);
+		pm_qos_update_request(&big_plus_cpu_mtp_freq,
+		MAX_CPUFREQ);
 		msm_cpuidle_set_sleep_disable(false);
 	}
 	fput(filp);
