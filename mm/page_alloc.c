@@ -7984,7 +7984,6 @@ int alloc_contig_range(unsigned long start, unsigned long end,
 	 * isolated thus they won't get removed from buddy.
 	 */
 
-	lru_add_drain_all();
 	drain_all_pages(cc.zone);
 
 	order = 0;
