@@ -155,6 +155,9 @@ static void ssr_i2c_force_resume(struct device *dev);
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
 static int arr_idx;
 
+static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
+static int arr_idx;
+
 struct geni_i2c_err_log {
 	int err;
 	const char *msg;
