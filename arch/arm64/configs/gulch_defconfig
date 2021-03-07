@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.222 Kernel Configuration
+# Linux/arm64 4.14.224 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -137,8 +137,9 @@ CONFIG_GENERIC_SCHED_CLOCK=y
 # FAIR Scheuler tunables
 #
 # CONFIG_PELT_UTIL_HALFLIFE_32 is not set
+CONFIG_PELT_UTIL_HALFLIFE_24=y
 # CONFIG_PELT_UTIL_HALFLIFE_16 is not set
-CONFIG_PELT_UTIL_HALFLIFE_12=y
+# CONFIG_PELT_UTIL_HALFLIFE_12 is not set
 # CONFIG_PELT_UTIL_HALFLIFE_10 is not set
 # CONFIG_PELT_UTIL_HALFLIFE_8 is not set
 
