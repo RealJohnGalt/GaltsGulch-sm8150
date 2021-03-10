@@ -53,6 +53,11 @@ choice
 	 while also showing good interactive responsiveness even
 	 on SMP and NUMA systems and exactly dividing by both PAL and
 	 NTSC frame rates for video and multimedia work.
+	config HZ_600
+		bool "600 HZ"
+	help
+	  test
+
 
 	config HZ_1000
 		bool "1000 HZ"
@@ -68,6 +73,7 @@ config HZ
 	default 100 if HZ_100
 	default 250 if HZ_250
 	default 300 if HZ_300
+	default 600 if HZ_600
 	default 1000 if HZ_1000
 
 config SCHED_HRTICK
