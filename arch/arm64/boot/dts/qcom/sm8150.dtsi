@@ -572,7 +572,7 @@
 	};
 
 	chosen {
-		bootargs = "noirqdebug rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket";
+		bootargs = "noirqdebug rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket rcupdate.rcu_normal_after_boot=1";
 	};
 
 	soc: soc { };
