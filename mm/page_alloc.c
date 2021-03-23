@@ -3082,6 +3082,13 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 			min -= min / 4;
 	}
 
+
+#ifdef CONFIG_CMA
+	/* If allocation can't use CMA areas don't use free CMA pages */
+	if (!(alloc_flags & ALLOC_CMA))
+		free_pages -= zone_page_state(z, NR_FREE_CMA_PAGES);
+#endif
+
 	/*
 	 * Check watermarks for an order-0 allocation request. If these
 	 * are not met, then a high-order request also cannot go ahead
@@ -3139,8 +3146,15 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 		unsigned long mark, int classzone_idx, unsigned int alloc_flags)
 {
 	long free_pages;
+	long cma_pages = 0;
 
 	free_pages = zone_page_state(z, NR_FREE_PAGES);
+
+#ifdef CONFIG_CMA
+	/* If allocation can't use CMA areas don't use free CMA pages */
+	if (!(alloc_flags & ALLOC_CMA))
+		cma_pages = zone_page_state(z, NR_FREE_CMA_PAGES);
+#endif
 
 	/*
 	 * Fast check for order-0 only. If this fails then the reserves
@@ -3149,7 +3163,7 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 	if (!order) {
 		long fast_free;
 
-		fast_free = free_pages;
+		fast_free = free_pages - cma_pages;
 		fast_free -= __zone_watermark_unusable_free(z, 0, alloc_flags);
 		if (fast_free > mark + z->lowmem_reserve[classzone_idx])
 			return true;
