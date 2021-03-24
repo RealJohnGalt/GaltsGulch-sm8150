@@ -603,7 +603,6 @@
 };
 
 &dsi_dual_nt35597_truly_cmd {
-	qcom,ulps-enabled;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -695,7 +694,6 @@
 };
 
 &dsi_sharp_4k_dsc_cmd {
-	qcom,ulps-enabled;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0c];
@@ -725,7 +723,6 @@
 };
 
 &dsi_nt35695b_truly_fhd_cmd {
-	qcom,ulps-enabled;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -745,7 +742,6 @@
 };
 
 &dsi_sim_sec_hd_cmd {
-	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 {
 			qcom,mdss-dsi-panel-phy-timings = [00 1e 08 07 24 22
@@ -771,7 +767,6 @@
 };
 
 &dsi_sharp_1080_cmd {
-	qcom,ulps-enabled;
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -816,7 +811,6 @@
 };
 
 &dsi_sim_cmd {
-	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
@@ -851,7 +845,6 @@
 };
 
 &dsi_dual_sim_cmd {
-	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
@@ -876,7 +869,6 @@
 };
 
 &dsi_sim_dsc_375_cmd {
-	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* 1080p */
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
@@ -896,7 +888,6 @@
 };
 
 &dsi_dual_sim_dsc_375_cmd {
-	qcom,ulps-enabled;
 	qcom,mdss-dsi-display-timings {
 		timing@0 { /* qhd */
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 08 07 23 22 07
