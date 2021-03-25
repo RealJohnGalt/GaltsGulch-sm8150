@@ -5,17 +5,6 @@ lib-y		:= checksum.o clear_user.o delay.o copy_from_user.o		\
 		   memcmp.o strcmp.o strncmp.o strlen.o strnlen.o	\
 		   strchr.o strrchr.o tishift.o
 
-ifeq ($(CONFIG_KERNEL_MODE_NEON), y)
-CFLAGS_xor-neon.o += $(DISABLE_LTO)
-CFLAGS_xor-neon.o += $(call cc-option, -fno-whole-program)
-obj-$(CONFIG_XOR_BLOCKS)	+= xor-neon.o
-CFLAGS_REMOVE_xor-neon.o	+= -mgeneral-regs-only
-CFLAGS_xor-neon.o		+= -ffreestanding
-ifeq ($(cc-name),clang)
-CFLAGS_xor-neon.o 		+= -Wno-incompatible-pointer-types
-endif
-endif
-
 # Tell the compiler to treat all general purpose registers (with the
 # exception of the IP registers, which are already handled by the caller
 # in case of a PLT) as callee-saved, which allows for efficient runtime
