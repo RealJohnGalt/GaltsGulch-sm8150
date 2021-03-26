@@ -120,7 +120,15 @@ dtb-$(CONFIG_ARCH_SM8150)	+= sm8150-rumi.dtb \
 	sm8150p-v2-cdp.dtb \
 	sm8150p-v2-qrd.dtb \
 	sm8150-hdk.dtb \
-	sm8150p-hdk.dtb
+	sm8150p-hdk.dtb \
+	guacamole-overlay-pvt.dtb \
+	guacamoleb-overlay-pvt.dtb \
+	guacamole-sdx50m-overlay-pvt.dtb \
+	guacamoles-sdx50m-overlay-pvt.dtb \
+	hotdogb-overlay-pvt.dtb \
+	hotdogb-overlay-pvt-second.dtb \
+	hotdog-overlay-pvt.dtb \
+	hotdogg-sdx55m-overlay-pvt.dtb
 
 dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
 	sa8155-vm-lv.dtb \
