@@ -30,12 +30,48 @@ static struct dump_info *dp_info;
 extern void *panic_info;
 
 static struct kobject *component_info;
-static ssize_t project_info_get(struct device *dev,
-    struct device_attribute *attr, char *buf);
-static ssize_t component_info_get(struct device *dev,
-    struct device_attribute *attr, char *buf);
+static ssize_t project_info_get(struct kobject *kobj,
+    struct kobj_attribute *attr, char *buf);
+static ssize_t component_info_get(struct kobject *kobj,
+    struct kobj_attribute *attr, char *buf);
 static int op_aboard_read_gpio(void);
 
+static struct kobj_attribute project_name_attribute =
+	__ATTR(project_name, 0444, project_info_get, NULL);
+static struct kobj_attribute hw_id_attribute =
+	__ATTR(hw_id, 0444, project_info_get, NULL);
+static struct kobj_attribute rf_id_v1_attribute =
+	__ATTR(rf_id_v1, 0444, project_info_get, NULL);
+static struct kobj_attribute rf_id_v2_attribute =
+	__ATTR(rf_id_v2, 0444, project_info_get, NULL);
+static struct kobj_attribute rf_id_v3_attribute =
+	__ATTR(rf_id_v3, 0444, project_info_get, NULL);
+static struct kobj_attribute ddr_manufacture_info_attribute =
+	__ATTR(ddr_manufacture_info, 0444, project_info_get, NULL);
+static struct kobj_attribute ddr_row_attribute =
+	__ATTR(ddr_row, 0444, project_info_get, NULL);
+static struct kobj_attribute ddr_column_attribute =
+	__ATTR(ddr_column, 0444, project_info_get, NULL);
+static struct kobj_attribute ddr_fw_version_attribute =
+	__ATTR(ddr_fw_version, 0444, project_info_get, NULL);
+static struct kobj_attribute ddr_reserve_info_attribute =
+	__ATTR(ddr_reserve_info, 0444, project_info_get, NULL);
+static struct kobj_attribute secboot_status_attribute =
+	__ATTR(secboot_status, 0444, project_info_get, NULL);
+static struct kobj_attribute platform_id_attribute =
+	__ATTR(platform_id, 0444, project_info_get, NULL);
+static struct kobj_attribute serialno_attribute =
+	__ATTR(serialno, 0444, project_info_get, NULL);
+static struct kobj_attribute aboard_id_attribute =
+	__ATTR(aboard_id, 0444, project_info_get, NULL);
+static struct kobj_attribute modem_attribute =
+	__ATTR(modem, 0444, project_info_get, NULL);
+static struct kobj_attribute operator_no_attribute =
+	__ATTR(operator_no, 0444, project_info_get, NULL);
+static struct kobj_attribute feature_id_attribute =
+	__ATTR(feature_id, 0444, project_info_get, NULL);
+
+#if 0
 static DEVICE_ATTR(project_name, 0444, project_info_get, NULL);
 static DEVICE_ATTR(hw_id, 0444, project_info_get, NULL);
 static DEVICE_ATTR(rf_id_v1, 0444, project_info_get, NULL);
@@ -53,6 +89,7 @@ static DEVICE_ATTR(platform_id, 0444, project_info_get, NULL);
 static DEVICE_ATTR(serialno, 0444, project_info_get, NULL);
 static DEVICE_ATTR(feature_id, 0444, project_info_get, NULL);
 static DEVICE_ATTR(aboard_id, 0444, project_info_get, NULL);
+#endif 
 
 char *parse_regs_pc(unsigned long address, int *length)
 {
@@ -120,63 +157,60 @@ uint8 get_secureboot_fuse_status(void)
     return secure_oem_config;
 }
 
-static ssize_t project_info_get(struct device *dev,
-                struct device_attribute *attr,
+static ssize_t project_info_get(struct kobject *kobj,
+                struct kobj_attribute *attr,
                 char *buf)
 {
     if (project_info_desc) {
-        if (attr == &dev_attr_project_name)
+        if (attr == &project_name_attribute)
             return snprintf(buf, BUF_SIZE, "%s\n",
             project_info_desc->project_name);
-        if (attr == &dev_attr_hw_id)
+        if (attr == &hw_id_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->hw_version);
-        if (attr == &dev_attr_rf_id_v1)
+        if (attr == &rf_id_v1_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->rf_v1);
-        if (attr == &dev_attr_rf_id_v2)
+        if (attr == &rf_id_v2_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->rf_v2);
-        if (attr == &dev_attr_rf_id_v3)
+        if (attr == &rf_id_v3_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->rf_v3);
-        if (attr == &dev_attr_modem)
+        if (attr == &modem_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->modem);
-        if (attr == &dev_attr_operator_no)
+        if (attr == &operator_no_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->operator);
-        if (attr == &dev_attr_ddr_manufacture_info)
+        if (attr == &ddr_manufacture_info_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->ddr_manufacture_info);
-        if (attr == &dev_attr_ddr_row)
+        if (attr == &ddr_row_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->ddr_row);
-        if (attr == &dev_attr_ddr_column)
+        if (attr == &ddr_column_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->ddr_column);
-        if (attr == &dev_attr_ddr_fw_version)
+        if (attr == &ddr_fw_version_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->ddr_fw_version);
-        if (attr == &dev_attr_ddr_reserve_info)
+        if (attr == &ddr_reserve_info_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->ddr_reserve_info);
-        if (attr == &dev_attr_secboot_status)
+        if (attr == &secboot_status_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             get_secureboot_fuse_status());
-        if (attr == &dev_attr_platform_id)
+        if (attr == &platform_id_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->platform_id);
-
-        if (attr == &dev_attr_serialno)
+        if (attr == &serialno_attribute)
             return snprintf(buf, BUF_SIZE, "0x%x\n",
             socinfo_get_serial_number());
-
-        if (attr == &dev_attr_feature_id)
+        if (attr == &feature_id_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->feature_id);
-
-        if (attr == &dev_attr_aboard_id)
+        if (attr == &aboard_id_attribute)
             return snprintf(buf, BUF_SIZE, "%d\n",
             project_info_desc->a_board_version);
     }
@@ -184,6 +218,7 @@ static ssize_t project_info_get(struct device *dev,
     return -EINVAL;
 }
 
+#if 0
 static struct attribute *project_info_sysfs_entries[] = {
     &dev_attr_project_name.attr,
     &dev_attr_hw_id.attr,
@@ -208,7 +243,112 @@ static struct attribute *project_info_sysfs_entries[] = {
 static struct attribute_group project_info_attr_group = {
     .attrs  = project_info_sysfs_entries,
 };
+#endif
 
+static struct kobj_attribute ddr_attribute =
+	__ATTR(ddr, 0444, component_info_get, NULL);
+static struct kobj_attribute emmc_attribute =
+	__ATTR(emmc, 0444, component_info_get, NULL);
+static struct kobj_attribute f_camera_attribute =
+	__ATTR(f_camera, 0444, component_info_get, NULL);
+static struct kobj_attribute r_camera_attribute =
+	__ATTR(r_camera, 0444, component_info_get, NULL);
+static struct kobj_attribute second_r_camera_attribute =
+	__ATTR(second_r_camera, 0444, component_info_get, NULL);
+static struct kobj_attribute third_r_camera_attribute =
+	__ATTR(third_r_camera, 0444, component_info_get, NULL);
+static struct kobj_attribute r_ois_attribute =
+	__ATTR(r_ois, 0444, component_info_get, NULL);
+static struct kobj_attribute second_r_ois_attribute =
+	__ATTR(second_r_ois, 0444, component_info_get, NULL);
+static struct kobj_attribute tp_attribute =
+	__ATTR(tp, 0444, component_info_get, NULL);
+static struct kobj_attribute lcd_attribute =
+	__ATTR(lcd, 0444, component_info_get, NULL);
+static struct kobj_attribute wcn_attribute =
+	__ATTR(wcn, 0444, component_info_get, NULL);
+static struct kobj_attribute l_sensor_attribute =
+	__ATTR(l_sensor, 0444, component_info_get, NULL);
+static struct kobj_attribute g_sensor_attribute =
+	__ATTR(g_sensor, 0444, component_info_get, NULL);
+static struct kobj_attribute m_sensor_attribute =
+	__ATTR(m_sensor, 0444, component_info_get, NULL);
+static struct kobj_attribute gyro_attribute =
+	__ATTR(gyro, 0444, component_info_get, NULL);
+static struct kobj_attribute backlight_attribute =
+	__ATTR(backlight, 0444, component_info_get, NULL);
+static struct kobj_attribute mainboard_attribute =
+	__ATTR(mainboard, 0444, component_info_get, NULL);
+static struct kobj_attribute fingerprints_attribute =
+	__ATTR(fingerprints, 0444, component_info_get, NULL);
+static struct kobj_attribute touch_key_attribute =
+	__ATTR(touch_key, 0444, component_info_get, NULL);
+static struct kobj_attribute ufs_attribute =
+	__ATTR(ufs, 0444, component_info_get, NULL);
+static struct kobj_attribute Aboard_attribute =
+	__ATTR(Aboard, 0444, component_info_get, NULL);
+static struct kobj_attribute nfc_attribute =
+	__ATTR(nfc, 0444, component_info_get, NULL);
+static struct kobj_attribute fast_charge_attribute =
+	__ATTR(fast_charge, 0444, component_info_get, NULL);
+static struct kobj_attribute cpu_attribute =
+	__ATTR(cpu, 0444, component_info_get, NULL);
+static struct kobj_attribute rf_version_attribute =
+	__ATTR(rf_version, 0444, component_info_get, NULL);
+static struct kobj_attribute r_module_attribute =
+	__ATTR(r_module, 0444, component_info_get, NULL);
+static struct kobj_attribute f_module_attribute =
+	__ATTR(f_module, 0444, component_info_get, NULL);
+
+struct attribute *attrs[] = {
+	&project_name_attribute.attr,
+	&hw_id_attribute.attr,
+	&rf_id_v1_attribute.attr,
+	&rf_id_v2_attribute.attr,
+	&rf_id_v3_attribute.attr,
+	&ddr_manufacture_info_attribute.attr,
+	&ddr_row_attribute.attr,
+	&ddr_column_attribute.attr,
+	&ddr_fw_version_attribute.attr,
+	&ddr_reserve_info_attribute.attr,
+	&secboot_status_attribute.attr,
+	&platform_id_attribute.attr,
+	&serialno_attribute.attr,
+	&aboard_id_attribute.attr,
+	&ddr_attribute.attr,
+	&emmc_attribute.attr,
+	&f_camera_attribute.attr,
+	&r_camera_attribute.attr,
+	&second_r_camera_attribute.attr,
+	&third_r_camera_attribute.attr,
+	&r_ois_attribute.attr,
+	&second_r_ois_attribute.attr,
+	&tp_attribute.attr,
+	&lcd_attribute.attr,
+	&wcn_attribute.attr,
+	&l_sensor_attribute.attr,
+	&g_sensor_attribute.attr,
+	&m_sensor_attribute.attr,
+	&gyro_attribute.attr,
+	&backlight_attribute.attr,
+	&mainboard_attribute.attr,
+	&fingerprints_attribute.attr,
+	&touch_key_attribute.attr,
+	&ufs_attribute.attr,
+	&Aboard_attribute.attr,
+	&nfc_attribute.attr,
+	&fast_charge_attribute.attr,
+	&cpu_attribute.attr,
+	&rf_version_attribute.attr,
+	&r_module_attribute.attr,
+	&f_module_attribute.attr,
+	&modem_attribute.attr,
+	&operator_no_attribute.attr,
+	&feature_id_attribute.attr,
+	NULL,
+};
+
+#if 0
 static DEVICE_ATTR(ddr, 0444, component_info_get, NULL);
 static DEVICE_ATTR(emmc, 0444, component_info_get, NULL);
 static DEVICE_ATTR(f_camera, 0444, component_info_get, NULL);
@@ -236,6 +376,7 @@ static DEVICE_ATTR(nfc, 0444, component_info_get, NULL);
 static DEVICE_ATTR(fast_charge, 0444, component_info_get, NULL);
 static DEVICE_ATTR(cpu, 0444, component_info_get, NULL);
 static DEVICE_ATTR(rf_version, 0444, component_info_get, NULL);
+#endif
 
 
 char *get_component_version(enum COMPONENT_TYPE type)
@@ -280,7 +421,7 @@ int reset_component_info(enum COMPONENT_TYPE type)
 }
 EXPORT_SYMBOL(reset_component_info);
 
-
+#if 0
 static struct attribute *component_info_sysfs_entries[] = {
     &dev_attr_ddr.attr,
     &dev_attr_emmc.attr,
@@ -315,117 +456,122 @@ static struct attribute *component_info_sysfs_entries[] = {
 static struct attribute_group component_info_attr_group = {
     .attrs  = component_info_sysfs_entries,
 };
+#endif
 
-static ssize_t component_info_get(struct device *dev,
-                struct device_attribute *attr,
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static ssize_t component_info_get(struct kobject *kobj,
+                struct kobj_attribute *attr,
                 char *buf)
 {
-    if (attr == &dev_attr_ddr)
+    if (attr == &ddr_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(DDR),
         get_component_manufacture(DDR));
-    if (attr == &dev_attr_emmc)
+    if (attr == &emmc_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(EMMC),
         get_component_manufacture(EMMC));
-    if (attr == &dev_attr_f_camera)
+    if (attr == &f_camera_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(F_CAMERA),
         get_component_manufacture(F_CAMERA));
-    if (attr == &dev_attr_r_camera)
+    if (attr == &r_camera_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(R_CAMERA),
         get_component_manufacture(R_CAMERA));
-    if (attr == &dev_attr_second_r_camera)
+    if (attr == &second_r_camera_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(SECOND_R_CAMERA),
         get_component_manufacture(SECOND_R_CAMERA));
-    if (attr == &dev_attr_third_r_camera)
+    if (attr == &third_r_camera_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(THIRD_R_CAMERA),
         get_component_manufacture(THIRD_R_CAMERA));
-    if (attr == &dev_attr_r_ois)
+    if (attr == &r_ois_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(R_OIS),
         get_component_manufacture(R_OIS));
-    if (attr == &dev_attr_second_r_ois)
+    if (attr == &second_r_ois_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(SECOND_R_OIS),
         get_component_manufacture(SECOND_R_OIS));
-    if (attr == &dev_attr_r_module)
+    if (attr == &r_module_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(R_MODULE),
         get_component_manufacture(R_MODULE));
-    if (attr == &dev_attr_f_module)
+    if (attr == &f_module_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(F_MODULE),
         get_component_manufacture(F_MODULE));
-    if (attr == &dev_attr_tp)
+    if (attr == &tp_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(TP),
         get_component_manufacture(TP));
-    if (attr == &dev_attr_lcd)
+    if (attr == &lcd_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(LCD),
         get_component_manufacture(LCD));
-    if (attr == &dev_attr_wcn)
+    if (attr == &wcn_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(WCN),
         get_component_manufacture(WCN));
-    if (attr == &dev_attr_l_sensor)
+    if (attr == &l_sensor_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(I_SENSOR),
         get_component_manufacture(I_SENSOR));
-    if (attr == &dev_attr_g_sensor)
+    if (attr == &g_sensor_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(G_SENSOR),
         get_component_manufacture(G_SENSOR));
-    if (attr == &dev_attr_m_sensor)
+    if (attr == &m_sensor_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(M_SENSOR),
         get_component_manufacture(M_SENSOR));
-    if (attr == &dev_attr_gyro)
+    if (attr == &gyro_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(GYRO),
         get_component_manufacture(GYRO));
-    if (attr == &dev_attr_backlight)
+    if (attr == &backlight_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(BACKLIGHT),
         get_component_manufacture(BACKLIGHT));
-    if (attr == &dev_attr_mainboard)
+    if (attr == &mainboard_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(MAINBOARD),
         get_component_manufacture(MAINBOARD));
-    if (attr == &dev_attr_fingerprints)
+    if (attr == &fingerprints_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(FINGERPRINTS),
         get_component_manufacture(FINGERPRINTS));
-    if (attr == &dev_attr_touch_key)
+    if (attr == &touch_key_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(TOUCH_KEY),
         get_component_manufacture(TOUCH_KEY));
-    if (attr == &dev_attr_ufs)
+    if (attr == &ufs_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(UFS),
         get_component_manufacture(UFS));
-    if (attr == &dev_attr_Aboard) {
+    if (attr == &Aboard_attribute) {
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(ABOARD),
         get_component_manufacture(ABOARD));
     }
-    if (attr == &dev_attr_nfc)
+    if (attr == &nfc_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(NFC),
         get_component_manufacture(NFC));
-    if (attr == &dev_attr_fast_charge)
+    if (attr == &fast_charge_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(FAST_CHARGE),
         get_component_manufacture(FAST_CHARGE));
-    if (attr == &dev_attr_cpu)
+    if (attr == &cpu_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(CPU),
         get_component_manufacture(CPU));
-    if (attr == &dev_attr_rf_version)
+    if (attr == &rf_version_attribute)
         return snprintf(buf, BUF_SIZE, "VER:\t%s\nMANU:\t%s\n",
         get_component_version(RF_VERSION),
         get_component_manufacture(RF_VERSION));
@@ -439,7 +585,7 @@ static int __init project_info_init_sysfs(void)
     project_info_kobj = kobject_create_and_add("project_info", NULL);
     if (!project_info_kobj)
         return -ENOMEM;
-    error = sysfs_create_group(project_info_kobj, &project_info_attr_group);
+    error = sysfs_create_group(project_info_kobj, &attr_group);
     if (error) {
         pr_err("project_info_init_sysfs project_info_attr_group failure\n");
         return error;
@@ -451,7 +597,7 @@ static int __init project_info_init_sysfs(void)
     if (!component_info)
         return -ENOMEM;
 
-    error = sysfs_create_group(component_info, &component_info_attr_group);
+    error = sysfs_create_group(component_info, &attr_group);
     if (error) {
         pr_err("project_info_init_sysfs project_info_attr_group failure\n");
         return error;
