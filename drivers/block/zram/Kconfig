@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 config ZRAM
 	tristate "Compressed RAM block device support"
-	depends on BLOCK && SYSFS && CRYPTO
-	select ZPOOL
+	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
+	select CRYPTO_LZO
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -13,28 +13,10 @@ config ZRAM
 	  It has several use cases, for example: /tmp storage, use as swap
 	  disks and maybe many more.
 
-	  See Documentation/blockdev/zram.txt for more information.
-
-config ZRAM_ENTROPY
-	bool "Use entropy optimization for zram"
-	depends on ZRAM
-	help
-	  With this feature, entropy will be calculated for each page.
-	  Pages above ZRAM_ENTROPY_THRESHOLD entropy will be
-	  stored uncompressed. Use this feature if you need a performance
-	  boost and a small loss in compression.
-
-config ZRAM_ENTROPY_THRESHOLD
-	int
-	depends on ZRAM && ZRAM_ENTROPY
-	default 85000
-	help
-	  Pages with entropy above ZRAM_ENTROPY_THRESHOLD will be stored
-	  uncompressed. The default value was chosen as a result a lot of
-	  experiments. You can try set your own value.
+	  See zram.txt for more information.
 
 config ZRAM_WRITEBACK
-       bool "Write back incompressible or idle page to backing device"
+       bool "Write back incompressible page to backing device"
        depends on ZRAM
        default n
        help
@@ -43,48 +25,4 @@ config ZRAM_WRITEBACK
 	 For this feature, admin should set up backing device via
 	 /sys/block/zramX/backing_dev.
 
-	 With /sys/block/zramX/{idle,writeback}, application could ask
-	 idle page's writeback to the backing device to save in memory.
-
-	 See Documentation/blockdev/zram.txt for more information.
-
-config ZRAM_MEMORY_TRACKING
-	bool "Track zRam block status"
-	depends on ZRAM && DEBUG_FS
-	help
-	  With this feature, admin can track the state of allocated blocks
-	  of zRAM. Admin could see the information via
-	  /sys/kernel/debug/zram/zramX/block_state.
-
-	  See Documentation/blockdev/zram.txt for more information.
-
-if ZRAM
-
-choice
-	prompt "Default zRAM backend"
-	default DEFAULT_ZRAM_ZSMALLOC
-	help
-	  Select the memory allocator that will be used by default to store
-	  compressed pages for all zRAM devices.
-
-	config DEFAULT_ZRAM_ZBUD
-		bool "zbud" if ZBUD=y
-
-	config DEFAULT_ZRAM_Z3FOLD
-		bool "z3fold" if Z3FOLD=y
-
-	config DEFAULT_ZRAM_ZSMALLOC
-		bool "zsmalloc" if ZSMALLOC=y
-endchoice
-
-config ZRAM_DEFAULT_BACKEND
-	string
-	default "zbud" if DEFAULT_ZRAM_ZBUD
-	default "z3fold" if DEFAULT_ZRAM_Z3FOLD
-	default "zsmalloc"
-
-endif
-
-config ZRAM_DEFAULT_COMP_ALGORITHM
-	string "Default ZRAM compression algorithm"
-	default "lz4"
+	 See zram.txt for more infomration.
