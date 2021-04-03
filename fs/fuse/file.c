@@ -44,15 +44,7 @@ static int fuse_send_open(struct fuse_conn *fc, u64 nodeid, struct file *file,
 	args.out.args[0].size = sizeof(*outargp);
 	args.out.args[0].value = outargp;
 
-	if (opcode == FUSE_OPEN)
-		iname = inode_name(file_inode(file));
-	args.iname = iname;
-
 	ret = fuse_simple_request(fc, &args);
-	if (args.iname)
-		__putname(args.iname);
-	if (args.private_lower_rw_file != NULL)
-		*lower_file = args.private_lower_rw_file;
 	return ret;
 }
 
@@ -272,7 +264,6 @@ void fuse_release_common(struct file *file, bool isdir)
 	struct fuse_req *req = ff->reserved_req;
 	int opcode = isdir ? FUSE_RELEASEDIR : FUSE_RELEASE;
 
-	fuse_shortcircuit_release(ff);
 	fuse_prepare_release(ff, file->f_flags, opcode);
 
 	if (ff->flock) {
@@ -957,11 +948,7 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		if (err)
 			return err;
 	}
-
-	if (ff && ff->rw_lower_file)
-		ret_val = fuse_shortcircuit_read_iter(iocb, to);
-	else
-		ret_val = generic_file_read_iter(iocb, to);
+	ret_val = generic_file_read_iter(iocb, to);
 
 	return ret_val;
 }
@@ -1213,8 +1200,6 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		err = fuse_update_attributes(mapping->host, file);
 		if (err)
 			return err;
-
-		return fuse_shortcircuit_write_iter(iocb, from);
 	}
 
 	if (get_fuse_conn(inode)->writeback_cache) {

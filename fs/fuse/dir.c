@@ -503,21 +503,6 @@ static int fuse_create_open(struct inode *dir, struct dentry *entry,
 	args.out.args[1].size = sizeof(outopen);
 	args.out.args[1].value = &outopen;
 	args.private_lower_rw_file = NULL;
-	iname = inode_name(dir);
-	if (iname) {
-		/* compose full path */
-		if ((strlen(iname) + entry->d_name.len + 2) <= PATH_MAX) {
-			strlcat(iname, "/", PATH_MAX);
-			strlcat(iname, entry->d_name.name, PATH_MAX);
-		} else {
-			__putname(iname);
-			iname = NULL;
-		}
-	}
-	args.iname = iname;
-	err = fuse_simple_request(fc, &args);
-	if (args.iname)
-		__putname(args.iname);
 	if (err)
 		goto out_free_ff;
 

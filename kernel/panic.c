@@ -197,8 +197,6 @@ void panic(const char *fmt, ...)
 	va_end(args);
 	dump_stack_minidump(0);
 
-	if (!get_download_mode())
-		panic_flush_device_cache(2000);
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
 	function_name = parse_function_builtin_return_address((unsigned long)__builtin_return_address(0));
 	save_dump_reason_to_smem(buf, function_name);

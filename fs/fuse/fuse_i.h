@@ -299,10 +299,6 @@ enum fuse_req_flag {
 	FR_SENT,
 	FR_FINISHED,
 	FR_PRIVATE,
-
-#ifdef CONFIG_ONEPLUS_FG_OPT
-	FR_BOOST = 30,
-#endif
 };
 
 /**

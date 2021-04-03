@@ -669,17 +669,6 @@ repeat:
 
 out:
 	spin_unlock(&files->file_lock);
-#ifdef FD_OVER_CHECK
-	if(error == -EMFILE) {
-	    // every process just dump only one time
-	    if(current->group_leader->dump_fd_leak==false)
-	    {
-	        current->group_leader->dump_fd_leak = true;
-	        printk("[FD_LEAK](PID:%d)fd over RLIMIT_NOFILE:%ld", current->pid, rlimit(RLIMIT_NOFILE));
-	        fd_show_open_files(current->pid, files, fdt);
-        }
-	}
-#endif
 	return error;
 }
 
