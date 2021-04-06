@@ -758,8 +758,6 @@ static int sugov_init(struct cpufreq_policy *policy)
 	tunables->down_rate_limit_us =
 				cpufreq_policy_transition_delay_us(policy);
 
-	tunables->iowait_boost_enable = false;
-
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
 	stale_ns = sched_ravg_window + (sched_ravg_window >> 3);
