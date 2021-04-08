@@ -7655,7 +7655,8 @@ enum fastpaths {
 };
 
 static inline int find_best_target(struct task_struct *p, int *backup_cpu,
-				   bool sync_boost, bool prefer_idle,
+				   bool boosted, bool sync_boost,
+				   bool prefer_idle,
 				   struct find_best_target_env *fbt_env,
 				   bool prefer_high_cap)
 {
@@ -8409,6 +8410,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 #endif
 	u64 start_t = 0;
 	int next_cpu = -1, backup_cpu = -1;
+	int boosted = (schedtune_task_boost(p) > 0 && p->prio <= DEFAULT_PRIO)
+							|| per_task_boost(p) > 0;
 	bool prefer_high_cap = schedtune_prefer_high_cap(p);
 	bool about_to_idle = (cpu_rq(cpu)->nr_running < 2);
 
@@ -8495,7 +8498,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 
 		/* Find a cpu with sufficient capacity */
 		target_cpu = find_best_target(p, &eenv->cpu[EAS_CPU_BKP].cpu_id,
-					      sync_boost, prefer_idle,
+					      boosted, sync_boost, prefer_idle,
 					      &fbt_env, prefer_high_cap);
 		if (target_cpu < 0)
 			goto out;
@@ -8550,7 +8553,7 @@ out:
 	trace_sched_task_util(p, next_cpu, backup_cpu, target_cpu, sync,
 			need_idle, fbt_env.fastpath, placement_boost,
 			rtg_target ? cpumask_first(rtg_target) : -1, start_t,
-			prefer_high_cap);
+			boosted);
 	return target_cpu;
 }
 
