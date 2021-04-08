@@ -7421,50 +7421,6 @@ static int find_capacity_margin_levels(void)
 	return max_clusters - 1;
 }
 
-static void sched_update_up_migrate_values(int cap_margin_levels,
-				const struct cpumask *cluster_cpus[])
-{
-	int i, cpu;
-
-	if (cap_margin_levels > 1) {
-		/*
-		 * No need to worry about CPUs in last cluster
-		 * if there are more than 2 clusters in the system
-		 */
-		for (i = 0; i < cap_margin_levels; i++)
-			if (cluster_cpus[i])
-				for_each_cpu(cpu, cluster_cpus[i])
-					sched_capacity_margin_up[cpu] =
-					sysctl_sched_capacity_margin_up[i];
-	} else {
-		for_each_possible_cpu(cpu)
-			sched_capacity_margin_up[cpu] =
-				sysctl_sched_capacity_margin_up[0];
-	}
-}
-
-static void sched_update_down_migrate_values(int cap_margin_levels,
-				const struct cpumask *cluster_cpus[])
-{
-	int i, cpu;
-
-	if (cap_margin_levels > 1) {
-		/*
-		 * Skip last cluster as down migrate value isn't needed.
-		 * Because there is no downmigration to it.
-		 */
-		for (i = 0; i < cap_margin_levels; i++)
-			if (cluster_cpus[i])
-				for_each_cpu(cpu, cluster_cpus[i])
-					sched_capacity_margin_down[cpu] =
-					sysctl_sched_capacity_margin_down[i];
-	} else {
-		for_each_possible_cpu(cpu)
-			sched_capacity_margin_down[cpu] =
-				sysctl_sched_capacity_margin_down[0];
-	}
-}
-
 static void sched_update_updown_migrate_values(unsigned int *data,
 					      int cap_margin_levels)
 {
@@ -7476,12 +7432,6 @@ static void sched_update_updown_migrate_values(unsigned int *data,
 		cluster_cpus[i] = topology_core_cpumask(cpu);
 		cpu += cpumask_weight(topology_core_cpumask(cpu));
 	}
-
-	if (data == &sysctl_sched_capacity_margin_up[0])
-		sched_update_up_migrate_values(cap_margin_levels, cluster_cpus);
-	else
-		sched_update_down_migrate_values(cap_margin_levels,
-						 cluster_cpus);
 }
 
 int sched_updown_migrate_handler(struct ctl_table *table, int write,
@@ -7530,15 +7480,6 @@ int sched_updown_migrate_handler(struct ctl_table *table, int write,
 	if (ret) {
 		memcpy(data, old_val, table->maxlen);
 		goto free_old_val;
-	}
-
-	for (i = 0; i < cap_margin_levels; i++) {
-		if (sysctl_sched_capacity_margin_up[i] >
-				sysctl_sched_capacity_margin_down[i]) {
-			memcpy(data, old_val, table->maxlen);
-			ret = -EINVAL;
-			goto free_old_val;
-		}
 	}
 
 	sched_update_updown_migrate_values(data, cap_margin_levels);
