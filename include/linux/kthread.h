@@ -65,6 +65,9 @@ bool kthread_is_per_cpu(struct task_struct *k);
 		__k->flags |= PF_PERF_CRITICAL;				   \
 		BUILD_BUG_ON(perfmask != cpu_lp_mask &&			   \
 			     perfmask != cpu_perf_mask &&		   \
+			     perfmask != cpu_perf_first_mask &&		   \
+			     perfmask != cpu_perf_second_mask &&		   \
+			     perfmask != cpu_perf_third_mask &&		   \
 			     perfmask != cpu_prime_mask);		   \
 		kthread_bind_mask(__k, perfmask);			   \
 		wake_up_process(__k);					   \
