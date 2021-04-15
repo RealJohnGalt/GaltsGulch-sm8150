@@ -1219,6 +1219,7 @@ static const struct file_operations mem_read_fops = {
 	.read = wcd_spi_debugfs_mem_read,
 };
 
+#ifdef CONFIG_DEBUG_FS
 static int wcd_spi_debugfs_init(struct spi_device *spi)
 {
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
@@ -1243,7 +1244,7 @@ static int wcd_spi_debugfs_init(struct spi_device *spi)
 done:
 	return rc;
 }
-
+#endif
 
 static const struct reg_default wcd_spi_defaults[] = {
 	{WCD_SPI_SLAVE_SANITY, 0xDEADBEEF},

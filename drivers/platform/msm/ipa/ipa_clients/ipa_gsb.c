@@ -63,7 +63,6 @@
 			IPA_GSB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
-#ifdef CONFIG_DEBUG_FS
 #define IPA_GSB_MAX_MSG_LEN 512
 
 #ifdef CONFIG_DEBUG_FS
