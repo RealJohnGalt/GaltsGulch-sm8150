@@ -45,6 +45,7 @@
 		<2419200>;
 
 	qcom,cpufreq-table-7 =
+		<1497600>,
 		<1804800>,
 		<2016000>,
 		<2227200>,
@@ -480,6 +481,7 @@
 
 	CPU_COST_2: core-cost2 {
 		busy-cost-data = <
+			1497600  365
 			1804800  446
 			2016000  513
 			2227200  622
@@ -520,6 +522,7 @@
 
 	CLUSTER_COST_2: cluster-cost2 {
 		busy-cost-data = <
+			1497600   49
 			1804800   77
 			2016000  100
 			2227200  120
@@ -1390,8 +1393,6 @@
 			reg = <8>;
 			qcom,silver-khz = <1708800>;
 			qcom,gold-khz = <825600>;
-			qcom,prime-khz = <1804800>;
-			qcom,gold-khz = <710400>;
 			qcom,prime-khz = <1804800>;
 			qcom,trip-deg = <78000>;
 		};
