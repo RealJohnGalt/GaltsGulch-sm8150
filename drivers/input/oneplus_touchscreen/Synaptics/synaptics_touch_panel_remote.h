@@ -1,10 +1,10 @@
 /***********************************************************
 * Description : OnePlus touchpanel driver
-* 
+*
 * File		  : synaptics_touch_panel_remote.h
 *
 * Function	  : third party interface
-* 
+*
 * Source	  : provide by synaptics
 *
 * Version	  : V1.0

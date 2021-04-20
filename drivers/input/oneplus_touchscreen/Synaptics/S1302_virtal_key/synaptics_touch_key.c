@@ -1976,7 +1976,7 @@ static int synaptics_ts_probe(struct i2c_client *client, const struct i2c_device
     if ((ts->boot_mode == MSM_BOOT_MODE__FACTORY || ts->boot_mode == MSM_BOOT_MODE__RF || ts->boot_mode == MSM_BOOT_MODE__WLAN))
     {
         TPD_INFO("FTM regulator_disable is called\n");
-        kfree(ts); 
+        kfree(ts);
         return 0;
     }
 

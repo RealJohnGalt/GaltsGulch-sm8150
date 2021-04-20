@@ -1,10 +1,10 @@
 /***********************************************************
 * Description : OnePlus touchpanel driver
-* 
+*
 * File		  : synaptics_s3320.h
 *
 * Function	  : third party interface
-* 
+*
 * Source	  : provide by synaptics
 *
 * Version	  : V1.0

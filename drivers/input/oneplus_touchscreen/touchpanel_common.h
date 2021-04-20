@@ -1,11 +1,11 @@
  /***********************************************************
  * Description : OnePlus touchpanel driver
- * 
- * File        : touchpanel_common.h      
  *
- * Function    : touchpanel public interface  
- * 
- * Version     : V1.0 
+ * File        : touchpanel_common.h
+ *
+ * Function    : touchpanel public interface
+ *
+ * Version     : V1.0
  *
  ***********************************************************/
 #ifndef _TOUCHPANEL_COMMON_H_

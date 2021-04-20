@@ -1,10 +1,10 @@
 /***********************************************************
 * Description : OnePlus touchpanel driver
-* 
-* File		  : sec_common.h 
+*
+* File		  : sec_common.h
 *
 * Function	  : third party interface
-* 
+*
 * Source	  : provide by LSI
 *
 * Version	  : V1.0

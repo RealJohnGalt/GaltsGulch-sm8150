@@ -1127,7 +1127,7 @@ static void synaptics_auto_test(struct seq_file *s, void *chip_data, struct syna
             sprintf(data_buf, "%d, ", unsigned_baseline_data);
             sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
         }
-        if((syna_testdata->key_RX != 0 || syna_testdata->key_TX != 0) && ((y > chip_info->hw_res->RX_NUM - syna_testdata->key_RX - 1 && y < chip_info->hw_res->RX_NUM) 
+        if((syna_testdata->key_RX != 0 || syna_testdata->key_TX != 0) && ((y > chip_info->hw_res->RX_NUM - syna_testdata->key_RX - 1 && y < chip_info->hw_res->RX_NUM)
             || (y > chip_info->hw_res->RX_NUM + chip_info->hw_res->TX_NUM - syna_testdata->key_TX - 1))) {
             TPD_INFO("y = %d\n", y);
             continue;
@@ -1791,7 +1791,7 @@ static void synaptics_data_logger_get(void * chip_data)
         if(data_length < 1 || data_length > 255) {
             return;
         } else {
-            ret = touch_i2c_read_block(chip_info->client, ((uint8_t)(chip_info->d_log.loglength_addr & 0xFF) + 1), data_length, log_data);     //read log 
+            ret = touch_i2c_read_block(chip_info->client, ((uint8_t)(chip_info->d_log.loglength_addr & 0xFF) + 1), data_length, log_data);     //read log
             TPD_INFO("data_length = %d, ", data_length);
             for(i = 0; i< data_length; i++) {
                 printk(" [0x%x], ", log_data[i]);

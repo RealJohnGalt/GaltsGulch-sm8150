@@ -1,11 +1,11 @@
  /***********************************************************
  * Description : OnePlus touchpanel driver
- * 
- * File        : tp_devices.h      
  *
- * Function    : touchpanel public interface  
- * 
- * Version     : V1.0 
+ * File        : tp_devices.h
+ *
+ * Function    : touchpanel public interface
+ *
+ * Version     : V1.0
  *
  ***********************************************************/
 #ifndef OPPO_TP_DEVICES_H

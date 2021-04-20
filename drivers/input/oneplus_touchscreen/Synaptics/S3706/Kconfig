@@ -5,5 +5,5 @@ config TOUCHPANEL_SYNAPTICS_S3706
 	---help---
 	say Y to enable driver for Touchpanel useing synaptics s3706
 	say Y to enable driver for Touchpanel useing synaptics s3706
-	
+
 

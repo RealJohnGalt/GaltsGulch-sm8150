@@ -1692,7 +1692,7 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 		// 17. get delta image between baseline image 1 and baseline image 2
 		for (x = 0; x < syna_testdata->TX_NUM; x++) {
 			for (y = 0; y < syna_testdata->RX_NUM; y++) {
-				p_data_delta[x * syna_testdata->RX_NUM + y] = 
+				p_data_delta[x * syna_testdata->RX_NUM + y] =
 					ABS( p_data_baseline1[x * syna_testdata->RX_NUM + y], p_data_baseline2[x * syna_testdata->RX_NUM + y]);
 
 				if (maxRX[y] < p_data_delta[x * syna_testdata->RX_NUM + y])

@@ -2234,7 +2234,7 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
     //proc files-step1:/proc/devinfo/tp  (touchpanel device info)
     if(ts->fw_update_app_support) {
         register_devinfo("tp", &ts->panel_data.manufacture_info);
-    }	
+    }
 
 	if (device_create_file(&ts->client->dev, &dev_attr_tp_fw_update)) {
 		TPD_INFO("driver_create_file failt\n");
@@ -4273,7 +4273,7 @@ void esd_handle_switch(struct esd_information *esd_info, bool on)
 int tp_register_irq_func(struct touchpanel_data *ts)
 {
     int ret = 0;
-	
+
 #ifdef TPD_USE_EINT
     if (gpio_is_valid(ts->hw_res.irq_gpio)) {
         TPD_DEBUG("%s, irq_gpio is %d, ts->irq is %d\n", __func__, ts->hw_res.irq_gpio, ts->irq);
@@ -4711,7 +4711,7 @@ free_touch_panel_input:
     input_unregister_device(ts->input_dev);
     input_unregister_device(ts->kpd_input_dev);
 	input_unregister_device(ps_input_dev);
-	
+
 
 err_check_functionality_failed:
     ts->ts_ops->power_control(ts->chip_data, false);
