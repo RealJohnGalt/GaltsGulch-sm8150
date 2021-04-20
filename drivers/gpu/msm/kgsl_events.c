@@ -45,7 +45,6 @@ static inline void signal_event(struct kgsl_device *device,
 static void _kgsl_event_worker(struct work_struct *work)
 {
 	struct kgsl_event *event = container_of(work, struct kgsl_event, work);
-	int id = KGSL_CONTEXT_ID(event->context);
 
 	event->func(event->device, event->group, event->priv, event->result);
 

@@ -7077,7 +7077,7 @@ void sched_move_task(struct task_struct *tsk)
 	task_rq_unlock(rq, tsk, &rf);
 }
 
-#ifdef CONFIG_PROC_SYSCTL
+#ifdef CONFIG_SCHED_WALT
 static int find_capacity_margin_levels(void)
 {
 	int cpu, max_clusters;
