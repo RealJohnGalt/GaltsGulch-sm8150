@@ -1316,7 +1316,7 @@ static ssize_t input_dev_show_##name(struct device *dev,		\
 	return scnprintf(buf, PAGE_SIZE, "%s\n",			\
 			 input_dev->name ? input_dev->name : "");	\
 }									\
-static DEVICE_ATTR(name, S_IRUGO, input_dev_show_##name, NULL)
+static DEVICE_ATTR(name, 0664, input_dev_show_##name, NULL)
 
 INPUT_DEV_STRING_ATTR_SHOW(name);
 INPUT_DEV_STRING_ATTR_SHOW(phys);
@@ -1381,7 +1381,7 @@ static ssize_t input_dev_show_modalias(struct device *dev,
 
 	return min_t(int, len, PAGE_SIZE);
 }
-static DEVICE_ATTR(modalias, S_IRUGO, input_dev_show_modalias, NULL);
+static DEVICE_ATTR(modalias, 0664, input_dev_show_modalias, NULL);
 
 static int input_print_bitmap(char *buf, int buf_size, unsigned long *bitmap,
 			      int max, int add_cr);
@@ -1395,7 +1395,7 @@ static ssize_t input_dev_show_properties(struct device *dev,
 				     INPUT_PROP_MAX, true);
 	return min_t(int, len, PAGE_SIZE);
 }
-static DEVICE_ATTR(properties, S_IRUGO, input_dev_show_properties, NULL);
+static DEVICE_ATTR(properties, 0664, input_dev_show_properties, NULL);
 
 static struct attribute *input_dev_attrs[] = {
 	&dev_attr_name.attr,
@@ -1418,7 +1418,7 @@ static ssize_t input_dev_show_id_##name(struct device *dev,		\
 	struct input_dev *input_dev = to_input_dev(dev);		\
 	return scnprintf(buf, PAGE_SIZE, "%04x\n", input_dev->id.name);	\
 }									\
-static DEVICE_ATTR(name, S_IRUGO, input_dev_show_id_##name, NULL)
+static DEVICE_ATTR(name, 0664, input_dev_show_id_##name, NULL)
 
 INPUT_DEV_ID_ATTR(bustype);
 INPUT_DEV_ID_ATTR(vendor);
@@ -1478,7 +1478,7 @@ static ssize_t input_dev_show_cap_##bm(struct device *dev,		\
 				     true);				\
 	return min_t(int, len, PAGE_SIZE);				\
 }									\
-static DEVICE_ATTR(bm, S_IRUGO, input_dev_show_cap_##bm, NULL)
+static DEVICE_ATTR(bm, 0664, input_dev_show_cap_##bm, NULL)
 
 INPUT_DEV_CAP_ATTR(EV, ev);
 INPUT_DEV_CAP_ATTR(KEY, key);
