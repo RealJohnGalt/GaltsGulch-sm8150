@@ -3172,7 +3172,8 @@ static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
 }
 
 static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
-				struct dsi_parser_utils *utils)
+				struct dsi_parser_utils *utils,
+				struct dsi_panel *panel)
 {
 	u32 data;
 	int rc = -EINVAL;
@@ -3188,6 +3189,12 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	priv_info->dsc_enabled = false;
 	compression = utils->get_property(utils->data,
 			"qcom,compression-mode", NULL);
+
+	if (panel->hw_type == DSI_PANEL_SAMSUNG_S6E3HC2) {
+		pr_info("dsc compression is not enabled");
+		return 0;
+	}
+
 	if (compression && !strcmp(compression, "dsc"))
 		priv_info->dsc_enabled = true;
 
@@ -4467,7 +4474,7 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			goto parse_fail;
 		}
 
-		rc = dsi_panel_parse_dsc_params(mode, utils);
+		rc = dsi_panel_parse_dsc_params(mode, utils, panel);
 		if (rc) {
 			pr_err("failed to parse dsc params, rc=%d\n", rc);
 			goto parse_fail;
