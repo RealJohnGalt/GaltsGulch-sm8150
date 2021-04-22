@@ -2639,8 +2639,6 @@
 			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment=<720 65 720 65 720 65>;
 		};
-		/delete-node/ timing@1;
-		/delete-node/ timing@2;
 	};
 };
 
