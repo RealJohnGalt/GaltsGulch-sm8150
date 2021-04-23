@@ -4617,7 +4617,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
 
     //step 18:spurious_fingerprint support
     if (ts->spurious_fp_support) {
-        ts->spuri_fp_touch.thread = kthread_run(finger_protect_handler, ts, "touchpanel_fp");
+        ts->spuri_fp_touch.thread = kthread_run_perf_critical(cpu_prime_mask, finger_protect_handler, ts, "touchpanel_fp");
         if (IS_ERR(ts->spuri_fp_touch.thread)) {
             TPD_INFO("spurious fingerprint thread create failed\n");
         }
