@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.231 Kernel Configuration
+# Linux/arm64 4.14.232 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -3393,6 +3393,7 @@ CONFIG_BACKLIGHT_QCOM_SPMI_WLED=y
 # CONFIG_VGASTATE is not set
 CONFIG_HDMI=y
 # CONFIG_LOGO is not set
+CONFIG_KLAPSE=y
 CONFIG_SOUND=y
 # CONFIG_SOUND_OSS_CORE is not set
 CONFIG_SND=y
