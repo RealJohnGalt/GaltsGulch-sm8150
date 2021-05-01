@@ -38,6 +38,9 @@ choice
 	  with lots of processors that may show reduced performance if
 	  too many timer interrupts are occurring.
 
+	config HZ_120
+		bool "120 HZ"
+
 	config HZ_250
 		bool "250 HZ"
 	help
@@ -66,6 +69,7 @@ config HZ
 	int
 	default 80 if HZ_80
 	default 100 if HZ_100
+	default 120 if HZ_120
 	default 250 if HZ_250
 	default 300 if HZ_300
 	default 1000 if HZ_1000

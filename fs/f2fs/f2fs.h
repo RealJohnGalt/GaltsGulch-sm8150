@@ -610,7 +610,7 @@ enum {
 #elif defined(CONFIG_HZ_250)
 /* congestion wait timeout value, default: 8ms */
 #define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(8))
-#elif defined(CONFIG_HZ_100) || defined(CONFIG_HZ_80)
+#elif defined(CONFIG_HZ_100) || defined(CONFIG_HZ_120) || defined(CONFIG_HZ_80)
 /* congestion wait timeout value, default: 10ms or 8ms */
 #define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(10))
 #endif
