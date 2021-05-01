@@ -607,7 +607,7 @@ enum {
 #if defined(CONFIG_HZ_300) || defined(CONFIG_HZ_1000)
 /* congestion wait timeout value, default: 6ms */
 #define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(6))
-#elif defined(CONFIG_HZ_250)
+#elif defined(CONFIG_HZ_250) || defined(CONFIG_HZ_240)
 /* congestion wait timeout value, default: 8ms */
 #define	DEFAULT_IO_TIMEOUT	(msecs_to_jiffies(8))
 #elif defined(CONFIG_HZ_100) || defined(CONFIG_HZ_120) || defined(CONFIG_HZ_80)
