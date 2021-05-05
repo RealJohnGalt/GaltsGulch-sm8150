@@ -5903,9 +5903,9 @@ cpu_is_in_target_set(struct task_struct *p, int cpu)
 	int first_cpu, next_usable_cpu;
 
 #ifdef CONFIG_SCHED_TUNE
-	if (schedtune_prefer_high_cap(p) && p->prio <= DEFAULT_PRIO) {
+	if (schedtune_prefer_high_cap(p)) {
 #elif  CONFIG_UCLAMP_TASK
-	if (uclamp_boosted(p) && p->prio <= DEFAULT_PRIO) {
+	if (uclamp_boosted(p)) {
 #endif
 		first_cpu = rd->mid_cap_orig_cpu != -1 ? rd->mid_cap_orig_cpu :
 			    rd->max_cap_orig_cpu;
