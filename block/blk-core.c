@@ -47,9 +47,7 @@
 
 #include <linux/math64.h>
 
-#ifdef CONFIG_DEBUG_FS
 struct dentry *blk_debugfs_root;
-#endif
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_remap);
