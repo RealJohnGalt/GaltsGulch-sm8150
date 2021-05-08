@@ -54,7 +54,6 @@ struct hif_execution_ops {
  *					hif_tasklet_exec_context
  *
  * @context: context for the handler function to use.
- * @evt_hist: a pointer to the DP event history
  * @context_name: a pointer to a const string for debugging.
  *		this should help whenever there could be ambiguity
  *		in what type of context the void* context points to
@@ -89,7 +88,6 @@ struct hif_exec_context {
 	const char *context_name;
 	void *context;
 	ext_intr_handler handler;
-	struct hif_event_history *evt_hist;
 
 	bool (*work_complete)(struct hif_exec_context *, int work_done);
 	void (*irq_enable)(struct hif_exec_context *);
@@ -166,8 +164,8 @@ void hif_exec_kill(struct hif_opaque_softc *scn);
  * hif_pci_irq_set_affinity_hint() - API to set IRQ affinity
  * @hif_ext_group: hif_ext_group to extract the irq info
  *
- * This function will set the WLAN IRQ affinity to the gold
- * cores only for defconfig builds
+ * This function will set the IRQ affinity to the gold cores
+ * only for defconfig builds
  *
  * Return: none
  */
@@ -176,11 +174,10 @@ void hif_pci_irq_set_affinity_hint(
 
 /**
  * hif_pci_ce_irq_set_affinity_hint() - API to set IRQ affinity
+ * @hif_softc: hif_softc to extract the CE irq info
  *
  * This function will set the CE IRQ affinity to the gold cores
  * only for defconfig builds
- *
- * @hif_softc: hif_softc to extract the CE irq info
  *
  * Return: none
  */
@@ -200,10 +197,12 @@ static inline void hif_pci_irq_set_affinity_hint(
 	struct hif_exec_context *hif_ext_group)
 {
 }
+
 static inline void hif_pci_ce_irq_set_affinity_hint(
 	struct hif_softc *scn)
 {
 }
+
 static inline void hif_pci_ce_irq_remove_affinity_hint(int irq)
 {
 }

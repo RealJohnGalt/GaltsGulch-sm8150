@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,9 +17,6 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/if_arp.h>
-#ifdef CONFIG_PCI_MSM
-#include <linux/msm_pcie.h>
-#endif
 #include "hif_io32.h"
 #include "if_ipci.h"
 #include "hif.h"
@@ -46,13 +43,31 @@
 
 #include "ipci_api.h"
 
+#ifdef FEATURE_RUNTIME_PM
+inline struct hif_runtime_pm_ctx *hif_ipci_get_rpm_ctx(struct hif_softc *scn)
+{
+	struct hif_ipci_softc *sc = HIF_GET_IPCI_SOFTC(scn);
+
+	return &sc->rpm_ctx;
+}
+
+inline struct device *hif_ipci_get_dev(struct hif_softc *scn)
+{
+	struct hif_ipci_softc *sc = HIF_GET_IPCI_SOFTC(scn);
+
+	return sc->dev;
+}
+#endif
+
 void hif_ipci_enable_power_management(struct hif_softc *hif_sc,
 				      bool is_packet_log_enabled)
 {
+	hif_pm_runtime_start(hif_sc);
 }
 
 void hif_ipci_disable_power_management(struct hif_softc *hif_ctx)
 {
+	hif_pm_runtime_stop(hif_ctx);
 }
 
 void hif_ipci_display_stats(struct hif_softc *hif_ctx)
@@ -65,7 +80,7 @@ void hif_ipci_clear_stats(struct hif_softc *hif_ctx)
 	struct hif_ipci_softc *ipci_ctx = HIF_GET_IPCI_SOFTC(hif_ctx);
 
 	if (!ipci_ctx) {
-		HIF_ERROR("%s, hif_ctx null", __func__);
+		hif_err("hif_ctx null");
 		return;
 	}
 	hif_clear_ce_stats(&ipci_ctx->ce_sc);
@@ -76,16 +91,32 @@ QDF_STATUS hif_ipci_open(struct hif_softc *hif_ctx, enum qdf_bus_type bus_type)
 	struct hif_ipci_softc *sc = HIF_GET_IPCI_SOFTC(hif_ctx);
 
 	hif_ctx->bus_type = bus_type;
+	hif_pm_runtime_open(hif_ctx);
 
 	qdf_spinlock_create(&sc->irq_lock);
 
 	return hif_ce_open(hif_ctx);
 }
 
+/**
+ * hif_ce_msi_map_ce_to_irq() - map CE to IRQ
+ * @scn: hif context
+ * @ce_id: CE Id
+ *
+ * Return: IRQ number
+ */
+static int hif_ce_msi_map_ce_to_irq(struct hif_softc *scn, int ce_id)
+{
+	struct hif_ipci_softc *ipci_scn = HIF_GET_IPCI_SOFTC(scn);
+
+	return ipci_scn->ce_msi_irq_num[ce_id];
+}
+
 int hif_ipci_bus_configure(struct hif_softc *hif_sc)
 {
 	int status = 0;
 	struct HIF_CE_state *hif_state = HIF_GET_CE_STATE(hif_sc);
+	uint8_t wake_ce_id;
 
 	hif_ce_prepare_config(hif_sc);
 
@@ -97,8 +128,7 @@ int hif_ipci_bus_configure(struct hif_softc *hif_sc)
 
 	status = hif_wlan_enable(hif_sc);
 	if (status) {
-		HIF_ERROR("%s: hif_wlan_enable error = %d",
-			  __func__, status);
+		hif_err("hif_wlan_enable error = %d", status);
 		goto timer_free;
 	}
 
@@ -108,9 +138,19 @@ int hif_ipci_bus_configure(struct hif_softc *hif_sc)
 	if (status)
 		goto disable_wlan;
 
+	status = hif_get_wake_ce_id(hif_sc, &wake_ce_id);
+	if (status)
+		goto unconfig_ce;
+
 	status = hif_configure_irq(hif_sc);
 	if (status < 0)
 		goto unconfig_ce;
+
+	hif_sc->wake_irq = hif_ce_msi_map_ce_to_irq(hif_sc, wake_ce_id);
+	hif_sc->wake_irq_type = HIF_PM_CE_WAKE;
+
+	hif_info("expecting wake from ce %d, irq %d",
+		 wake_ce_id, hif_sc->wake_irq);
 
 	A_TARGET_ACCESS_UNLIKELY(hif_sc);
 
@@ -127,12 +167,13 @@ timer_free:
 	qdf_timer_free(&hif_state->sleep_timer);
 	hif_state->sleep_timer_init = false;
 
-	HIF_ERROR("%s: failed, status = %d", __func__, status);
+	hif_err("Failed, status = %d", status);
 	return status;
 }
 
 void hif_ipci_close(struct hif_softc *hif_sc)
 {
+	hif_pm_runtime_close(hif_sc);
 	hif_ce_close(hif_sc);
 }
 
@@ -172,7 +213,7 @@ static int hif_ce_srng_msi_free_irq(struct hif_softc *scn)
 		hif_debug("%s: (ce_id %d, msi_data %d, irq %d)", __func__,
 			  ce_id, msi_data, irq);
 
-		free_irq(irq, &ce_sc->tasklets[ce_id]);
+		pfrm_free_irq(scn->qdf_dev->dev, irq, &ce_sc->tasklets[ce_id]);
 	}
 
 	return ret;
@@ -196,7 +237,8 @@ static void hif_ipci_deconfigure_grp_irq(struct hif_softc *scn)
 			hif_ext_group->irq_requested = false;
 			for (j = 0; j < hif_ext_group->numirq; j++) {
 				irq = hif_ext_group->os_irq[j];
-				free_irq(irq, hif_ext_group);
+				pfrm_free_irq(scn->qdf_dev->dev,
+					      irq, hif_ext_group);
 			}
 			hif_ext_group->numirq = 0;
 		}
@@ -216,13 +258,6 @@ void hif_ipci_nointrs(struct hif_softc *scn)
 	hif_ipci_deconfigure_grp_irq(scn);
 
 	ret = hif_ce_srng_msi_free_irq(scn);
-	if (ret != -EINVAL) {
-		/* ce irqs freed in hif_ce_srng_msi_free_irq */
-
-		if (scn->wake_irq)
-			free_irq(scn->wake_irq, scn);
-		scn->wake_irq = 0;
-	}
 
 	scn->request_irq_done = false;
 }
@@ -247,67 +282,100 @@ void hif_ipci_disable_bus(struct hif_softc *scn)
 		}
 		scn->mem = NULL;
 	}
-	HIF_INFO("%s: X", __func__);
+	hif_info("X");
 }
 
-#if defined(CONFIG_PCI_MSM)
+#ifdef CONFIG_PLD_PCIE_CNSS
 void hif_ipci_prevent_linkdown(struct hif_softc *scn, bool flag)
 {
 	int errno;
 
-	HIF_INFO("wlan: %s pcie power collapse", flag ? "disable" : "enable");
+	hif_info("wlan: %s pcie power collapse", flag ? "disable" : "enable");
+	hif_runtime_prevent_linkdown(scn, flag);
 
 	errno = pld_wlan_pm_control(scn->qdf_dev->dev, flag);
 	if (errno)
-		HIF_ERROR("%s: Failed pld_wlan_pm_control; errno %d",
-			  __func__, errno);
+		hif_err("Failed pld_wlan_pm_control; errno %d", errno);
 }
 #else
 void hif_ipci_prevent_linkdown(struct hif_softc *scn, bool flag)
 {
-	HIF_INFO("wlan: %s pcie power collapse", (flag ? "disable" : "enable"));
 }
 #endif
 
 int hif_ipci_bus_suspend(struct hif_softc *scn)
 {
-	QDF_STATUS ret;
+	int ret;
 
-	hif_apps_irqs_disable(GET_HIF_OPAQUE_HDL(scn));
-
-	ret = hif_try_complete_tasks(scn);
-	if (QDF_IS_STATUS_ERROR(ret)) {
-		hif_apps_irqs_enable(GET_HIF_OPAQUE_HDL(scn));
-		return -EBUSY;
+	ret = hif_apps_disable_irqs_except_wake_irq(GET_HIF_OPAQUE_HDL(scn));
+	if (ret) {
+		hif_err("Failed to disable IRQs");
+		goto disable_irq_fail;
 	}
 
+	ret = hif_apps_enable_irq_wake(GET_HIF_OPAQUE_HDL(scn));
+	if (ret) {
+		hif_err("Failed to enable Wake-IRQ");
+		goto enable_wake_irq_fail;
+	}
+
+	if (QDF_IS_STATUS_ERROR(hif_try_complete_tasks(scn))) {
+		hif_err("hif_try_complete_tasks timed-out, so abort suspend");
+		ret = -EBUSY;
+		goto drain_tasks_fail;
+	}
+
+	/*
+	 * In an unlikely case, if draining becomes infinite loop,
+	 * it returns an error, shall abort the bus suspend.
+	 */
+	ret = hif_drain_fw_diag_ce(scn);
+	if (ret) {
+		hif_err("draining fw_diag_ce goes infinite, so abort suspend");
+		goto drain_tasks_fail;
+	}
+
+	scn->bus_suspended = true;
+
 	return 0;
+
+drain_tasks_fail:
+	hif_apps_disable_irq_wake(GET_HIF_OPAQUE_HDL(scn));
+
+enable_wake_irq_fail:
+	hif_apps_enable_irqs_except_wake_irq(GET_HIF_OPAQUE_HDL(scn));
+
+disable_irq_fail:
+	return ret;
 }
 
 int hif_ipci_bus_resume(struct hif_softc *scn)
 {
-	hif_apps_irqs_enable(GET_HIF_OPAQUE_HDL(scn));
+	int ret = 0;
 
-	return 0;
+	ret = hif_apps_disable_irq_wake(GET_HIF_OPAQUE_HDL(scn));
+	if (ret) {
+		hif_err("Failed to disable Wake-IRQ");
+		goto fail;
+	}
+
+	ret = hif_apps_enable_irqs_except_wake_irq(GET_HIF_OPAQUE_HDL(scn));
+	if (ret)
+		hif_err("Failed to enable IRQs");
+
+	scn->bus_suspended = false;
+
+fail:
+	return ret;
 }
 
 int hif_ipci_bus_suspend_noirq(struct hif_softc *scn)
 {
-	if (hif_can_suspend_link(GET_HIF_OPAQUE_HDL(scn)))
-		qdf_atomic_set(&scn->link_suspended, 1);
-
-	hif_apps_wake_irq_enable(GET_HIF_OPAQUE_HDL(scn));
-
 	return 0;
 }
 
 int hif_ipci_bus_resume_noirq(struct hif_softc *scn)
 {
-	hif_apps_wake_irq_disable(GET_HIF_OPAQUE_HDL(scn));
-
-	if (hif_can_suspend_link(GET_HIF_OPAQUE_HDL(scn)))
-		qdf_atomic_set(&scn->link_suspended, 0);
-
 	return 0;
 }
 
@@ -332,7 +400,7 @@ int hif_ipci_dump_registers(struct hif_softc *hif_ctx)
 	status = hif_dump_ce_registers(scn);
 
 	if (status)
-		HIF_ERROR("%s: Dump CE Registers Failed", __func__);
+		hif_err("Dump CE Registers Failed");
 
 	return 0;
 }
@@ -348,24 +416,12 @@ static irqreturn_t hif_ce_interrupt_handler(int irq, void *context)
 {
 	struct ce_tasklet_entry *tasklet_entry = context;
 
+	hif_pm_runtime_check_and_request_resume(
+			GET_HIF_OPAQUE_HDL(tasklet_entry->hif_ce_state));
 	return ce_dispatch_interrupt(tasklet_entry->ce_id, tasklet_entry);
 }
 
 extern const char *ce_name[];
-
-/**
- * hif_ce_msi_map_ce_to_irq() - map CE to IRQ
- * @scn: hif context
- * @ce_id: CE Id
- *
- * Return: IRQ number
- */
-static int hif_ce_msi_map_ce_to_irq(struct hif_softc *scn, int ce_id)
-{
-	struct hif_ipci_softc *ipci_scn = HIF_GET_IPCI_SOFTC(scn);
-
-	return ipci_scn->ce_msi_irq_num[ce_id];
-}
 
 /* hif_ce_srng_msi_irq_disable() - disable the irq for msi
  * @hif_sc: hif context
@@ -375,7 +431,9 @@ static int hif_ce_msi_map_ce_to_irq(struct hif_softc *scn, int ce_id)
  */
 static void hif_ce_srng_msi_irq_disable(struct hif_softc *hif_sc, int ce_id)
 {
-	disable_irq_nosync(hif_ce_msi_map_ce_to_irq(hif_sc, ce_id));
+	pfrm_disable_irq_nosync(hif_sc->qdf_dev->dev,
+				hif_ce_msi_map_ce_to_irq(hif_sc, ce_id));
+
 }
 
 /* hif_ce_srng_msi_irq_enable() - enable the irq for msi
@@ -386,7 +444,9 @@ static void hif_ce_srng_msi_irq_disable(struct hif_softc *hif_sc, int ce_id)
  */
 static void hif_ce_srng_msi_irq_enable(struct hif_softc *hif_sc, int ce_id)
 {
-	enable_irq(hif_ce_msi_map_ce_to_irq(hif_sc, ce_id));
+	pfrm_enable_irq(hif_sc->qdf_dev->dev,
+			hif_ce_msi_map_ce_to_irq(hif_sc, ce_id));
+
 }
 
 /* hif_ce_msi_configure_irq() - configure the irq
@@ -403,17 +463,9 @@ static int hif_ce_msi_configure_irq(struct hif_softc *scn)
 	uint32_t msi_irq_start;
 	struct HIF_CE_state *ce_sc = HIF_GET_CE_STATE(scn);
 	struct hif_ipci_softc *ipci_sc = HIF_GET_IPCI_SOFTC(scn);
+	uint8_t wake_ce_id;
 
-	/* do wake irq assignment */
-	ret = pld_get_user_msi_assignment(scn->qdf_dev->dev, "WAKE",
-					  &msi_data_count, &msi_data_start,
-					  &msi_irq_start);
-	if (ret)
-		return ret;
-
-	scn->wake_irq = pld_get_msi_irq(scn->qdf_dev->dev, msi_irq_start);
-	ret = request_irq(scn->wake_irq, hif_wake_interrupt_handler,
-			  IRQF_NO_SUSPEND, "wlan_wake_irq", scn);
+	ret = hif_get_wake_ce_id(scn, &wake_ce_id);
 	if (ret)
 		return ret;
 
@@ -422,7 +474,7 @@ static int hif_ce_msi_configure_irq(struct hif_softc *scn)
 					  &msi_data_count, &msi_data_start,
 					  &msi_irq_start);
 	if (ret)
-		goto free_wake_irq;
+		return ret;
 
 	scn->bus_ops.hif_irq_disable = &hif_ce_srng_msi_irq_disable;
 	scn->bus_ops.hif_irq_enable = &hif_ce_srng_msi_irq_enable;
@@ -432,22 +484,24 @@ static int hif_ce_msi_configure_irq(struct hif_softc *scn)
 	 * used in the srng parameter configuration
 	 */
 	for (ce_id = 0; ce_id < scn->ce_count; ce_id++) {
+		unsigned long irqflags = IRQF_SHARED;
 		unsigned int msi_data = (ce_id % msi_data_count) +
 			msi_irq_start;
 		irq = pld_get_msi_irq(scn->qdf_dev->dev, msi_data);
-		HIF_DBG("%s: (ce_id %d, msi_data %d, irq %d tasklet %pK)",
-			__func__, ce_id, msi_data, irq,
-			&ce_sc->tasklets[ce_id]);
+		hif_debug("(ce_id %d, msi_data %d, irq %d tasklet %pK)",
+			 ce_id, msi_data, irq,
+			 &ce_sc->tasklets[ce_id]);
 
 		/* implies the ce is also initialized */
 		if (!ce_sc->tasklets[ce_id].inited)
 			continue;
 
 		ipci_sc->ce_msi_irq_num[ce_id] = irq;
-		ret = request_irq(irq, hif_ce_interrupt_handler,
-				  IRQF_SHARED,
-				  ce_name[ce_id],
-				  &ce_sc->tasklets[ce_id]);
+		ret = pfrm_request_irq(scn->qdf_dev->dev,
+				       irq, hif_ce_interrupt_handler,
+				       irqflags,
+				       ce_name[ce_id],
+				       &ce_sc->tasklets[ce_id]);
 		if (ret)
 			goto free_irq;
 	}
@@ -462,12 +516,8 @@ free_irq:
 		ce_id--;
 		msi_data = (ce_id % msi_data_count) + msi_irq_start;
 		irq = pld_get_msi_irq(scn->qdf_dev->dev, msi_data);
-		free_irq(irq, &ce_sc->tasklets[ce_id]);
+		pfrm_free_irq(scn->qdf_dev->dev, irq, &ce_sc->tasklets[ce_id]);
 	}
-
-free_wake_irq:
-	free_irq(scn->wake_irq, scn->qdf_dev->dev);
-	scn->wake_irq = 0;
 
 	return ret;
 }
@@ -481,9 +531,11 @@ free_wake_irq:
 static void hif_exec_grp_irq_disable(struct hif_exec_context *hif_ext_group)
 {
 	int i;
+	struct hif_softc *scn = HIF_GET_SOFTC(hif_ext_group->hif);
 
 	for (i = 0; i < hif_ext_group->numirq; i++)
-		disable_irq_nosync(hif_ext_group->os_irq[i]);
+		pfrm_disable_irq_nosync(scn->qdf_dev->dev,
+					hif_ext_group->os_irq[i]);
 }
 
 /**
@@ -495,9 +547,10 @@ static void hif_exec_grp_irq_disable(struct hif_exec_context *hif_ext_group)
 static void hif_exec_grp_irq_enable(struct hif_exec_context *hif_ext_group)
 {
 	int i;
+	struct hif_softc *scn = HIF_GET_SOFTC(hif_ext_group->hif);
 
 	for (i = 0; i < hif_ext_group->numirq; i++)
-		enable_irq(hif_ext_group->os_irq[i]);
+		pfrm_enable_irq(scn->qdf_dev->dev, hif_ext_group->os_irq[i]);
 }
 
 const char *hif_ipci_get_irq_name(int irq_no)
@@ -522,14 +575,13 @@ int hif_ipci_configure_grp_irq(struct hif_softc *scn,
 
 		hif_info("request_irq = %d for grp %d",
 			 irq, hif_ext_group->grp_id);
-		ret = request_irq(irq,
-				  hif_ext_group_interrupt_handler,
-				  IRQF_SHARED | IRQF_NO_SUSPEND,
-				  "wlan_EXT_GRP",
-				  hif_ext_group);
+		ret = pfrm_request_irq(scn->qdf_dev->dev, irq,
+				       hif_ext_group_interrupt_handler,
+				       IRQF_SHARED | IRQF_NO_SUSPEND,
+				       "wlan_EXT_GRP",
+				       hif_ext_group);
 		if (ret) {
-			HIF_ERROR("%s: request_irq failed ret = %d",
-				  __func__, ret);
+			hif_err("request_irq failed ret = %d", ret);
 			return -EFAULT;
 		}
 		hif_ext_group->os_irq[j] = irq;
@@ -542,7 +594,7 @@ int hif_configure_irq(struct hif_softc *scn)
 {
 	int ret = 0;
 
-	HIF_TRACE("%s: E", __func__);
+	hif_info("E");
 
 	if (hif_is_polled_mode_enabled(GET_HIF_OPAQUE_HDL(scn))) {
 		scn->request_irq_done = false;
@@ -554,8 +606,7 @@ int hif_configure_irq(struct hif_softc *scn)
 		goto end;
 
 	if (ret < 0) {
-		HIF_ERROR("%s: hif_ipci_configure_irq error = %d",
-			  __func__, ret);
+		hif_err("hif_ipci_configure_irq error = %d", ret);
 		return ret;
 	}
 end:
@@ -640,31 +691,35 @@ QDF_STATUS hif_ipci_enable_bus(struct hif_softc *ol_sc,
 	struct hif_ipci_softc *sc = HIF_GET_IPCI_SOFTC(ol_sc);
 	struct hif_opaque_softc *hif_hdl = GET_HIF_OPAQUE_HDL(ol_sc);
 	uint16_t revision_id = 0;
-	struct pci_dev *pdev = bdev;
 	struct hif_target_info *tgt_info;
 	int device_id = QCA6750_DEVICE_ID;
 
 	if (!ol_sc) {
-		HIF_ERROR("%s: hif_ctx is NULL", __func__);
+		hif_err("hif_ctx is NULL");
 		return QDF_STATUS_E_NOMEM;
+	}
+
+	ret = qdf_set_dma_coherent_mask(dev,
+					DMA_COHERENT_MASK_DEFAULT);
+	if (ret) {
+		hif_err("Failed to set dma mask error = %d", ret);
+		return qdf_status_from_os_return(ret);
 	}
 
 	sc->dev = dev;
 	tgt_info = hif_get_target_info_handle(hif_hdl);
 	hif_ipci_init_deinit_ops_attach(sc, device_id);
 	sc->hif_ipci_get_soc_info(sc, dev);
-	HIF_TRACE("%s: hif_enable_pci done", __func__);
-
-	device_disable_async_suspend(&pdev->dev);
+	hif_debug("hif_enable_pci done");
 
 	ret = hif_get_device_type(device_id, revision_id,
 				  &hif_type, &target_type);
 	if (ret < 0) {
-		HIF_ERROR("%s: invalid device id/revision_id", __func__);
+		hif_err("Invalid device id/revision_id");
 		return QDF_STATUS_E_ABORTED;
 	}
-	HIF_TRACE("%s: hif_type = 0x%x, target_type = 0x%x",
-		  __func__, hif_type, target_type);
+	hif_debug("hif_type = 0x%x, target_type = 0x%x",
+		 hif_type, target_type);
 
 	hif_register_tbl_attach(ol_sc, hif_type);
 	hif_target_register_tbl_attach(ol_sc, target_type);
@@ -672,12 +727,11 @@ QDF_STATUS hif_ipci_enable_bus(struct hif_softc *ol_sc,
 	tgt_info->target_type = target_type;
 
 	if (!ol_sc->mem_pa) {
-		HIF_ERROR("%s: ERROR - BAR0 uninitialized", __func__);
-		ret = -EIO;
+		hif_err("BAR0 uninitialized");
 		return QDF_STATUS_E_ABORTED;
 	}
 
-	return 0;
+	return QDF_STATUS_SUCCESS;
 }
 
 bool hif_ipci_needs_bmi(struct hif_softc *scn)
@@ -688,19 +742,23 @@ bool hif_ipci_needs_bmi(struct hif_softc *scn)
 #ifdef FORCE_WAKE
 int hif_force_wake_request(struct hif_opaque_softc *hif_handle)
 {
-	uint32_t timeout = 0, value;
+	uint32_t timeout = 0;
 	struct hif_softc *scn = (struct hif_softc *)hif_handle;
 	struct hif_ipci_softc *ipci_scn = HIF_GET_IPCI_SOFTC(scn);
 
 	if (pld_force_wake_request(scn->qdf_dev->dev)) {
-		hif_err("force wake request send failed");
+		hif_err_rl("force wake request send failed");
 		return -EINVAL;
 	}
 
 	HIF_STATS_INC(ipci_scn, mhi_force_wake_request_vote, 1);
 	while (!pld_is_device_awake(scn->qdf_dev->dev) &&
 	       timeout <= FORCE_WAKE_DELAY_TIMEOUT_MS) {
-		qdf_mdelay(FORCE_WAKE_DELAY_MS);
+		if (qdf_in_interrupt())
+			qdf_mdelay(FORCE_WAKE_DELAY_MS);
+		else
+			qdf_sleep(FORCE_WAKE_DELAY_MS);
+
 		timeout += FORCE_WAKE_DELAY_MS;
 	}
 
@@ -710,36 +768,6 @@ int hif_force_wake_request(struct hif_opaque_softc *hif_handle)
 		return -EINVAL;
 	}
 	HIF_STATS_INC(ipci_scn, mhi_force_wake_success, 1);
-	hif_write32_mb(scn,
-		       scn->mem +
-		       PCIE_SOC_PCIE_REG_PCIE_SCRATCH_0_SOC_PCIE_REG,
-		       0);
-	hif_write32_mb(scn,
-		       scn->mem +
-		       PCIE_PCIE_LOCAL_REG_PCIE_SOC_WAKE_PCIE_LOCAL_REG,
-		       1);
-
-	HIF_STATS_INC(ipci_scn, soc_force_wake_register_write_success, 1);
-	/*
-	 * do not reset the timeout
-	 * total_wake_time = MHI_WAKE_TIME + PCI_WAKE_TIME < 50 ms
-	 */
-	do {
-		value =
-		hif_read32_mb(scn,
-			      scn->mem +
-			      PCIE_SOC_PCIE_REG_PCIE_SCRATCH_0_SOC_PCIE_REG);
-		if (value)
-			break;
-		qdf_mdelay(FORCE_WAKE_DELAY_MS);
-		timeout += FORCE_WAKE_DELAY_MS;
-	} while (timeout <= FORCE_WAKE_DELAY_TIMEOUT_MS);
-
-	if (!value) {
-		hif_err("failed handshake mechanism");
-		HIF_STATS_INC(ipci_scn, soc_force_wake_failure, 1);
-		return -ETIMEDOUT;
-	}
 
 	HIF_STATS_INC(ipci_scn, soc_force_wake_success, 1);
 
@@ -760,10 +788,7 @@ int hif_force_wake_release(struct hif_opaque_softc *hif_handle)
 	}
 
 	HIF_STATS_INC(ipci_scn, mhi_force_wake_release_success, 1);
-	hif_write32_mb(scn,
-		       scn->mem +
-		       PCIE_PCIE_LOCAL_REG_PCIE_SOC_WAKE_PCIE_LOCAL_REG,
-		       0);
+
 	HIF_STATS_INC(ipci_scn, soc_force_wake_release_success, 1);
 	return 0;
 }
@@ -790,3 +815,24 @@ void hif_print_ipci_stats(struct hif_ipci_softc *ipci_handle)
 		  ipci_handle->stats.soc_force_wake_release_success);
 }
 #endif /* FORCE_WAKE */
+
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
+int hif_prevent_link_low_power_states(struct hif_opaque_softc *hif)
+{
+	return 0;
+}
+
+void hif_allow_link_low_power_states(struct hif_opaque_softc *hif)
+{
+}
+#endif
+
+int hif_ipci_enable_grp_irqs(struct hif_softc *scn)
+{
+	return hif_apps_grp_irqs_enable(GET_HIF_OPAQUE_HDL(scn));
+}
+
+int hif_ipci_disable_grp_irqs(struct hif_softc *scn)
+{
+	return hif_apps_grp_irqs_disable(GET_HIF_OPAQUE_HDL(scn));
+}

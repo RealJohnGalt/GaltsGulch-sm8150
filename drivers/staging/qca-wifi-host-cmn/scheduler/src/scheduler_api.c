@@ -33,6 +33,11 @@ QDF_STATUS scheduler_disable(void)
 	if (!sched_ctx)
 		return QDF_STATUS_E_INVAL;
 
+	if (!sched_ctx->sch_thread) {
+		sched_debug("Scheduler already disabled");
+		return QDF_STATUS_SUCCESS;
+	}
+
 	/* send shutdown signal to scheduler thread */
 	qdf_atomic_set_bit(MC_SHUTDOWN_EVENT_MASK, &sched_ctx->sch_event_flag);
 	qdf_atomic_set_bit(MC_POST_EVENT_MASK, &sched_ctx->sch_event_flag);
@@ -464,7 +469,10 @@ QDF_STATUS scheduler_timer_q_mq_handler(struct scheduler_msg *msg)
 	if (msg->reserved != SYS_MSG_COOKIE || msg->type != SYS_MSG_ID_MC_TIMER)
 		return sched_ctx->legacy_sys_handler(msg);
 
-	timer_callback = msg->callback;
+	/* scheduler_msg_process_fn_t and qdf_mc_timer_callback_t have
+	 * different parameters and return type
+	 */
+	timer_callback = (qdf_mc_timer_callback_t)msg->callback;
 	QDF_BUG(timer_callback);
 	if (!timer_callback)
 		return QDF_STATUS_E_FAILURE;
@@ -641,7 +649,7 @@ void scheduler_mc_timer_callback(qdf_mc_timer_t *timer)
 	/* serialize to scheduler controller thread */
 	msg.type = SYS_MSG_ID_MC_TIMER;
 	msg.reserved = SYS_MSG_COOKIE;
-	msg.callback = callback;
+	msg.callback = (scheduler_msg_process_fn_t)callback;
 	msg.bodyptr = user_data;
 	msg.bodyval = 0;
 

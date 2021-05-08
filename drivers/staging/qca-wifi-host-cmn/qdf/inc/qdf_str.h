@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -170,4 +170,30 @@ qdf_str_ncmp(const char *str1, const char *str2, qdf_size_t limit)
 	return __qdf_str_ncmp(str1, str2, limit);
 }
 
+/**
+ * qdf_str_sep - extract token from string
+ * @str: String buffer
+ * @delim: Delimitter
+ * Return: Pointer to the first token
+ *
+ */
+static inline char *qdf_str_sep(char **str, char *delim)
+{
+	return __qdf_str_sep(str, delim);
+}
+
+/**
+ * qdf_str_copy_all_before_char() - API to copy all character before a
+ * particular char provided
+ * @str: Source string
+ * @str_len: Source string legnth
+ * @dst: Destination string
+ * @dst_len: Destination string legnth
+ * @c: Character before which all characters need to be copied
+ *
+ * Return: length of the copied string, if success. zero otherwise.
+ */
+uint32_t
+qdf_str_copy_all_before_char(char *str, uint32_t str_len,
+			     char *dst, uint32_t dst_len, char c);
 #endif /* __QDF_STR_H */

@@ -274,6 +274,12 @@ struct dp_tx_desc_pool_s *dp_tx_create_flow_pool(struct dp_soc *soc,
 		return NULL;
 	}
 
+	if (dp_tx_desc_pool_init(soc, flow_pool_id, flow_pool_size)) {
+		dp_tx_desc_pool_free(soc, flow_pool_id);
+		qdf_spin_unlock_bh(&pool->flow_pool_lock);
+		return NULL;
+	}
+
 	stop_threshold = wlan_cfg_get_tx_flow_stop_queue_th(soc->wlan_cfg_ctx);
 	start_threshold = stop_threshold +
 		wlan_cfg_get_tx_flow_start_queue_offset(soc->wlan_cfg_ctx);
@@ -336,15 +342,19 @@ int dp_tx_delete_flow_pool(struct dp_soc *soc, struct dp_tx_desc_pool_s *pool,
 		pool->status = FLOW_POOL_INVALID;
 		qdf_spin_unlock_bh(&pool->flow_pool_lock);
 		/* Reset TX desc associated to this Vdev as NULL */
-		vdev = dp_get_vdev_from_soc_vdev_id_wifi3(soc,
-							  pool->flow_pool_id);
-		if (vdev)
+		vdev = dp_vdev_get_ref_by_id(soc, pool->flow_pool_id,
+					     DP_MOD_ID_MISC);
+		if (vdev) {
 			dp_tx_desc_flush(vdev->pdev, vdev, false);
+			dp_vdev_unref_delete(soc, vdev,
+					     DP_MOD_ID_MISC);
+		}
 		dp_err("avail desc less than pool size");
 		return -EAGAIN;
 	}
 
 	/* We have all the descriptors for the pool, we can delete the pool */
+	dp_tx_desc_pool_deinit(soc, pool->flow_pool_id);
 	dp_tx_desc_pool_free(soc, pool->flow_pool_id);
 	qdf_spin_unlock_bh(&pool->flow_pool_lock);
 	return 0;
@@ -364,7 +374,7 @@ static void dp_tx_flow_pool_vdev_map(struct dp_pdev *pdev,
 	struct dp_vdev *vdev;
 	struct dp_soc *soc = pdev->soc;
 
-	vdev = dp_get_vdev_from_soc_vdev_id_wifi3(soc, vdev_id);
+	vdev = dp_vdev_get_ref_by_id(soc, vdev_id, DP_MOD_ID_CDP);
 	if (!vdev) {
 		QDF_TRACE(QDF_MODULE_ID_DP, QDF_TRACE_LEVEL_ERROR,
 		   "%s: invalid vdev_id %d",
@@ -377,6 +387,7 @@ static void dp_tx_flow_pool_vdev_map(struct dp_pdev *pdev,
 	pool->pool_owner_ctx = soc;
 	pool->flow_pool_id = vdev_id;
 	qdf_spin_unlock_bh(&pool->flow_pool_lock);
+	dp_vdev_unref_delete(soc, vdev, DP_MOD_ID_CDP);
 }
 
 /**
@@ -393,7 +404,7 @@ static void dp_tx_flow_pool_vdev_unmap(struct dp_pdev *pdev,
 	struct dp_vdev *vdev;
 	struct dp_soc *soc = pdev->soc;
 
-	vdev = dp_get_vdev_from_soc_vdev_id_wifi3(soc, vdev_id);
+	vdev = dp_vdev_get_ref_by_id(soc, vdev_id, DP_MOD_ID_CDP);
 	if (!vdev) {
 		QDF_TRACE(QDF_MODULE_ID_DP, QDF_TRACE_LEVEL_ERROR,
 		   "%s: invalid vdev_id %d",
@@ -402,6 +413,7 @@ static void dp_tx_flow_pool_vdev_unmap(struct dp_pdev *pdev,
 	}
 
 	vdev->pool = NULL;
+	dp_vdev_unref_delete(soc, vdev, DP_MOD_ID_CDP);
 }
 
 /**
@@ -536,8 +548,8 @@ static inline void dp_tx_desc_pool_dealloc(struct dp_soc *soc)
 		if (!tx_desc_pool->desc_pages.num_pages)
 			continue;
 
-		if (dp_tx_desc_pool_free(soc, i) != QDF_STATUS_SUCCESS)
-			dp_err("Tx Desc Pool:%d Free failed", i);
+		dp_tx_desc_pool_deinit(soc, i);
+		dp_tx_desc_pool_free(soc, i);
 	}
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -414,6 +414,13 @@ static inline void __qdf_bug(void)
 		} \
 	} while (0)
 
+#define QDF_BUG_ON_ASSERT(_condition) \
+	do { \
+		if (!(_condition)) { \
+			__qdf_bug(); \
+		} \
+	} while (0)
+
 #else /* PANIC_ON_BUG */
 
 #define QDF_DEBUG_PANIC(reason...) \
@@ -433,6 +440,13 @@ static inline void __qdf_bug(void)
 		} \
 	} while (0)
 
+#define QDF_BUG_ON_ASSERT(_condition) \
+	do { \
+		if (!(_condition)) { \
+			/* no-op */ \
+		} \
+	} while (0)
+
 #endif /* PANIC_ON_BUG */
 
 #ifdef KSYM_SYMBOL_LEN
@@ -445,8 +459,9 @@ static inline void __qdf_bug(void)
 static inline void
 __qdf_minidump_log(void *start_addr, size_t size, const char *name)
 {
-	if (fill_minidump_segments((uintptr_t)start_addr, size,
-	    QCA_WDT_LOG_DUMP_TYPE_WLAN_MOD, (char *)name) < 0)
+	if (minidump_fill_segments((const uintptr_t)start_addr, size,
+				   QCA_WDT_LOG_DUMP_TYPE_WLAN_MOD,
+				   name) < 0)
 		QDF_TRACE(QDF_MODULE_ID_QDF, QDF_TRACE_LEVEL_INFO,
 			"%s: failed to log %pK (%s)\n",
 			__func__, start_addr, name);
@@ -455,7 +470,7 @@ __qdf_minidump_log(void *start_addr, size_t size, const char *name)
 static inline void
 __qdf_minidump_remove(void *addr)
 {
-	remove_minidump_segments((uintptr_t)addr);
+	minidump_remove_segments((const uintptr_t)addr);
 }
 #else
 static inline void

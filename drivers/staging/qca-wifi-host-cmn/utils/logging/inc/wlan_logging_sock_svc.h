@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -46,18 +46,40 @@ int wlan_log_to_user(QDF_TRACE_LEVEL log_level, char *to_be_sent, int length);
  */
 int wlan_logging_set_flush_timer(uint32_t milliseconds);
 
+/**
+ * wlan_logging_notifier_init() - registers to panic notifier chain
+ * @dump_at_kernel_enable: qdf logging at kernel level enabled
+ *
+ * This function registers an handler to panic notifier chain if
+ * qdf logging at kernel level is disabled.
+ *
+ * Return: 0 on success
+ */
+int wlan_logging_notifier_init(bool dump_at_kernel_enable);
+
+/**
+ * wlan_logging_notifier_deinit() - unregisters to panic notifier chain
+ * @dump_at_kernel_enable: qdf logging at kernel level enabled
+ *
+ * This function unregisters an handler to panic notifier chain if
+ * qdf logging at kernel level is disabled.
+ *
+ * Return: 0 on success
+ */
+int wlan_logging_notifier_deinit(bool dump_at_kernel_enable);
+
 #ifdef WLAN_LOGGING_SOCK_SVC_ENABLE
 void wlan_logging_set_per_pkt_stats(void);
 void wlan_logging_set_fw_flush_complete(void);
 void wlan_flush_host_logs_for_fatal(void);
 void wlan_logging_set_active(bool active);
-void wlan_logging_set_log_to_console(bool log_to_console);
+void wlan_set_console_log_levels(uint32_t console_log_levels);
 #else
 static inline void wlan_flush_host_logs_for_fatal(void) {}
 static inline void wlan_logging_set_per_pkt_stats(void) {}
 static inline void wlan_logging_set_fw_flush_complete(void) {}
 static inline void wlan_logging_set_active(bool active) {}
-static inline void wlan_logging_set_log_to_console(bool log_to_console) {}
+static inline void wlan_set_console_log_levels(uint32_t console_log_levels) {}
 #endif /* WLAN_LOGGING_SOCK_SVC_ENABLE */
 
 #if defined(WLAN_LOGGING_SOCK_SVC_ENABLE) && \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -757,6 +757,8 @@ static void reset_endpoint_states(HTC_TARGET *target)
 		INIT_HTC_PACKET_QUEUE(&pEndpoint->RxBufferHoldQueue);
 		pEndpoint->target = target;
 		pEndpoint->TxCreditFlowEnabled = (bool)htc_credit_flow;
+		pEndpoint->num_requeues_warn = 0;
+		pEndpoint->total_num_requeues = 0;
 		qdf_atomic_init(&pEndpoint->TxProcessCount);
 	}
 }
@@ -1172,7 +1174,7 @@ int htc_pm_runtime_get(HTC_HANDLE htc_handle)
 	HTC_TARGET *target = GET_HTC_TARGET_FROM_HANDLE(htc_handle);
 
 	return hif_pm_runtime_get(target->hif_dev,
-				  RTPM_ID_HTC);
+				  RTPM_ID_HTC, false);
 }
 
 int htc_pm_runtime_put(HTC_HANDLE htc_handle)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -159,6 +159,28 @@ cdp_ipa_register_op_cb(ol_txrx_soc_handle soc, uint8_t pdev_id,
 							     op_cb, usr_ctxt);
 
 	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * cdp_ipa_deregister_op_cb() - deregister event handler function pointer
+ * @soc - data path soc handle
+ * @pdev_id - device instance id
+ *
+ * Deregister event handler function pointer from pdev
+ *
+ * return QDF_STATUS_SUCCESS
+ */
+static inline
+void cdp_ipa_deregister_op_cb(ol_txrx_soc_handle soc, uint8_t pdev_id)
+{
+	if (!soc || !soc->ops || !soc->ops->ipa_ops) {
+		QDF_TRACE(QDF_MODULE_ID_DP, QDF_TRACE_LEVEL_FATAL,
+			  "%s invalid instance", __func__);
+		return;
+	}
+
+	if (soc->ops->ipa_ops->ipa_deregister_op_cb)
+		soc->ops->ipa_ops->ipa_deregister_op_cb(soc, pdev_id);
 }
 
 /**
@@ -611,6 +633,56 @@ cdp_ipa_rx_intrabss_fwd(ol_txrx_soc_handle soc, uint8_t vdev_id,
 	return false;
 }
 
+/**
+ * cdp_ipa_tx_buf_smmu_mapping() - Create SMMU mappings for Tx
+ *				   buffers allocated to IPA
+ * @soc: data path soc handle
+ * @pdev_id: device instance id
+ *
+ * Create SMMU mappings for Tx buffers allocated to IPA
+ *
+ * return QDF_STATUS_SUCCESS
+ */
+static inline QDF_STATUS
+cdp_ipa_tx_buf_smmu_mapping(ol_txrx_soc_handle soc, uint8_t pdev_id)
+{
+	if (!soc || !soc->ops || !soc->ops->ipa_ops) {
+		QDF_TRACE(QDF_MODULE_ID_DP, QDF_TRACE_LEVEL_FATAL,
+			  "%s invalid instance", __func__);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (soc->ops->ipa_ops->ipa_tx_buf_smmu_mapping)
+		return soc->ops->ipa_ops->ipa_tx_buf_smmu_mapping(soc, pdev_id);
+
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * cdp_ipa_tx_buf_smmu_unmapping() - Release SMMU mappings for Tx
+ *				     buffers allocated to IPA
+ * @soc: data path soc handle
+ * @pdev_id: device instance id
+ *
+ * Release SMMU mappings for Tx buffers allocated to IPA
+ *
+ * return QDF_STATUS_SUCCESS
+ */
+static inline QDF_STATUS
+cdp_ipa_tx_buf_smmu_unmapping(ol_txrx_soc_handle soc, uint8_t pdev_id)
+{
+	if (!soc || !soc->ops || !soc->ops->ipa_ops) {
+		QDF_TRACE(QDF_MODULE_ID_DP, QDF_TRACE_LEVEL_FATAL,
+			  "%s invalid instance", __func__);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (soc->ops->ipa_ops->ipa_tx_buf_smmu_unmapping)
+		return soc->ops->ipa_ops->ipa_tx_buf_smmu_unmapping(soc,
+								    pdev_id);
+
+	return QDF_STATUS_SUCCESS;
+}
 #endif /* IPA_OFFLOAD */
 
 #endif /* _CDP_TXRX_IPA_H_ */

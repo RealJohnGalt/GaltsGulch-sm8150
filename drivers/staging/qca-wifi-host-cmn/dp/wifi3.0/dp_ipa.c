@@ -96,24 +96,27 @@ static void dp_ipa_reo_remap_history_add(uint32_t ix0_val, uint32_t ix2_val,
 
 static QDF_STATUS __dp_ipa_handle_buf_smmu_mapping(struct dp_soc *soc,
 						   qdf_nbuf_t nbuf,
+						   uint32_t size,
 						   bool create)
 {
 	qdf_mem_info_t mem_map_table = {0};
 
+	if (!qdf_ipa_is_ready())
+		return QDF_STATUS_SUCCESS;
+
 	qdf_update_mem_map_table(soc->osdev, &mem_map_table,
 				 qdf_nbuf_get_frag_paddr(nbuf, 0),
-				 skb_end_pointer(nbuf) - nbuf->data);
+				 size);
 
 	if (create)
-		qdf_ipa_wdi_create_smmu_mapping(1, &mem_map_table);
+		return qdf_ipa_wdi_create_smmu_mapping(1, &mem_map_table);
 	else
-		qdf_ipa_wdi_release_smmu_mapping(1, &mem_map_table);
-
-	return QDF_STATUS_SUCCESS;
+		return qdf_ipa_wdi_release_smmu_mapping(1, &mem_map_table);
 }
 
 QDF_STATUS dp_ipa_handle_rx_buf_smmu_mapping(struct dp_soc *soc,
 					     qdf_nbuf_t nbuf,
+					     uint32_t size,
 					     bool create)
 {
 	struct dp_pdev *pdev;
@@ -129,10 +132,61 @@ QDF_STATUS dp_ipa_handle_rx_buf_smmu_mapping(struct dp_soc *soc,
 	    !qdf_mem_smmu_s1_enabled(soc->osdev))
 		return QDF_STATUS_SUCCESS;
 
-	if (!qdf_atomic_read(&soc->ipa_pipes_enabled))
-		return QDF_STATUS_SUCCESS;
+	/**
+	 * Even if ipa pipes is disabled, but if it's unmap
+	 * operation and nbuf has done ipa smmu map before,
+	 * do ipa smmu unmap as well.
+	 */
+	if (!qdf_atomic_read(&soc->ipa_pipes_enabled)) {
+		if (!create && qdf_nbuf_is_rx_ipa_smmu_map(nbuf)) {
+			DP_STATS_INC(soc, rx.err.ipa_unmap_no_pipe, 1);
+		} else {
+			return QDF_STATUS_SUCCESS;
+		}
+	}
 
-	return __dp_ipa_handle_buf_smmu_mapping(soc, nbuf, create);
+	if (qdf_unlikely(create == qdf_nbuf_is_rx_ipa_smmu_map(nbuf))) {
+		if (create) {
+			DP_STATS_INC(soc, rx.err.ipa_smmu_map_dup, 1);
+		} else {
+			DP_STATS_INC(soc, rx.err.ipa_smmu_unmap_dup, 1);
+		}
+		return QDF_STATUS_E_INVAL;
+	}
+
+	qdf_nbuf_set_rx_ipa_smmu_map(nbuf, create);
+
+	return __dp_ipa_handle_buf_smmu_mapping(soc, nbuf, size, create);
+}
+
+static QDF_STATUS __dp_ipa_tx_buf_smmu_mapping(
+	struct dp_soc *soc,
+	struct dp_pdev *pdev,
+	bool create)
+{
+	uint32_t index;
+	QDF_STATUS ret = QDF_STATUS_SUCCESS;
+	uint32_t tx_buffer_cnt = soc->ipa_uc_tx_rsc.alloc_tx_buf_cnt;
+	qdf_nbuf_t nbuf;
+	uint32_t buf_len;
+
+	if (!ipa_is_ready()) {
+		dp_info("IPA is not READY");
+		return 0;
+	}
+
+	for (index = 0; index < tx_buffer_cnt; index++) {
+		nbuf = (qdf_nbuf_t)
+			soc->ipa_uc_tx_rsc.tx_buf_pool_vaddr_unaligned[index];
+		if (!nbuf)
+			continue;
+		buf_len = qdf_nbuf_get_data_len(nbuf);
+		ret = __dp_ipa_handle_buf_smmu_mapping(
+				soc, nbuf, buf_len, create);
+		qdf_assert_always(!ret);
+	}
+
+	return ret;
 }
 
 #ifdef RX_DESC_MULTI_PAGE_ALLOC
@@ -168,7 +222,21 @@ static QDF_STATUS dp_ipa_handle_rx_buf_pool_smmu_mapping(struct dp_soc *soc,
 			continue;
 		nbuf = rx_desc->nbuf;
 
-		__dp_ipa_handle_buf_smmu_mapping(soc, nbuf, create);
+		if (qdf_unlikely(create ==
+				 qdf_nbuf_is_rx_ipa_smmu_map(nbuf))) {
+			if (create) {
+				DP_STATS_INC(soc,
+					     rx.err.ipa_smmu_map_dup, 1);
+			} else {
+				DP_STATS_INC(soc,
+					     rx.err.ipa_smmu_unmap_dup, 1);
+			}
+			continue;
+		}
+		qdf_nbuf_set_rx_ipa_smmu_map(nbuf, create);
+
+		__dp_ipa_handle_buf_smmu_mapping(soc, nbuf,
+						 rx_pool->buf_size, create);
 	}
 	qdf_spin_unlock_bh(&rx_pool->lock);
 
@@ -198,7 +266,21 @@ static QDF_STATUS dp_ipa_handle_rx_buf_pool_smmu_mapping(struct dp_soc *soc,
 
 		nbuf = rx_pool->array[i].rx_desc.nbuf;
 
-		__dp_ipa_handle_buf_smmu_mapping(soc, nbuf, create);
+		if (qdf_unlikely(create ==
+				 qdf_nbuf_is_rx_ipa_smmu_map(nbuf))) {
+			if (create) {
+				DP_STATS_INC(soc,
+					     rx.err.ipa_smmu_map_dup, 1);
+			} else {
+				DP_STATS_INC(soc,
+					     rx.err.ipa_smmu_unmap_dup, 1);
+			}
+			continue;
+		}
+		qdf_nbuf_set_rx_ipa_smmu_map(nbuf, create);
+
+		__dp_ipa_handle_buf_smmu_mapping(soc, nbuf,
+						 rx_pool->buf_size, create);
 	}
 	qdf_spin_unlock_bh(&rx_pool->lock);
 
@@ -226,10 +308,6 @@ static void dp_tx_ipa_uc_detach(struct dp_soc *soc, struct dp_pdev *pdev)
 			soc->ipa_uc_tx_rsc.tx_buf_pool_vaddr_unaligned[idx];
 		if (!nbuf)
 			continue;
-
-		if (qdf_mem_smmu_s1_enabled(soc->osdev))
-			__dp_ipa_handle_buf_smmu_mapping(soc, nbuf, false);
-
 		qdf_nbuf_unmap_single(soc->osdev, nbuf, QDF_DMA_BIDIRECTIONAL);
 		qdf_nbuf_free(nbuf);
 		soc->ipa_uc_tx_rsc.tx_buf_pool_vaddr_unaligned[idx] =
@@ -240,7 +318,8 @@ static void dp_tx_ipa_uc_detach(struct dp_soc *soc, struct dp_pdev *pdev)
 	soc->ipa_uc_tx_rsc.tx_buf_pool_vaddr_unaligned = NULL;
 
 	ipa_res = &pdev->ipa_resource;
-	iounmap(ipa_res->tx_comp_doorbell_vaddr);
+	if (!ipa_res->is_db_ddr_mapped)
+		iounmap(ipa_res->tx_comp_doorbell_vaddr);
 
 	qdf_mem_free_sgtable(&ipa_res->tx_ring.sgtable);
 	qdf_mem_free_sgtable(&ipa_res->tx_comp_ring.sgtable);
@@ -373,9 +452,6 @@ static int dp_tx_ipa_uc_attach(struct dp_soc *soc, struct dp_pdev *pdev)
 
 		soc->ipa_uc_tx_rsc.tx_buf_pool_vaddr_unaligned[tx_buffer_count]
 			= (void *)nbuf;
-
-		if (qdf_mem_smmu_s1_enabled(soc->osdev))
-			__dp_ipa_handle_buf_smmu_mapping(soc, nbuf, true);
 	}
 
 	hal_srng_access_end_unlocked(soc->hal_soc,
@@ -506,9 +582,6 @@ int dp_ipa_ring_resource_setup(struct dp_soc *soc,
 						srng_params.ring_base_vaddr;
 	soc->ipa_uc_tx_rsc.ipa_wbm_ring_size =
 		(srng_params.num_entries * srng_params.entry_size) << 2;
-	soc->ipa_uc_tx_rsc.ipa_wbm_hp_shadow_paddr =
-		hal_srng_get_hp_addr(hal_soc_to_hal_soc_handle(hal_soc),
-				     hal_srng_to_hal_ring_handle(hal_srng));
 	addr_offset = (unsigned long)(hal_srng->u.dst_ring.tp_addr) -
 		      (unsigned long)(hal_soc->dev_base_addr);
 	soc->ipa_uc_tx_rsc.ipa_wbm_tp_paddr =
@@ -627,7 +700,7 @@ QDF_STATUS dp_ipa_get_resource(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	struct dp_ipa_resources *ipa_res;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -659,34 +732,16 @@ QDF_STATUS dp_ipa_get_resource(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 			soc->ipa_uc_rx_rsc.ipa_rx_refill_buf_ring_base_paddr,
 			soc->ipa_uc_rx_rsc.ipa_rx_refill_buf_ring_size);
 
-	if (!qdf_mem_get_dma_addr(soc->osdev,
+	if (!qdf_mem_get_dma_addr(soc->osdev, &ipa_res->tx_ring.mem_info) ||
+	    !qdf_mem_get_dma_addr(soc->osdev,
 				  &ipa_res->tx_comp_ring.mem_info) ||
-	    !qdf_mem_get_dma_addr(soc->osdev, &ipa_res->rx_rdy_ring.mem_info))
+	    !qdf_mem_get_dma_addr(soc->osdev, &ipa_res->rx_rdy_ring.mem_info) ||
+	    !qdf_mem_get_dma_addr(soc->osdev,
+				  &ipa_res->rx_refill_ring.mem_info))
 		return QDF_STATUS_E_FAILURE;
 
 	return QDF_STATUS_SUCCESS;
 }
-
-static void dp_ipa_set_tx_doorbell_paddr(struct dp_soc *soc,
-					 struct dp_ipa_resources *ipa_res)
-{
-	struct hal_srng *wbm_srng = (struct hal_srng *)
-			soc->tx_comp_ring[IPA_TX_COMP_RING_IDX].hal_srng;
-
-	hal_srng_dst_set_hp_paddr_confirm(wbm_srng,
-					  ipa_res->tx_comp_doorbell_paddr);
-
-	dp_info("paddr %pK vaddr %pK",
-		(void *)ipa_res->tx_comp_doorbell_paddr,
-		(void *)ipa_res->tx_comp_doorbell_vaddr);
-}
-
-#ifdef IPA_SET_RESET_TX_DB_PA
-#define DP_IPA_SET_TX_DB_PADDR(soc, ipa_res)
-#else
-#define DP_IPA_SET_TX_DB_PADDR(soc, ipa_res) \
-		dp_ipa_set_tx_doorbell_paddr(soc, ipa_res)
-#endif
 
 QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 {
@@ -694,6 +749,8 @@ QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	struct dp_pdev *pdev =
 		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
 	struct dp_ipa_resources *ipa_res;
+	struct hal_srng *wbm_srng = (struct hal_srng *)
+			soc->tx_comp_ring[IPA_TX_COMP_RING_IDX].hal_srng;
 	struct hal_srng *reo_srng = (struct hal_srng *)
 			soc->reo_dest_ring[IPA_REO_DEST_RING_IDX].hal_srng;
 	uint32_t tx_comp_doorbell_dmaaddr;
@@ -701,7 +758,7 @@ QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	int ret = 0;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -709,7 +766,11 @@ QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	if (!wlan_cfg_is_ipa_enabled(soc->wlan_cfg_ctx))
 		return QDF_STATUS_SUCCESS;
 
-	ipa_res->tx_comp_doorbell_vaddr =
+	if (ipa_res->is_db_ddr_mapped)
+		ipa_res->tx_comp_doorbell_vaddr =
+				phys_to_virt(ipa_res->tx_comp_doorbell_paddr);
+	else
+		ipa_res->tx_comp_doorbell_vaddr =
 				ioremap(ipa_res->tx_comp_doorbell_paddr, 4);
 
 	if (qdf_mem_smmu_s1_enabled(soc->osdev)) {
@@ -728,7 +789,11 @@ QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 		qdf_assert_always(!ret);
 	}
 
-	DP_IPA_SET_TX_DB_PADDR(soc, ipa_res);
+	hal_srng_dst_set_hp_paddr(wbm_srng, ipa_res->tx_comp_doorbell_paddr);
+
+	dp_info("paddr %pK vaddr %pK",
+		(void *)ipa_res->tx_comp_doorbell_paddr,
+		(void *)ipa_res->tx_comp_doorbell_vaddr);
 
 	/*
 	 * For RX, REO module on Napier/Hastings does reordering on incoming
@@ -737,8 +802,7 @@ QDF_STATUS dp_ipa_set_doorbell_paddr(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	 * to IPA.
 	 * Set the doorbell addr for the REO ring.
 	 */
-	hal_srng_dst_set_hp_paddr_confirm(reo_srng,
-					  ipa_res->rx_ready_doorbell_paddr);
+	hal_srng_dst_set_hp_paddr(reo_srng, ipa_res->rx_ready_doorbell_paddr);
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -750,7 +814,7 @@ QDF_STATUS dp_ipa_op_response(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -778,7 +842,7 @@ QDF_STATUS dp_ipa_register_op_cb(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -789,6 +853,21 @@ QDF_STATUS dp_ipa_register_op_cb(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 	pdev->usr_ctxt = usr_ctxt;
 
 	return QDF_STATUS_SUCCESS;
+}
+
+void dp_ipa_deregister_op_cb(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
+{
+	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
+	struct dp_pdev *pdev = dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
+
+	if (!pdev) {
+		dp_err("Invalid instance");
+		return;
+	}
+
+	dp_debug("Deregister OP handler callback");
+	pdev->ipa_uc_op_cb = NULL;
+	pdev->usr_ctxt = NULL;
 }
 
 QDF_STATUS dp_ipa_get_stat(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
@@ -831,7 +910,7 @@ QDF_STATUS dp_ipa_enable_autonomy(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	uint32_t ix2;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -883,7 +962,7 @@ QDF_STATUS dp_ipa_disable_autonomy(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	uint32_t ix3;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -1161,7 +1240,7 @@ QDF_STATUS dp_ipa_setup(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 	int ret;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -1260,6 +1339,9 @@ QDF_STATUS dp_ipa_setup(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 	ipa_res->rx_ready_doorbell_paddr =
 		QDF_IPA_WDI_CONN_OUT_PARAMS_RX_UC_DB_PA(&pipe_out);
 
+	ipa_res->is_db_ddr_mapped =
+		QDF_IPA_WDI_CONN_OUT_PARAMS_IS_DB_DDR_MAPPED(&pipe_out);
+
 	soc->ipa_first_tx_db_access = true;
 
 	return QDF_STATUS_SUCCESS;
@@ -1356,7 +1438,7 @@ QDF_STATUS dp_ipa_setup(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 	int ret;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -1661,36 +1743,6 @@ QDF_STATUS dp_ipa_cleanup_iface(char *ifname, bool is_ipv6_enabled)
 	return QDF_STATUS_SUCCESS;
 }
 
-#ifdef IPA_SET_RESET_TX_DB_PA
-static
-QDF_STATUS dp_ipa_reset_tx_doorbell_pa(struct dp_soc *soc,
-				       struct dp_ipa_resources *ipa_res)
-{
-	hal_ring_handle_t wbm_srng =
-			soc->tx_comp_ring[IPA_TX_COMP_RING_IDX].hal_srng;
-	qdf_dma_addr_t hp_addr;
-
-	if (!wbm_srng)
-		return QDF_STATUS_E_FAILURE;
-
-	hp_addr = soc->ipa_uc_tx_rsc.ipa_wbm_hp_shadow_paddr;
-
-	hal_srng_dst_set_hp_paddr_confirm((struct hal_srng *)wbm_srng, hp_addr);
-
-	dp_info("Reset WBM HP addr paddr: %pK", (void *)hp_addr);
-
-	return QDF_STATUS_SUCCESS;
-}
-
-#define DP_IPA_EP_SET_TX_DB_PA(soc, ipa_res) \
-				dp_ipa_set_tx_doorbell_paddr((soc), (ipa_res))
-#define DP_IPA_RESET_TX_DB_PA(soc, ipa_res) \
-				dp_ipa_reset_tx_doorbell_pa((soc), (ipa_res))
-#else
-#define DP_IPA_EP_SET_TX_DB_PA(soc, ipa_res)
-#define DP_IPA_RESET_TX_DB_PA(soc, ipa_res)
-#endif
-
 QDF_STATUS dp_ipa_enable_pipes(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 {
 	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
@@ -1702,14 +1754,13 @@ QDF_STATUS dp_ipa_enable_pipes(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	QDF_STATUS result;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
 	ipa_res = &pdev->ipa_resource;
 
 	qdf_atomic_set(&soc->ipa_pipes_enabled, 1);
-	DP_IPA_EP_SET_TX_DB_PA(soc, ipa_res);
 	dp_ipa_handle_rx_buf_pool_smmu_mapping(soc, pdev, true);
 
 	result = qdf_ipa_wdi_enable_pipes();
@@ -1718,7 +1769,6 @@ QDF_STATUS dp_ipa_enable_pipes(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 			  "%s: Enable WDI PIPE fail, code %d",
 			  __func__, result);
 		qdf_atomic_set(&soc->ipa_pipes_enabled, 0);
-		DP_IPA_RESET_TX_DB_PA(soc, ipa_res);
 		dp_ipa_handle_rx_buf_pool_smmu_mapping(soc, pdev, false);
 		return QDF_STATUS_E_FAILURE;
 	}
@@ -1733,28 +1783,69 @@ QDF_STATUS dp_ipa_enable_pipes(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 	return QDF_STATUS_SUCCESS;
 }
 
+#ifdef DEVICE_FORCE_WAKE_ENABLED
+/*
+ * dp_ipa_get_tx_comp_pending_check() - Check if tx completions are pending.
+ * @soc: DP pdev Context
+ *
+ * Ring full condition is checked to find if buffers are left for
+ * processing as host only allocates buffers in this ring and IPA HW processes
+ * the buffer.
+ *
+ * Return: True if tx completions are pending
+ */
+static bool dp_ipa_get_tx_comp_pending_check(struct dp_soc *soc)
+{
+	struct dp_srng *tx_comp_ring =
+				&soc->tx_comp_ring[IPA_TX_COMP_RING_IDX];
+	uint32_t hp, tp, entry_size, buf_cnt;
+
+	hal_get_hw_hptp(soc->hal_soc, tx_comp_ring->hal_srng, &hp, &tp,
+			WBM2SW_RELEASE);
+	entry_size = hal_srng_get_entrysize(soc->hal_soc, WBM2SW_RELEASE) >> 2;
+
+	if (hp > tp)
+		buf_cnt = (hp - tp) / entry_size;
+	else
+		buf_cnt = (tx_comp_ring->num_entries - tp + hp) / entry_size;
+
+	return (soc->ipa_uc_tx_rsc.alloc_tx_buf_cnt != buf_cnt);
+}
+#endif
+
 QDF_STATUS dp_ipa_disable_pipes(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 {
 	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
 	struct dp_pdev *pdev =
 		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
+	int timeout = TX_COMP_DRAIN_WAIT_TIMEOUT_MS;
 	QDF_STATUS result;
-	struct dp_ipa_resources *ipa_res;
 
 	if (!pdev) {
-		dp_err("%s invalid instance", __func__);
+		dp_err("Invalid instance");
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	ipa_res = &pdev->ipa_resource;
-
-	qdf_sleep(TX_COMP_DRAIN_WAIT_TIMEOUT_MS);
 	/*
-	 * Reset the tx completion doorbell address before invoking IPA disable
-	 * pipes API to ensure that there is no access to IPA tx doorbell
-	 * address post disable pipes.
+	 * The tx completions pending check will trigger register read
+	 * for HP and TP of wbm2sw2 ring. There is a possibility for
+	 * these reg read to cause a NOC error if UMAC is in low power
+	 * state. The WAR is to sleep for the drain timeout without checking
+	 * for the pending tx completions. This WAR can be replaced with
+	 * poll logic for HP/TP difference once force wake is in place.
 	 */
-	DP_IPA_RESET_TX_DB_PA(soc, ipa_res);
+#ifdef DEVICE_FORCE_WAKE_ENABLED
+	while (dp_ipa_get_tx_comp_pending_check(soc)) {
+		qdf_sleep(TX_COMP_DRAIN_WAIT_MS);
+		timeout -= TX_COMP_DRAIN_WAIT_MS;
+		if (timeout <= 0) {
+			dp_err("Tx completions pending. Force Disabling pipes");
+			break;
+		}
+	}
+#else
+	qdf_sleep(timeout);
+#endif
 
 	result = qdf_ipa_wdi_disable_pipes();
 	if (result) {
@@ -1812,7 +1903,7 @@ static qdf_nbuf_t dp_ipa_intrabss_send(struct dp_pdev *pdev,
 	struct dp_peer *vdev_peer;
 	uint16_t len;
 
-	vdev_peer = vdev->vap_bss_peer;
+	vdev_peer = dp_vdev_bss_peer_ref_n_get(pdev->soc, vdev, DP_MOD_ID_IPA);
 	if (qdf_unlikely(!vdev_peer))
 		return nbuf;
 
@@ -1821,10 +1912,12 @@ static qdf_nbuf_t dp_ipa_intrabss_send(struct dp_pdev *pdev,
 
 	if (dp_tx_send((struct cdp_soc_t *)pdev->soc, vdev->vdev_id, nbuf)) {
 		DP_STATS_INC_PKT(vdev_peer, rx.intra_bss.fail, 1, len);
+		dp_peer_unref_delete(vdev_peer, DP_MOD_ID_IPA);
 		return nbuf;
 	}
 
 	DP_STATS_INC_PKT(vdev_peer, rx.intra_bss.pkts, 1, len);
+	dp_peer_unref_delete(vdev_peer, DP_MOD_ID_IPA);
 	return NULL;
 }
 
@@ -1832,14 +1925,15 @@ bool dp_ipa_rx_intrabss_fwd(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 			    qdf_nbuf_t nbuf, bool *fwd_success)
 {
 	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
-	struct dp_vdev *vdev =
-		dp_get_vdev_from_soc_vdev_id_wifi3(soc, vdev_id);
+	struct dp_vdev *vdev = dp_vdev_get_ref_by_id(soc, vdev_id,
+						     DP_MOD_ID_IPA);
 	struct dp_pdev *pdev;
 	struct dp_peer *da_peer;
 	struct dp_peer *sa_peer;
 	qdf_nbuf_t nbuf_copy;
 	uint8_t da_is_bcmc;
 	struct ethhdr *eh;
+	bool status = false;
 
 	*fwd_success = false; /* set default as failure */
 
@@ -1855,16 +1949,16 @@ bool dp_ipa_rx_intrabss_fwd(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 
 	pdev = vdev->pdev;
 	if (qdf_unlikely(!pdev))
-		return false;
+		goto out;
 
 	/* no fwd for station mode and just pass up to stack */
 	if (vdev->opmode == wlan_op_mode_sta)
-		return false;
+		goto out;
 
 	if (da_is_bcmc) {
 		nbuf_copy = qdf_nbuf_copy(nbuf);
 		if (!nbuf_copy)
-			return false;
+			goto out;
 
 		if (dp_ipa_intrabss_send(pdev, vdev, nbuf_copy))
 			qdf_nbuf_free(nbuf_copy);
@@ -1872,27 +1966,27 @@ bool dp_ipa_rx_intrabss_fwd(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 			*fwd_success = true;
 
 		/* return false to pass original pkt up to stack */
-		return false;
+		goto out;
 	}
 
 	eh = (struct ethhdr *)qdf_nbuf_data(nbuf);
 
 	if (!qdf_mem_cmp(eh->h_dest, vdev->mac_addr.raw, QDF_MAC_ADDR_SIZE))
-		return false;
+		goto out;
 
-	da_peer = dp_find_peer_by_addr_and_vdev(dp_pdev_to_cdp_pdev(pdev),
-						dp_vdev_to_cdp_vdev(vdev),
-						eh->h_dest);
-
+	da_peer = dp_peer_find_hash_find(soc, eh->h_dest, 0, vdev->vdev_id,
+					 DP_MOD_ID_IPA);
 	if (!da_peer)
-		return false;
+		goto out;
 
-	sa_peer = dp_find_peer_by_addr_and_vdev(dp_pdev_to_cdp_pdev(pdev),
-						dp_vdev_to_cdp_vdev(vdev),
-						eh->h_source);
+	dp_peer_unref_delete(da_peer, DP_MOD_ID_IPA);
 
+	sa_peer = dp_peer_find_hash_find(soc, eh->h_source, 0, vdev->vdev_id,
+					 DP_MOD_ID_IPA);
 	if (!sa_peer)
-		return false;
+		goto out;
+
+	dp_peer_unref_delete(sa_peer, DP_MOD_ID_IPA);
 
 	/*
 	 * In intra-bss forwarding scenario, skb is allocated by IPA driver.
@@ -1906,7 +2000,10 @@ bool dp_ipa_rx_intrabss_fwd(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	else
 		*fwd_success = true;
 
-	return true;
+	status = true;
+out:
+	dp_vdev_unref_delete(soc, vdev, DP_MOD_ID_IPA);
+	return status;
 }
 
 #ifdef MDM_PLATFORM
@@ -2006,6 +2103,52 @@ qdf_nbuf_t dp_ipa_handle_rx_reo_reinject(struct dp_soc *soc, qdf_nbuf_t nbuf)
 
 	/* linearize skb for IPA */
 	return dp_ipa_frag_nbuf_linearize(soc, nbuf);
+}
+
+QDF_STATUS dp_ipa_tx_buf_smmu_mapping(
+	struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
+{
+	QDF_STATUS ret;
+
+	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
+	struct dp_pdev *pdev =
+		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
+
+	if (!pdev) {
+		dp_err("%s invalid instance", __func__);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (!qdf_mem_smmu_s1_enabled(soc->osdev)) {
+		dp_debug("SMMU S1 disabled");
+		return QDF_STATUS_SUCCESS;
+	}
+	ret = __dp_ipa_tx_buf_smmu_mapping(soc, pdev, true);
+
+	return ret;
+}
+
+QDF_STATUS dp_ipa_tx_buf_smmu_unmapping(
+	struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
+{
+	QDF_STATUS ret;
+
+	struct dp_soc *soc = cdp_soc_t_to_dp_soc(soc_hdl);
+	struct dp_pdev *pdev =
+		dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
+
+	if (!pdev) {
+		dp_err("%s invalid instance", __func__);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (!qdf_mem_smmu_s1_enabled(soc->osdev)) {
+		dp_debug("SMMU S1 disabled");
+		return QDF_STATUS_SUCCESS;
+	}
+	ret = __dp_ipa_tx_buf_smmu_mapping(soc, pdev, false);
+
+	return ret;
 }
 
 #endif

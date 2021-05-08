@@ -28,6 +28,7 @@
 #include "wlan_objmgr_cmn.h"
 #include "wlan_objmgr_global_obj.h"
 #include "wlan_objmgr_psoc_obj.h"
+#include "wlan_lmac_if_def.h"
 
 QDF_STATUS wifi_pos_init(void)
 {
@@ -324,9 +325,10 @@ QDF_STATUS wifi_pos_init_cir_cfr_rings(struct wlan_objmgr_psoc *psoc,
 }
 #endif
 
-QDF_STATUS wifi_pos_register_get_phy_mode_cb(
-				struct wlan_objmgr_psoc *psoc,
-				void (*handler)(uint8_t, uint32_t, uint32_t *))
+QDF_STATUS
+wifi_pos_register_get_phy_mode_cb(struct wlan_objmgr_psoc *psoc,
+				  void (*handler)(qdf_freq_t, uint32_t,
+						  uint32_t *))
 {
 	struct wifi_pos_psoc_priv_obj *wifi_pos_psoc;
 
@@ -375,6 +377,36 @@ QDF_STATUS wifi_pos_register_get_fw_phy_mode_for_freq_cb(
 
 	return QDF_STATUS_SUCCESS;
 }
+
+#ifndef CNSS_GENL
+QDF_STATUS wifi_pos_register_get_pdev_id_by_dev_name(
+		struct wlan_objmgr_psoc *psoc,
+		QDF_STATUS (*handler)(char *dev_name, uint8_t *pdev_id,
+				      struct wlan_objmgr_psoc **psoc))
+{
+	struct wifi_pos_psoc_priv_obj *wifi_pos_psoc;
+
+	if (!psoc) {
+		wifi_pos_err("psoc is null");
+		return QDF_STATUS_E_NULL_VALUE;
+	}
+
+	if (!handler) {
+		wifi_pos_err("Null callback");
+		return QDF_STATUS_E_NULL_VALUE;
+	}
+
+	wifi_pos_psoc = wifi_pos_get_psoc_priv_obj(psoc);
+	if (!wifi_pos_psoc) {
+		wifi_pos_err("wifi_pos priv obj is null");
+		return QDF_STATUS_E_NULL_VALUE;
+	}
+
+	wifi_pos_psoc->wifi_pos_get_pdev_id_by_dev_name = handler;
+
+	return QDF_STATUS_SUCCESS;
+}
+#endif
 
 QDF_STATUS wifi_pos_register_send_action(
 				struct wlan_objmgr_psoc *psoc,

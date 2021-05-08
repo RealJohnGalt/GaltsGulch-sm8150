@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -19,7 +19,7 @@
 #include <wlan_cfr_utils_api.h>
 #include <wlan_cfr_tgt_api.h>
 #include <qdf_module.h>
-#include "../../core/inc/cfr_defs_i.h"
+#include <cfr_defs_i.h>
 #include <wlan_objmgr_global_obj.h>
 #include <wlan_objmgr_pdev_obj.h>
 
@@ -98,6 +98,10 @@ QDF_STATUS wlan_cfr_pdev_open(struct wlan_objmgr_pdev *pdev)
 {
 	int status;
 
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_err("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
+	}
 	/* chip specific init */
 	status = tgt_cfr_init_pdev(pdev);
 
@@ -120,6 +124,11 @@ QDF_STATUS wlan_cfr_pdev_open(struct wlan_objmgr_pdev *pdev)
 QDF_STATUS wlan_cfr_pdev_close(struct wlan_objmgr_pdev *pdev)
 {
 	int status = QDF_STATUS_SUCCESS;
+
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_err("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
+	}
 	/*
 	 * DBR does not have close as of now;
 	 * but this is getting added as part for new gerrit
@@ -133,6 +142,11 @@ QDF_STATUS wlan_cfr_pdev_close(struct wlan_objmgr_pdev *pdev)
 QDF_STATUS cfr_initialize_pdev(struct wlan_objmgr_pdev *pdev)
 {
 	int status = QDF_STATUS_SUCCESS;
+
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_err("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
+	}
 
 	/* chip specific init */
 
@@ -149,6 +163,11 @@ QDF_STATUS cfr_deinitialize_pdev(struct wlan_objmgr_pdev *pdev)
 {
 	int status = QDF_STATUS_SUCCESS;
 
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_err("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
+	}
+
 	/* chip specific deinit */
 
 	status = tgt_cfr_deinit_pdev(pdev);
@@ -160,7 +179,7 @@ QDF_STATUS cfr_deinitialize_pdev(struct wlan_objmgr_pdev *pdev)
 }
 qdf_export_symbol(cfr_deinitialize_pdev);
 
-uint8_t count_set_bits(uint32_t value)
+uint8_t count_set_bits(unsigned long value)
 {
 	uint8_t count = 0;
 
@@ -182,3 +201,16 @@ void wlan_cfr_rx_tlv_process(struct wlan_objmgr_pdev *pdev, void *nbuf)
 
 qdf_export_symbol(wlan_cfr_rx_tlv_process);
 #endif
+
+bool wlan_cfr_is_feature_disabled(struct wlan_objmgr_pdev *pdev)
+{
+	if (!pdev) {
+		cfr_err("PDEV is NULL!");
+		return true;
+	}
+
+	return (wlan_pdev_nif_feat_ext_cap_get(pdev, WLAN_PDEV_FEXT_CFR_EN) ?
+		false : true);
+}
+
+qdf_export_symbol(wlan_cfr_is_feature_disabled);
