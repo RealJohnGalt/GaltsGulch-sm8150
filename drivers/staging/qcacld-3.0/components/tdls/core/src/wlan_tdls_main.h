@@ -58,6 +58,7 @@
  */
 #define TDLS_DISCOVERY_TIMEOUT_BEFORE_UPDATE     1000
 #define TDLS_SCAN_REJECT_MAX            5
+#define TDLS_MAX_CONNECTED_PEERS_TO_ALLOW_SCAN   1
 
 #define tdls_debug(params...) \
 	QDF_TRACE_DEBUG(QDF_MODULE_ID_TDLS, params)
@@ -254,6 +255,7 @@ struct tdls_soc_priv_obj {
  * @valid_mac_entries: number of valid mac entry in @ct_peer_mac_table
  * @magic: magic
  * @tx_queue: tx frame queue
+ * @tdls_teardown_comp: tdls teardown completion
  */
 struct tdls_vdev_priv_obj {
 	struct wlan_objmgr_vdev *vdev;
@@ -270,6 +272,7 @@ struct tdls_vdev_priv_obj {
 	uint32_t magic;
 	uint8_t session_id;
 	qdf_list_t tx_queue;
+	qdf_event_t tdls_teardown_comp;
 };
 
 /**
@@ -728,7 +731,8 @@ void tdls_scan_done_callback(struct tdls_soc_priv_obj *tdls_soc);
  *         1 = caller can continue to scan
  */
 void tdls_scan_serialization_comp_info_cb(struct wlan_objmgr_vdev *vdev,
-		union wlan_serialization_rules_info *comp_info);
+		union wlan_serialization_rules_info *comp_info,
+		struct wlan_serialization_command *cmd);
 
 /**
  * tdls_set_offchan_mode() - update tdls status info

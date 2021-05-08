@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -31,13 +31,13 @@
 static inline struct wlan_lmac_if_tdls_tx_ops *
 wlan_psoc_get_tdls_txops(struct wlan_objmgr_psoc *psoc)
 {
-	return &psoc->soc_cb.tx_ops.tdls_tx_ops;
+	return &psoc->soc_cb.tx_ops->tdls_tx_ops;
 }
 
 static inline struct wlan_lmac_if_tdls_rx_ops *
 wlan_psoc_get_tdls_rxops(struct wlan_objmgr_psoc *psoc)
 {
-	return &psoc->soc_cb.rx_ops.tdls_rx_ops;
+	return &psoc->soc_cb.rx_ops->tdls_rx_ops;
 }
 
 QDF_STATUS tgt_tdls_set_fw_state(struct wlan_objmgr_psoc *psoc,
@@ -188,10 +188,8 @@ tgt_tdls_event_handler(struct wlan_objmgr_psoc *psoc,
 		   info->vdev_id, info->message_type, info->peer_reason,
 		   QDF_MAC_ADDR_REF(info->peermac.bytes));
 	notify = qdf_mem_malloc(sizeof(*notify));
-	if (!notify) {
-		tdls_err("mem allocate fail");
+	if (!notify)
 		return QDF_STATUS_E_NOMEM;
-	}
 
 	vdev_id = info->vdev_id;
 	notify->vdev =
@@ -278,10 +276,8 @@ QDF_STATUS tgt_tdls_mgmt_frame_process_rx_cb(
 	}
 
 	rx_mgmt_event = qdf_mem_malloc_atomic(sizeof(*rx_mgmt_event));
-	if (!rx_mgmt_event) {
-		tdls_debug_rl("Failed to allocate rx mgmt event");
+	if (!rx_mgmt_event)
 		return QDF_STATUS_E_NOMEM;
-	}
 
 	rx_mgmt = qdf_mem_malloc_atomic(sizeof(*rx_mgmt) +
 			mgmt_rx_params->buf_len);

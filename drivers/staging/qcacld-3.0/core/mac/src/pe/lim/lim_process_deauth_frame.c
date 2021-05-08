@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -119,8 +119,9 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 	}
 #ifdef WLAN_FEATURE_11W
 	/* PMF: If this session is a PMF session, then ensure that this frame was protected */
-	if (pe_session->limRmfEnabled
-	    && (WMA_GET_RX_DPU_FEEDBACK(pRxPacketInfo) &
+	if (pe_session->limRmfEnabled &&
+	    pe_session->is_key_installed &&
+	    (WMA_GET_RX_DPU_FEEDBACK(pRxPacketInfo) &
 		DPU_FEEDBACK_UNPROTECTED_ERROR)) {
 		pe_debug("received an unprotected deauth from AP");
 		/*
@@ -149,12 +150,12 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 	/* Get reasonCode from Deauthentication frame body */
 	reasonCode = sir_read_u16(pBody);
 
-	pe_nofl_info("Deauth RX: vdev %d from "QDF_MAC_ADDR_FMT" for "QDF_MAC_ADDR_FMT" RSSI = %d reason %d mlm state = %d, sme state = %d systemrole = %d ",
-		     pe_session->vdev_id, QDF_MAC_ADDR_REF(pHdr->sa),
-		     QDF_MAC_ADDR_REF(pHdr->da), frame_rssi,
-		     reasonCode, pe_session->limMlmState,
-		     pe_session->limSmeState,
-		     GET_LIM_SYSTEM_ROLE(pe_session));
+	pe_nofl_rl_info("Deauth RX: vdev %d from "QDF_MAC_ADDR_FMT" for "QDF_MAC_ADDR_FMT" RSSI = %d reason %d mlm state = %d, sme state = %d systemrole = %d ",
+			pe_session->vdev_id, QDF_MAC_ADDR_REF(pHdr->sa),
+			QDF_MAC_ADDR_REF(pHdr->da), frame_rssi,
+			reasonCode, pe_session->limMlmState,
+			pe_session->limSmeState,
+			GET_LIM_SYSTEM_ROLE(pe_session));
 
 	lim_diag_event_report(mac, WLAN_PE_DIAG_DEAUTH_FRAME_EVENT,
 		pe_session, 0, reasonCode);
@@ -168,8 +169,8 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 
 	if (LIM_IS_AP_ROLE(pe_session)) {
 		switch (reasonCode) {
-		case eSIR_MAC_UNSPEC_FAILURE_REASON:
-		case eSIR_MAC_DEAUTH_LEAVING_BSS_REASON:
+		case REASON_UNSPEC_FAILURE:
+		case REASON_DEAUTH_NETWORK_LEAVING:
 			/* Valid reasonCode in received Deauthentication frame */
 			break;
 
@@ -184,12 +185,12 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 		}
 	} else if (LIM_IS_STA_ROLE(pe_session)) {
 		switch (reasonCode) {
-		case eSIR_MAC_UNSPEC_FAILURE_REASON:
-		case eSIR_MAC_PREV_AUTH_NOT_VALID_REASON:
-		case eSIR_MAC_DEAUTH_LEAVING_BSS_REASON:
-		case eSIR_MAC_CLASS2_FRAME_FROM_NON_AUTH_STA_REASON:
-		case eSIR_MAC_CLASS3_FRAME_FROM_NON_ASSOC_STA_REASON:
-		case eSIR_MAC_STA_NOT_PRE_AUTHENTICATED_REASON:
+		case REASON_UNSPEC_FAILURE:
+		case REASON_PREV_AUTH_NOT_VALID:
+		case REASON_DEAUTH_NETWORK_LEAVING:
+		case REASON_CLASS2_FRAME_FROM_NON_AUTH_STA:
+		case REASON_CLASS3_FRAME_FROM_NON_ASSOC_STA:
+		case REASON_STA_NOT_AUTHENTICATED:
 			/* Valid reasonCode in received Deauth frame */
 			break;
 
@@ -203,8 +204,7 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 			break;
 		}
 	} else {
-		/* Received Deauth frame in either IBSS */
-		/* or un-known role. Log and ignore it */
+		/* Received Deauth frame un-known role. Log and ignore it */
 		pe_err("received Deauth frame with reasonCode %d in role %d from "
 			QDF_MAC_ADDR_FMT, reasonCode,
 			GET_LIM_SYSTEM_ROLE(pe_session),
@@ -237,13 +237,13 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 
 	if (lim_is_reassoc_in_progress(mac, pe_session) ||
 	    lim_is_reassoc_in_progress(mac, pRoamSessionEntry) ||
-	    pe_session->fw_roaming_started) {
+	    MLME_IS_ROAMING_IN_PROG(mac->psoc, pe_session->vdev_id)) {
 		/*
 		 * For LFR3, the roaming bssid is not known during ROAM_START,
 		 * so check if the deauth is received from current AP when
 		 * roaming is being done in the firmware
 		 */
-		if (pe_session->fw_roaming_started &&
+		if (MLME_IS_ROAMING_IN_PROG(mac->psoc, pe_session->vdev_id) &&
 		    IS_CURRENT_BSSID(mac, pHdr->sa, pe_session)) {
 			pe_debug("LFR3: Drop deauth frame from connected AP");
 			/*
@@ -309,9 +309,9 @@ lim_process_deauth_frame(struct mac_context *mac, uint8_t *pRxPacketInfo,
 			   frame_rssi);
 
 	if (mac->mlme_cfg->gen.fatal_event_trigger &&
-	    (reasonCode != eSIR_MAC_UNSPEC_FAILURE_REASON &&
-	    reasonCode != eSIR_MAC_DEAUTH_LEAVING_BSS_REASON &&
-	    reasonCode != eSIR_MAC_DISASSOC_LEAVING_BSS_REASON)) {
+	    (reasonCode != REASON_UNSPEC_FAILURE &&
+	    reasonCode != REASON_DEAUTH_NETWORK_LEAVING &&
+	    reasonCode != REASON_DISASSOC_NETWORK_LEAVING)) {
 		cds_flush_logs(WLAN_LOG_TYPE_FATAL,
 			       WLAN_LOG_INDICATOR_HOST_DRIVER,
 			       WLAN_LOG_REASON_DISCONNECT,
@@ -327,6 +327,7 @@ void lim_perform_deauth(struct mac_context *mac_ctx, struct pe_session *pe_sessi
 	tLimMlmAssocCnf mlmAssocCnf;
 	uint16_t aid;
 	tpDphHashNode sta_ds;
+	tpSirAssocRsp assoc_rsp;
 
 	sta_ds = dph_lookup_hash_entry(mac_ctx, addr, &aid,
 				       &pe_session->dph.dphHashTable);
@@ -484,9 +485,6 @@ void lim_perform_deauth(struct mac_context *mac_ctx, struct pe_session *pe_sessi
 		}
 		break;
 
-	case eLIM_STA_IN_IBSS_ROLE:
-		break;
-
 	case eLIM_AP_ROLE:
 		break;
 
@@ -516,7 +514,7 @@ void lim_perform_deauth(struct mac_context *mac_ctx, struct pe_session *pe_sessi
 			 sta_ds->mlmStaContext.mlmState);
 		return;
 	}
-	sta_ds->mlmStaContext.disassocReason = (tSirMacReasonCodes) rc;
+	sta_ds->mlmStaContext.disassocReason = rc;
 	sta_ds->mlmStaContext.cleanupTrigger = eLIM_PEER_ENTITY_DEAUTH;
 	sta_ds->sta_deletion_in_progress = true;
 
@@ -543,6 +541,10 @@ void lim_perform_deauth(struct mac_context *mac_ctx, struct pe_session *pe_sessi
 			lim_delete_pre_auth_node(mac_ctx, addr);
 
 		if (pe_session->limAssocResponseData) {
+			assoc_rsp = (tpSirAssocRsp) pe_session->
+					limAssocResponseData;
+			qdf_mem_free(assoc_rsp->sha384_ft_subelem.gtk);
+			qdf_mem_free(assoc_rsp->sha384_ft_subelem.igtk);
 			qdf_mem_free(pe_session->limAssocResponseData);
 			pe_session->limAssocResponseData = NULL;
 		}
@@ -556,7 +558,7 @@ void lim_perform_deauth(struct mac_context *mac_ctx, struct pe_session *pe_sessi
 		 */
 		lim_post_reassoc_failure(mac_ctx,
 				eSIR_SME_FT_REASSOC_TIMEOUT_FAILURE,
-				eSIR_MAC_UNSPEC_FAILURE_STATUS,
+				STATUS_UNSPECIFIED_FAILURE,
 				pe_session);
 		return;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -135,10 +135,9 @@ static QDF_STATUS tdls_pe_add_peer(struct tdls_add_peer_request *req)
 	QDF_STATUS status;
 
 	addstareq = qdf_mem_malloc(sizeof(*addstareq));
-	if (!addstareq) {
-		tdls_err("allocate failed");
+	if (!addstareq)
 		return QDF_STATUS_E_NOMEM;
-	}
+
 	vdev = req->vdev;
 	soc_obj = wlan_vdev_get_tdls_soc_obj(vdev);
 	if (!soc_obj) {
@@ -198,10 +197,9 @@ QDF_STATUS tdls_pe_del_peer(struct tdls_del_peer_request *req)
 	QDF_STATUS status;
 
 	delstareq = qdf_mem_malloc(sizeof(*delstareq));
-	if (!delstareq) {
-		tdls_err("allocate failed");
+	if (!delstareq)
 		return QDF_STATUS_E_NOMEM;
-	}
+
 	vdev = req->vdev;
 	soc_obj = wlan_vdev_get_tdls_soc_obj(vdev);
 	if (!soc_obj) {
@@ -245,6 +243,22 @@ error:
 	return status;
 }
 
+#ifdef WLAN_FEATURE_11AX
+static void tdls_pe_update_peer_he_capa(struct tdls_add_sta_req *addstareq,
+				struct tdls_update_peer_params *update_peer)
+{
+	addstareq->he_cap_len = update_peer->he_cap_len;
+	qdf_mem_copy(&addstareq->he_cap,
+		     &update_peer->he_cap,
+		     sizeof(update_peer->he_cap));
+}
+#else
+static void tdls_pe_update_peer_he_capa(struct tdls_add_sta_req *addstareq,
+				struct tdls_update_peer_params *update_peer)
+{
+}
+#endif
+
 /**
  * tdls_pe_update_peer() - send TDLS update peer request to PE
  * @req: TDLS update peer request
@@ -262,10 +276,9 @@ static QDF_STATUS tdls_pe_update_peer(struct tdls_update_peer_request *req)
 	QDF_STATUS status;
 
 	addstareq = qdf_mem_malloc(sizeof(*addstareq));
-	if (!addstareq) {
-		tdls_err("allocate failed");
+	if (!addstareq)
 		return QDF_STATUS_E_NOMEM;
-	}
+
 	vdev = req->vdev;
 	soc_obj = wlan_vdev_get_tdls_soc_obj(vdev);
 	if (!soc_obj) {
@@ -306,6 +319,7 @@ static QDF_STATUS tdls_pe_update_peer(struct tdls_update_peer_request *req)
 	qdf_mem_copy(&addstareq->vht_cap,
 		     &update_peer->vht_cap,
 		     sizeof(update_peer->vht_cap));
+	tdls_pe_update_peer_he_capa(addstareq, update_peer);
 	addstareq->supported_rates_length = update_peer->supported_rates_len;
 	addstareq->is_pmf = update_peer->is_pmf;
 	qdf_mem_copy(&addstareq->supported_rates,
@@ -709,10 +723,16 @@ int tdls_validate_mgmt_request(struct tdls_action_frame_request *tdls_mgmt_req)
 			return -EAGAIN;
 		}
 	}
-
+	/*
+	 * In case another tdls request comes while tdls setup is already
+	 * ongoing with one peer. Reject only when status code is 0. If status
+	 * code is non-zero, it means supplicant already rejected it and
+	 * the same should be notified to peer.
+	 */
 	if (TDLS_IS_SETUP_ACTION(tdls_validate->action_code)) {
-		if (tdls_is_progress(tdls_vdev,
-			tdls_validate->peer_mac, true)) {
+		if (tdls_is_progress(tdls_vdev, tdls_validate->peer_mac,
+				     true) &&
+				     tdls_validate->status_code == 0) {
 			tdls_err("setup is ongoing. action %d declined for "
 				 QDF_MAC_ADDR_FMT,
 				 tdls_validate->action_code,
@@ -759,7 +779,7 @@ int tdls_validate_mgmt_request(struct tdls_action_frame_request *tdls_mgmt_req)
 		}
 	}
 
-	tdls_debug("tdls_mgmt" QDF_MAC_ADDR_FMT " action %d, dialog_token %d status %d, len = %zu",
+	tdls_debug("tdls_mgmt " QDF_MAC_ADDR_FMT " action %d, dialog_token %d status %d, len = %zu",
 		   QDF_MAC_ADDR_REF(tdls_validate->peer_mac),
 		   tdls_validate->action_code, tdls_validate->dialog_token,
 		   tdls_validate->status_code, tdls_validate->len);
@@ -1624,7 +1644,6 @@ QDF_STATUS tdls_process_enable_link(struct tdls_oper_request *req)
 
 	peer_update_param = qdf_mem_malloc(sizeof(*peer_update_param));
 	if (!peer_update_param) {
-		tdls_err("memory allocation failed");
 		status = QDF_STATUS_E_NOMEM;
 		goto error;
 	}
@@ -1715,10 +1734,8 @@ static QDF_STATUS tdls_config_force_peer(
 	}
 
 	peer_update_param = qdf_mem_malloc(sizeof(*peer_update_param));
-	if (!peer_update_param) {
-		tdls_err("memory allocation failed");
+	if (!peer_update_param)
 		return QDF_STATUS_E_NOMEM;
-	}
 
 	peer = tdls_get_peer(vdev_obj, macaddr);
 	if (!peer) {
@@ -1898,7 +1915,6 @@ QDF_STATUS tdls_process_remove_force_peer(struct tdls_oper_request *req)
 	tdls_set_callback(peer, NULL);
 	peer_update_param = qdf_mem_malloc(sizeof(*peer_update_param));
 	if (!peer_update_param) {
-		tdls_err("memory allocation failed");
 		status = QDF_STATUS_E_NOMEM;
 		goto error;
 	}
@@ -2105,22 +2121,31 @@ int tdls_process_set_responder(struct tdls_set_responder_req *set_req)
  */
 int tdls_set_responder(struct tdls_set_responder_req *set_req)
 {
-	QDF_STATUS status;
+	int status;
 
-	if (!set_req || !set_req->vdev) {
+	if (!set_req) {
+		tdls_err("Invalid input params");
+		return  -EINVAL;
+	}
+
+	if (!set_req->vdev) {
 		tdls_err("Invalid input params %pK", set_req);
-		return -EINVAL;
+		status = -EINVAL;
+		goto free_req;
 	}
 
 	status = wlan_objmgr_vdev_try_get_ref(set_req->vdev, WLAN_TDLS_NB_ID);
 	if (QDF_STATUS_SUCCESS != status) {
 		tdls_err("vdev object is deleted");
-		return -EINVAL;
+		status = -EINVAL;
+		goto error;
 	}
 
 	status = tdls_process_set_responder(set_req);
 
+error:
 	wlan_objmgr_vdev_release_ref(set_req->vdev, WLAN_TDLS_NB_ID);
+free_req:
 	qdf_mem_free(set_req);
 	return status;
 }
@@ -2186,8 +2211,9 @@ QDF_STATUS tdls_process_antenna_switch(struct tdls_antenna_switch_request *req)
 	int ant_switch_state = 0;
 	uint32_t vdev_id;
 	enum QDF_OPMODE opmode;
-	uint8_t channel;
+	qdf_freq_t freq;
 	struct tdls_osif_indication ind;
+	enum policy_mgr_con_mode mode;
 
 	if (!req) {
 		tdls_err("null req");
@@ -2221,14 +2247,13 @@ QDF_STATUS tdls_process_antenna_switch(struct tdls_antenna_switch_request *req)
 
 	vdev_id = wlan_vdev_get_id(vdev);
 	opmode = wlan_vdev_mlme_get_opmode(vdev);
-	channel = wlan_freq_to_chan(
-			policy_mgr_get_channel(
-			soc_obj->soc,
-			policy_mgr_convert_device_mode_to_qdf_type(opmode),
-			&vdev_id));
+	mode = policy_mgr_convert_device_mode_to_qdf_type(opmode);
+	freq = policy_mgr_get_channel(soc_obj->soc,
+				      mode,
+				      &vdev_id);
 
 	/* Check supported nss for TDLS, if is 1x1, no need to teardown links */
-	if (WLAN_REG_IS_24GHZ_CH(channel))
+	if (WLAN_REG_IS_24GHZ_CH_FREQ(freq))
 		vdev_nss = soc_obj->tdls_configs.tdls_vdev_nss_2g;
 	else
 		vdev_nss = soc_obj->tdls_configs.tdls_vdev_nss_5g;

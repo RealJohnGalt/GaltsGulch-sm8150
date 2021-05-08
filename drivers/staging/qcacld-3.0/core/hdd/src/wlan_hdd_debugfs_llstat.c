@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -76,13 +76,11 @@ void hdd_debugfs_process_iface_stats(struct hdd_adapter *adapter,
 	buffer += len;
 	ll_stats.len += len;
 	len = scnprintf(buffer, DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
-			"\nmode: %u, MAC_ADDR: "QDF_FULL_MAC_FMT", state: %u, roaming: %u, capabilities: %u, SSID: %s, BSSID_MAC: "QDF_FULL_MAC_FMT", ap_country_str: %s, country_str: %s",
-			iface_info->mode,
-			QDF_FULL_MAC_REF(iface_info->macAddr.bytes),
+			"\nmode: %u, MAC_ADDR: %pM, state: %u, roaming: %u, capabilities: %u, SSID: %s, BSSID_MAC: %pM, ap_country_str: %s, country_str: %s",
+			iface_info->mode, &iface_info->macAddr.bytes[0],
 			iface_info->state, iface_info->roaming,
 			iface_info->capabilities, iface_info->ssid,
-			QDF_FULL_MAC_REF(iface_info->bssid.bytes),
-			iface_info->apCountryStr,
+			&iface_info->bssid.bytes[0], iface_info->apCountryStr,
 			iface_info->countryStr);
 
 	link_stats = &iface_stat->link_stats;
@@ -186,9 +184,9 @@ void hdd_debugfs_process_peer_stats(struct hdd_adapter *adapter, void *data)
 		ll_stats.len += len;
 		len = scnprintf(buffer,
 				DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
-				"\nType: %d, peer_mac: "QDF_FULL_MAC_FMT", capabilities: %u\nnum_rates: %d",
+				"\nType: %d, peer_mac: %pM, capabilities: %u\nnum_rates: %d",
 				wmi_to_sir_peer_type(peer_info->type),
-				QDF_FULL_MAC_REF(peer_info->peer_macaddr.bytes),
+				&peer_info->peer_macaddr.bytes[0],
 				peer_info->capabilities, peer_info->num_rate);
 
 		num_rate = peer_info->num_rate;
@@ -288,6 +286,17 @@ void hdd_debugfs_process_radio_stats(struct hdd_adapter *adapter,
 				chan_stat->channel.center_freq0,
 				chan_stat->channel.center_freq1,
 				chan_stat->on_time, chan_stat->cca_busy_time);
+
+			if (adapter->hdd_ctx &&
+			    adapter->hdd_ctx->ll_stats_per_chan_rx_tx_time) {
+				buffer += len;
+				ll_stats.len += len;
+				len = scnprintf(
+					buffer,
+					DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
+					", tx_time: %u, rx_time: %u",
+					chan_stat->tx_time, chan_stat->rx_time);
+			}
 		}
 
 		radio_stat++;

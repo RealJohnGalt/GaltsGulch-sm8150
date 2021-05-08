@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -40,7 +40,7 @@
  *
  * Supported Feature: Concurrency/Standalone
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -57,7 +57,7 @@
  * gEnableRXLDPC - Config Param to enable Rx LDPC capability
  * @Min: 0
  * @Max: 1
- * @Default: 0
+ * @Default: 1
  *
  * This ini is used to enable/disable Rx LDPC capability
  * 0 - disable Rx LDPC
@@ -67,13 +67,13 @@
  *
  * Supported Feature: Concurrency/Standalone
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
 #define CFG_RX_LDPC_ENABLE CFG_INI_BOOL( \
 		"gEnableRXLDPC", \
-		0, \
+		1, \
 		"Rx LDPC capability")
 
 /*
@@ -89,7 +89,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -111,7 +111,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -133,7 +133,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -156,7 +156,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -186,7 +186,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -248,7 +248,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -274,7 +274,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -327,7 +327,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */
@@ -352,7 +352,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * As per (Table 8-125 802.11-2012)
  * 0 for no restriction
@@ -387,7 +387,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: Internal/External
+ * Usage: External
  *
  * </ini>
  */

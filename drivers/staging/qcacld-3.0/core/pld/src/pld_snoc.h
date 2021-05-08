@@ -20,7 +20,11 @@
 #define __PLD_SNOC_H__
 
 #ifdef CONFIG_PLD_SNOC_ICNSS
+#ifdef CONFIG_PLD_SNOC_ICNSS2
+#include <soc/qcom/icnss2.h>
+#else
 #include <soc/qcom/icnss.h>
+#endif
 #endif
 #include "pld_internal.h"
 
@@ -109,6 +113,16 @@ static inline void *pld_snoc_smmu_get_mapping(struct device *dev)
 }
 #endif
 
+static inline int pld_snoc_idle_restart(struct device *dev)
+{
+	return 0;
+}
+
+static inline int pld_snoc_idle_shutdown(struct device *dev)
+{
+	return 0;
+}
+
 static inline int pld_snoc_smmu_map(struct device *dev, phys_addr_t paddr,
 				    uint32_t *iova_addr, size_t size)
 {
@@ -167,16 +181,6 @@ pld_snoc_get_audio_wlan_timestamp(struct device *dev,
 	return 0;
 }
 #endif /* FEATURE_WLAN_TIME_SYNC_FTM */
-
-static inline int pld_snoc_idle_restart(struct device *dev)
-{
-	return 0;
-}
-
-static inline int pld_snoc_idle_shutdown(struct device *dev)
-{
-	return 0;
-}
 
 #else
 int pld_snoc_register_driver(void);
