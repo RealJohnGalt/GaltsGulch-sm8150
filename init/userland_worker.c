@@ -108,8 +108,10 @@ static inline int linux_sh(const char* command)
 	return ret;
 }
 
-static void restart_proximity(void) {
-	//TODO
+static void fix_proximity(void) {
+	linux_sh("/system/bin/chmod 666 /dev/input/event4");
+	linux_sh("/system/bin/chmod 666 /dev/input/event9");
+	linux_sh("/system/bin/chmod 666 /dev/input/event11");
 }
 
 static void userland_worker(struct work_struct *work)
@@ -130,7 +132,7 @@ static void userland_worker(struct work_struct *work)
 
   	msleep(DELAY);
 
-	//restart_proximity();
+	fix_proximity();
 
 	if (is_enforcing) {
 		pr_info("Going enforcing");
