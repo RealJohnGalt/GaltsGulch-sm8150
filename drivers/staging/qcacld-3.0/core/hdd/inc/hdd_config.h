@@ -505,7 +505,7 @@ enum hdd_runtime_pm_cfg {
 		"gRuntimePM", \
 		0, \
 		2, \
-		0, \
+		2, \
 		CFG_VALUE_OR_DEFAULT, \
 		"This ini is used to enable runtime_suspend")
 #define CFG_ENABLE_RUNTIME_PM_ALL \
