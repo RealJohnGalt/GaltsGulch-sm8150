@@ -345,17 +345,11 @@ static struct notifier_block fb_notifier_block = {
 	.notifier_call = msm_drm_notifier_callback,
 };
 
-extern struct drm_panel *lcd_active_panel;
-
 void __init f2fs_init_rapid_gc(void)
 {
 	INIT_WORK(&rapid_gc_fb_worker, rapid_gc_fb_work);
 	gc_wakelock = wakeup_source_register(NULL, "f2fs_rapid_gc_wakelock");
-	if (lcd_active_panel) {
-		drm_panel_notifier_register(lcd_active_panel, &fb_notifier_block);
-	} else {
-		pr_err("lcd_active_panel is null\n");
-	}
+	msm_drm_register_client(&fb_notifier_block);
 }
 
 void __exit f2fs_destroy_rapid_gc(void)
