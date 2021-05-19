@@ -128,7 +128,7 @@ static struct sde_crtc_custom_events custom_events[] = {
 #define MAX_VPADDING_RATIO_M		63
 #define MAX_VPADDING_RATIO_N		15
 
-static unsigned int is_stock;
+static unsigned int is_stock = 0;
 module_param(is_stock, uint, 0444);
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
@@ -5935,10 +5935,8 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			if (aod_index >= 0) {
 				if (aod_mode == 1) {
 					SDE_DEBUG("aod layer hid");
-					SDE_ATRACE_BEGIN("aod_layer_hid");
 					pstates[aod_index].sde_pstate->property_values[PLANE_PROP_ALPHA].value = 0;
 					aod_index = -1;
-					SDE_ATRACE_END("aod_layer_hid");
 				}
 			}
 		
