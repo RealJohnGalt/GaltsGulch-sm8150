@@ -587,7 +587,7 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     int i = 0;
     uint8_t finger_num = 0, touch_near_edge = 0;
     int obj_attention = 0;
-    struct point_info points[10];
+    struct point_info *points;
     struct corner_info corner[4];
     static struct point_info last_point = {.x = 0, .y = 0};
     static int touch_report_num = 0;
@@ -602,7 +602,11 @@ static void tp_touch_handle(struct touchpanel_data *ts)
         return;
     }
 
-    memset(points, 0, sizeof(points));
+	points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
+	if (!points) {
+		TPD_INFO("points kzalloc failed\n");
+		return;
+	}
     memset(corner, 0, sizeof(corner));
 	if (ts->reject_point) {		//sensor will reject point when call mode.
 		if (ts->touch_count) {
@@ -619,6 +623,7 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 			#endif
 				input_sync(ts->input_dev);
 		}
+		kfree(points);
 		return;
 	}
     obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, points, ts->max_num);
@@ -711,6 +716,7 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     }
     input_sync(ts->input_dev);
     ts->touch_count = finger_num;
+	kfree(points);
 }
 
 static void tp_btnkey_release(struct touchpanel_data *ts)
@@ -2040,7 +2046,7 @@ static ssize_t proc_register_info_read(struct file *file, char __user *user_buf,
         TPD_INFO("ts->reg_info.reg_length error!\n");
         return count;
     }
-    ts->reg_info.reg_result = kzalloc(ts->reg_info.reg_length * (sizeof(uint16_t)), GFP_KERNEL | GFP_DMA);
+    ts->reg_info.reg_result = kzalloc(ts->reg_info.reg_length * (sizeof(uint16_t)), GFP_KERNEL);
     if (!ts->reg_info.reg_result) {
         TPD_INFO("ts->reg_info.reg_result kzalloc error\n");
         return count;
@@ -2930,7 +2936,7 @@ static ssize_t proc_earsense_rawdata_read(struct file *file, char __user *user_b
         return 0;
     }
     if (ts->delta_state == TYPE_DELTA_IDLE) {
-        tmp_data = kzalloc(read_len ,GFP_KERNEL | GFP_DMA);
+        tmp_data = kzalloc(read_len ,GFP_KERNEL);
         ts->earsense_ops->rawdata_read(ts->chip_data, tmp_data, read_len);
         mutex_unlock(&ts->mutex);
         ret = copy_to_user(user_buf, tmp_data, read_len);
@@ -3016,7 +3022,7 @@ static ssize_t proc_earsense_selfdata_read(struct file *file, char __user *user_
         return 0;
     }
     if (ts->delta_state == TYPE_DELTA_IDLE) {
-        tmp_data = kzalloc(data_len ,GFP_KERNEL | GFP_DMA);
+        tmp_data = kzalloc(data_len ,GFP_KERNEL);
         ts->earsense_ops->self_data_read(ts->chip_data, tmp_data, data_len);
         mutex_unlock(&ts->mutex);
         ret = copy_to_user(user_buf, tmp_data, data_len);
@@ -3790,6 +3796,7 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 
     np = dev->of_node;
 
+    ts->register_is_16bit       = of_property_read_bool(np, "register-is-16bit");
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
@@ -4399,6 +4406,9 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     //step1 : dts parse
     init_parse_dts(ts->dev, ts);
 
+    //step2 : IIC interfaces init
+    init_touch_interfaces(ts->dev, ts->register_is_16bit);
+
     //step3 : mutex init
     mutex_init(&ts->mutex);
     init_completion(&ts->pm_complete);
@@ -4632,7 +4642,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
         mutex_init(&ts->mutex_earsense);    // init earsense operate mutex
 
         //malloc space for storing earsense delta
-        ts->earsense_delta = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM, GFP_KERNEL | GFP_DMA);
+        ts->earsense_delta = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM, GFP_KERNEL);
         if (ts->earsense_delta == NULL) {
             ret = -ENOMEM;
             TPD_INFO("earsense_delta kzalloc error\n");
@@ -5122,14 +5132,12 @@ void tp_i2c_resume(struct touchpanel_data *ts)
 }
 #endif
 
-extern void touch_alloc_dma_buf(void);
 struct touchpanel_data *common_touch_data_alloc(void)
 {
     if (g_tp) {
         TPD_INFO("%s:common panel struct has alloc already!\n", __func__);
         return NULL;
     }
-    touch_alloc_dma_buf();
     return kzalloc(sizeof(struct touchpanel_data), GFP_KERNEL);
 }
 
