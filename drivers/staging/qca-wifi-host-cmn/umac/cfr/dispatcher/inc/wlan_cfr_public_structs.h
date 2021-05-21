@@ -20,8 +20,9 @@
 #ifndef _WLAN_CFR_PUBLIC_STRUCTS_H_
 #define _WLAN_CFR_PUBLIC_STRUCTS_H_
 
-#ifdef WLAN_CFR_ENABLE
-#include "qdf_types.h"
+#define MAC_ADDR_LEN 6
+
+#define MAX_CAPTURE_COUNT_VAL 0xFFFF
 
 /**
  * cfr_cwm_width : Capture bandwidth
@@ -78,6 +79,9 @@ enum cfr_capture_method {
  * @dis_all_ftm_ack: Drop all FTM and ACK capture
  * @dis_ndpa_ndp_all: Drop all NDPA and NDP packets
  * @dis_all_pkt: Do not filter in any packet
+ * @en_ta_ra_filter_in_as_fp: Filter in frames as FP/MO in m_ta_ra_filter mode
+ *		0: as MO
+ *		1: as FP
  *
  * **** Fixed parameters ****
  * @cap_dur: Capture duration
@@ -110,17 +114,23 @@ enum cfr_capture_method {
  * freeze_tlv_delay_cnt_thr will decide the threshold for MAC to drop the
  * freeze TLV. freeze_tlv_delay_cnt_thr will only be applicable if
  * freeze_tlv_delay_cnt_en is enabled.
+ *
+ * @cap_count: After capture_count+1 number of captures, MAC stops RCC and
+ * waits for capture_interval duration before enabling again
+ *
+ * @cap_intval_mode_sel: 0 indicates capture_duration mode, 1 indicates the
+ * capture_count mode.
  */
 struct cfr_wlanconfig_param {
 	enum cfr_cwm_width bandwidth;
 	uint32_t periodicity;
 	enum cfr_capture_method capture_method;
-	uint8_t mac[QDF_MAC_ADDR_SIZE];
+	uint8_t mac[MAC_ADDR_LEN];
 #ifdef WLAN_ENH_CFR_ENABLE
-	uint8_t ta[QDF_MAC_ADDR_SIZE];
-	uint8_t ra[QDF_MAC_ADDR_SIZE];
-	uint8_t ta_mask[QDF_MAC_ADDR_SIZE];
-	uint8_t ra_mask[QDF_MAC_ADDR_SIZE];
+	uint8_t ta[MAC_ADDR_LEN];
+	uint8_t ra[MAC_ADDR_LEN];
+	uint8_t ta_mask[MAC_ADDR_LEN];
+	uint8_t ra_mask[MAC_ADDR_LEN];
 	uint16_t en_directed_ftm             :1,
 		 en_directed_ndpa_ndp        :1,
 		 en_ta_ra_filter             :1,
@@ -133,7 +143,8 @@ struct cfr_wlanconfig_param {
 		 dis_all_ftm_ack             :1,
 		 dis_ndpa_ndp_all            :1,
 		 dis_all_pkt                 :1,
-		 rsvd0                       :4;
+		 en_ta_ra_filter_in_as_fp    :1,
+		 rsvd0                       :3;
 
 	uint32_t cap_dur                     :24,
 		 rsvd1                       :8;
@@ -159,9 +170,12 @@ struct cfr_wlanconfig_param {
 	uint32_t freeze_tlv_delay_cnt_en :1,
 		 freeze_tlv_delay_cnt_thr :8,
 		 rsvd6 :23;
+
+	uint32_t cap_count                   :16,
+		 cap_intval_mode_sel         :1,
+		 rsvd7                       :15;
 #endif
 };
 
-#endif /* WLAN_CFR_ENABLE */
 #endif /* _WLAN_CFR_PUBLIC_STRUCTS_H_ */
 

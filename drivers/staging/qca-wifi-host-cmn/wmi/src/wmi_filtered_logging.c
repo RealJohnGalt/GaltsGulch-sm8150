@@ -200,7 +200,7 @@ static void wmi_specific_cmd_evt_record(uint32_t id, uint8_t *buf,
 	idx = *log_buffer->p_buf_tail_idx;
 	tmpbuf[idx].command = id;
 	qdf_mem_copy(tmpbuf[idx].data, buf,
-		     WMI_EVENT_DEBUG_ENTRY_MAX_LENGTH);
+		     WMI_DEBUG_ENTRY_MAX_LENGTH);
 	tmpbuf[idx].time = qdf_get_log_timestamp();
 	(*log_buffer->p_buf_tail_idx)++;
 	log_buffer->length++;
@@ -345,7 +345,7 @@ static int wmi_log_show(wmi_unified_t wmi_handle, void *buf,
 						"Event TIME = [%llu.%06llu]\n",
 						secs, usecs);
 		outlen += wmi_filtered_seq_printf(m, "CMD = ");
-		for (i = 0; i < (WMI_EVENT_DEBUG_ENTRY_MAX_LENGTH /
+		for (i = 0; i < (WMI_DEBUG_ENTRY_MAX_LENGTH /
 				sizeof(uint32_t)); i++)
 			outlen += wmi_filtered_seq_printf(m, "%x ",
 							  wmi_record->data[i]);
@@ -410,7 +410,7 @@ ssize_t debug_filtered_wmi_cmds_write(struct file *file,
 	}
 
 	if (wmi_add_to_record_list(wmi_handle, k, WMI_CMD)) {
-		WMI_LOGE("Add cmd %d to WMI_CMD list failed");
+		wmi_err("Add cmd %d to WMI_CMD list failed", k);
 		return 0;
 	}
 
@@ -447,7 +447,7 @@ ssize_t debug_filtered_wmi_evts_write(struct file *file,
 	}
 
 	if (wmi_add_to_record_list(wmi_handle, k, WMI_EVT)) {
-		WMI_LOGE("Add cmd %d to WMI_EVT list failed");
+		wmi_err("Add cmd %d to WMI_EVT list failed", k);
 		return 0;
 	}
 
@@ -479,7 +479,7 @@ ssize_t debug_wmi_filtered_command_log_write(struct file *file,
 
 	cmd_log_buf = wmi_handle->log_info.wmi_filtered_command_log;
 	if (wmi_reset_filtered_buffers(wmi_handle, cmd_log_buf))
-		WMI_LOGE("reset WMI CMD filtered_buffers failed");
+		wmi_err("reset WMI CMD filtered_buffers failed");
 	return count;
 }
 
@@ -508,6 +508,6 @@ ssize_t debug_wmi_filtered_event_log_write(struct file *file,
 
 	cmd_log_buf = wmi_handle->log_info.wmi_filtered_event_log;
 	if (wmi_reset_filtered_buffers(wmi_handle, cmd_log_buf))
-		WMI_LOGE("reset WMI EVT filtered_buffers failed");
+		wmi_err("reset WMI EVT filtered_buffers failed");
 	return count;
 }

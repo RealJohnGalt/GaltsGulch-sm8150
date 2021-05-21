@@ -378,7 +378,7 @@ cfg_tdls_get_max_peer_count(struct wlan_objmgr_psoc *psoc)
 	soc_obj = wlan_psoc_get_tdls_soc_obj(psoc);
 	if (!soc_obj) {
 		tdls_err("tdls soc null");
-		return 0;
+		return 1;
 	}
 
 	return soc_obj->max_num_tdls_sta;

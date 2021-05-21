@@ -69,8 +69,8 @@
 #include <linux/ftrace.h>
 #include <linux/lockdep.h>
 #include <linux/nmi.h>
-#include <linux/psi.h>
 #include <linux/khugepaged.h>
+#include <linux/psi.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 

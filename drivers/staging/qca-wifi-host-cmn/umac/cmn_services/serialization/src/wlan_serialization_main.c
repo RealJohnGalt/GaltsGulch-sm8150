@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -270,7 +270,9 @@ static QDF_STATUS wlan_serialization_pdev_create_handler(
 			goto error_free;
 		}
 
-		pdev_queue->vdev_active_cmd_bitmap = 0;
+		qdf_mem_zero(pdev_queue->vdev_active_cmd_bitmap,
+			     sizeof(pdev_queue->vdev_active_cmd_bitmap));
+
 		pdev_queue->blocking_cmd_active = 0;
 		pdev_queue->blocking_cmd_waiting = 0;
 	}
@@ -618,7 +620,7 @@ QDF_STATUS wlan_serialization_deinit(void)
 		ret_status = QDF_STATUS_E_FAILURE;
 	}
 
-	ser_alert("deregistered callbacks with obj mgr successfully");
+	ser_debug("deregistered callbacks with obj mgr successfully");
 
 	return ret_status;
 }

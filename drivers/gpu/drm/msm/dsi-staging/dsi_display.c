@@ -84,14 +84,6 @@ static bool   fresh_rate_input_dev_init = false;
 
 #define to_dsi_bridge(x)  container_of((x), struct dsi_bridge, base)
 
-static unsigned int cur_refresh_rate = 60;
-
-static inline bool is_lp_mode(int power_mode)
-{
-	return power_mode == SDE_MODE_DPMS_LP1 ||
-			power_mode == SDE_MODE_DPMS_LP2;
-}
-
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
 {
@@ -5498,8 +5490,7 @@ static int dsi_display_link_clk_force_update_ctrl(void *handle)
 	return rc;
 }
 
-int dsi_display_clk_ctrl(void *handle,
-	enum dsi_clk_type clk_type, enum dsi_clk_state clk_state)
+int dsi_display_clk_ctrl(void *handle, u32 clk_type, u32 clk_state)
 {
 	int rc = 0;
 
@@ -8291,11 +8282,6 @@ int dsi_display_pre_commit(void *display,
 	return rc;
 }
 
-unsigned int dsi_panel_get_refresh_rate(void)
-{
-	return READ_ONCE(cur_refresh_rate);
-}
-
 int dsi_display_enable(struct dsi_display *display)
 {
 	int rc = 0;
@@ -8336,10 +8322,9 @@ int dsi_display_enable(struct dsi_display *display)
 	mutex_lock(&display->display_lock);
 
 	mode = display->panel->cur_mode;
-	WRITE_ONCE(cur_refresh_rate, mode->timing.refresh_rate);
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
-		rc = dsi_panel_post_switch(display->panel);
+		rc = dsi_panel_switch(display->panel);
 		if (rc) {
 			pr_err("[%s] failed to switch DSI panel mode, rc=%d\n",
 				   display->name, rc);
@@ -8366,7 +8351,7 @@ int dsi_display_enable(struct dsi_display *display)
 	}
 
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
-		rc = dsi_panel_switch(display->panel);
+		rc = dsi_panel_post_switch(display->panel);
 		if (rc)
 			pr_err("[%s] failed to switch DSI panel mode, rc=%d\n",
 				   display->name, rc);

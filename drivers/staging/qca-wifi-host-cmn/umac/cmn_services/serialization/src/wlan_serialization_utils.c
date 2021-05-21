@@ -902,3 +902,15 @@ wlan_serialization_destroy_lock(qdf_spinlock_t *lock)
 
 	return QDF_STATUS_SUCCESS;
 }
+
+bool wlan_serialization_any_vdev_cmd_active(
+		struct wlan_serialization_pdev_queue *pdev_queue)
+{
+	uint32_t vdev_bitmap_size;
+
+	vdev_bitmap_size =
+		(QDF_CHAR_BIT * sizeof(pdev_queue->vdev_active_cmd_bitmap));
+
+	return !qdf_bitmap_empty(pdev_queue->vdev_active_cmd_bitmap,
+				 vdev_bitmap_size);
+}

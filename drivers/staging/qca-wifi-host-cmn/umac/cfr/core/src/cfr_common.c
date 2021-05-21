@@ -25,9 +25,38 @@
 #include <qdf_streamfs.h>
 #include <target_if.h>
 #include <target_if_direct_buf_rx_api.h>
-#ifndef CFR_USE_FIXED_FOLDER
-#include <os_if_athvar.h>
-#endif
+#include <wlan_osif_priv.h>
+#include <cfg_ucfg_api.h>
+#include "cfr_cfg.h"
+
+/**
+ * wlan_cfr_is_ini_disabled() - Check if cfr feature is disabled
+ * @pdev - the physical device object.
+ *
+ * Return : true if cfr is disabled, else false.
+ */
+static bool
+wlan_cfr_is_ini_disabled(struct wlan_objmgr_pdev *pdev)
+{
+	struct wlan_objmgr_psoc *psoc;
+	uint8_t cfr_disable_bitmap;
+
+	psoc = wlan_pdev_get_psoc(pdev);
+	if (!psoc) {
+		cfr_err("psoc is null");
+		return true;
+	}
+
+	cfr_disable_bitmap = cfg_get(psoc, CFG_CFR_DISABLE);
+
+	if (cfr_disable_bitmap & (1 << wlan_objmgr_pdev_get_pdev_id(pdev))) {
+		cfr_info("cfr is disabled for pdev[%d]",
+			 wlan_objmgr_pdev_get_pdev_id(pdev));
+		return true;
+	}
+
+	return false;
+}
 
 /**
  * wlan_cfr_get_dbr_num_entries() - Get entry number of DBR ring
@@ -124,6 +153,13 @@ wlan_cfr_pdev_obj_create_handler(struct wlan_objmgr_pdev *pdev, void *arg)
 		return QDF_STATUS_E_FAILURE;
 	}
 
+	if (wlan_cfr_is_ini_disabled(pdev)) {
+		wlan_pdev_nif_feat_ext_cap_clear(pdev, WLAN_PDEV_FEXT_CFR_EN);
+		return QDF_STATUS_E_NOSUPPORT;
+	}
+
+	wlan_pdev_nif_feat_ext_cap_set(pdev, WLAN_PDEV_FEXT_CFR_EN);
+
 	pa = (struct pdev_cfr *)qdf_mem_malloc(sizeof(struct pdev_cfr));
 	if (!pa) {
 		cfr_err("Failed to allocate pdev_cfr object\n");
@@ -163,6 +199,11 @@ wlan_cfr_pdev_obj_destroy_handler(struct wlan_objmgr_pdev *pdev, void *arg)
 		return QDF_STATUS_E_FAILURE;
 	}
 
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_info("cfr is disabled");
+		return QDF_STATUS_E_NOSUPPORT;
+	}
+
 	pa = wlan_objmgr_pdev_get_comp_private_obj(pdev, WLAN_UMAC_COMP_CFR);
 	if (pa) {
 		wlan_objmgr_pdev_component_obj_detach(pdev, WLAN_UMAC_COMP_CFR,
@@ -182,10 +223,26 @@ QDF_STATUS
 wlan_cfr_peer_obj_create_handler(struct wlan_objmgr_peer *peer, void *arg)
 {
 	struct peer_cfr *pe = NULL;
+	struct wlan_objmgr_vdev *vdev;
+	struct wlan_objmgr_pdev *pdev = NULL;
 
 	if (!peer) {
 		cfr_err("PEER is NULL\n");
 		return QDF_STATUS_E_FAILURE;
+	}
+
+	vdev = wlan_peer_get_vdev(peer);
+	if (vdev)
+		pdev = wlan_vdev_get_pdev(vdev);
+
+	if (!pdev) {
+		cfr_err("PDEV is NULL\n");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_info("cfr is disabled");
+		return QDF_STATUS_E_NOSUPPORT;
 	}
 
 	pe = (struct peer_cfr *)qdf_mem_malloc(sizeof(struct peer_cfr));
@@ -219,6 +276,11 @@ wlan_cfr_peer_obj_destroy_handler(struct wlan_objmgr_peer *peer, void *arg)
 	if (vdev)
 		pdev = wlan_vdev_get_pdev(vdev);
 
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_info("cfr is disabled");
+		return QDF_STATUS_E_NOSUPPORT;
+	}
+
 	if (pdev)
 		pa = wlan_objmgr_pdev_get_comp_private_obj(pdev,
 							   WLAN_UMAC_COMP_CFR);
@@ -240,49 +302,54 @@ wlan_cfr_peer_obj_destroy_handler(struct wlan_objmgr_peer *peer, void *arg)
 }
 
 #ifdef CFR_USE_FIXED_FOLDER
-static const char *cfr_get_dev_name(struct wlan_objmgr_pdev *pdev)
+static char *cfr_get_dev_name(struct wlan_objmgr_pdev *pdev)
 {
-	const char *default_name = "wlan";
+	char *default_name = "wlan";
 
 	return default_name;
 }
 #else
-static const char *cfr_get_dev_name(struct wlan_objmgr_pdev *pdev)
+/**
+ * cfr_get_dev_name() - Get net device name from pdev
+ *  @pdev: objmgr pdev
+ *
+ *  Return: netdev name
+ */
+static char *cfr_get_dev_name(struct wlan_objmgr_pdev *pdev)
 {
-	struct pdev_cfr *pa = NULL;
-	char folder[32];
-	struct net_device *pdev_netdev;
-	struct ol_ath_softc_net80211 *scn;
-	struct target_pdev_info *tgt_hdl;
-	const char *default_name = "wlan";
+	struct pdev_osif_priv *pdev_ospriv;
+	struct qdf_net_if *nif;
 
-	if (!pdev) {
-		cfr_err("PDEV is NULL\n");
-		return default_name;
+	pdev_ospriv = wlan_pdev_get_ospriv(pdev);
+	if (!pdev_ospriv) {
+		cfr_err("pdev_ospriv is NULL\n");
+		return NULL;
 	}
 
-	tgt_hdl = wlan_pdev_get_tgt_if_handle(pdev);
-
-	if (!tgt_hdl) {
-		cfr_err("target_pdev_info is NULL\n");
-		return default_name;
+	nif = pdev_ospriv->nif;
+	if (!nif) {
+		cfr_err("pdev nif is NULL\n");
+		return NULL;
 	}
 
-	scn = target_pdev_get_feature_ptr(tgt_hdl);
-	pdev_netdev = scn->netdev;
-
-	return pdev_netdev->name;
+	return  qdf_net_if_get_devname(nif);
 }
 #endif
 
 QDF_STATUS cfr_streamfs_init(struct wlan_objmgr_pdev *pdev)
 {
 	struct pdev_cfr *pa = NULL;
+	char *devname;
 	char folder[32];
 
 	if (!pdev) {
 		cfr_err("PDEV is NULL\n");
 		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_info("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
 	}
 
 	pa = wlan_objmgr_pdev_get_comp_private_obj(pdev, WLAN_UMAC_COMP_CFR);
@@ -297,7 +364,13 @@ QDF_STATUS cfr_streamfs_init(struct wlan_objmgr_pdev *pdev)
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	snprintf(folder, sizeof(folder), "cfr%s", cfr_get_dev_name(pdev));
+	devname = cfr_get_dev_name(pdev);
+	if (!devname) {
+		cfr_err("devname is NULL\n");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	snprintf(folder, sizeof(folder), "cfr%s", devname);
 
 	pa->dir_ptr = qdf_streamfs_create_dir((const char *)folder, NULL);
 
@@ -323,6 +396,11 @@ QDF_STATUS cfr_streamfs_init(struct wlan_objmgr_pdev *pdev)
 QDF_STATUS cfr_streamfs_remove(struct wlan_objmgr_pdev *pdev)
 {
 	struct pdev_cfr *pa = NULL;
+
+	if (wlan_cfr_is_feature_disabled(pdev)) {
+		cfr_info("cfr is disabled");
+		return QDF_STATUS_COMP_DISABLED;
+	}
 
 	pa = wlan_objmgr_pdev_get_comp_private_obj(pdev, WLAN_UMAC_COMP_CFR);
 	if (pa) {

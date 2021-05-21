@@ -93,6 +93,12 @@
 /* MAX RNR entries per channel*/
 #define WLAN_MAX_RNR_COUNT 15
 
+/*
+ * Maximum numbers of callback functions that may be invoked
+ * for a particular scan event.
+ */
+#define MAX_SCAN_EVENT_LISTENERS (MAX_SCAN_EVENT_HANDLERS_PER_PDEV + 1)
+
 /**
  * struct probe_time_dwell_time - probe time, dwell time map
  * @dwell_time: dwell time
@@ -148,6 +154,9 @@ struct probe_time_dwell_time {
 
 /* Indicate client hint req is high priority than FW rnr or FILS discovery */
 #define SCAN_FLAG_EXT_6GHZ_CLIENT_HIGH_PRIORITY 0x80
+
+/* RRM scan type indication */
+#define SCAN_FLAG_EXT_RRM_SCAN_IND 0x400
 
 /* Passive dwell time if bt_a2dp is enabled. Time in msecs*/
 #define PASSIVE_DWELL_TIME_BT_A2DP_ENABLED 28
@@ -315,12 +324,14 @@ struct extscan_def_config {
  * @select_5gh_margin: Prefer connecting to 5G AP even if
  *      its RSSI is lower by select_5gh_margin dbm than 2.4G AP.
  *      applicable if prefer_5ghz is set.
- * @is_bssid_hint_priority: True if bssid_hint is given priority
  * @enable_mac_spoofing: enable mac address spoof in scan
  * @max_bss_per_pdev: maximum number of bss entries to be maintained per pdev
  * @max_active_scans_allowed: maximum number of active parallel scan allowed
  *                            per psoc
  * @scan_mode_6g: scan mode in 6Ghz
+ * @duty_cycle_6ghz: Enable optimization on 6g channels for every full scan
+ *                   except the duty cycle. So that every nth scan(depending on
+ *                   duty cycle) is a full scan and rest are all optimized scans
  * @enable_connected_scan: enable scans after connection
  * @scan_priority: default scan priority
  * @adaptive_dwell_time_mode: adaptive dwell mode with connection
@@ -399,7 +410,6 @@ struct scan_default_params {
 	qdf_time_t scan_cache_aging_time;
 	uint32_t select_5ghz_margin;
 	bool enable_mac_spoofing;
-	bool is_bssid_hint_priority;
 	uint32_t usr_cfg_probe_rpt_time;
 	uint32_t usr_cfg_num_probes;
 	uint16_t max_bss_per_pdev;
@@ -409,6 +419,7 @@ struct scan_default_params {
 	uint8_t go_scan_burst_duration;
 	uint8_t ap_scan_burst_duration;
 	enum scan_mode_6ghz scan_mode_6g;
+	uint8_t duty_cycle_6ghz;
 	bool enable_connected_scan;
 	enum scan_priority scan_priority;
 	enum scan_dwelltime_adaptive_mode adaptive_dwell_time_mode;
@@ -463,7 +474,6 @@ struct scan_default_params {
 		};
 		uint32_t scan_events;
 	};
-	struct scoring_config score_config;
 };
 
 /**
@@ -502,8 +512,11 @@ struct scan_cb {
  * @scan_start_request_buff: buffer used to pass
  *      scan config to event handlers
  * @rnr_channel_db: RNR channel list database
- * @allow_bss_with_incomplete_ie: Continue scan entry even if any corrupted IES
- *  are present.
+ * @duty_cycle_cnt_6ghz: Scan count to track the full scans and decide whether
+ *                        to optimizate 6g channels in the scan request based
+ *                        on the ini scan_mode_6ghz_duty_cycle.
+ * @allow_bss_with_incomplete_ie: Continue scan entry even if any corrupted IES are
+ *			    present.
  */
 struct wlan_scan_obj {
 	uint32_t scan_disabled;
@@ -532,8 +545,125 @@ struct wlan_scan_obj {
 #ifdef FEATURE_6G_SCAN_CHAN_SORT_ALGO
 	struct channel_list_db rnr_channel_db;
 #endif
+#ifdef ENABLE_SCAN_PROFILE
+	uint64_t scan_listener_cb_exe_dur[MAX_SCAN_EVENT_LISTENERS];
+	uint64_t scm_scan_event_duration;
+	uint64_t scm_scan_to_post_scan_duration;
+#endif
+	uint16_t duty_cycle_cnt_6ghz;
 	bool allow_bss_with_incomplete_ie;
 };
+
+#ifdef ENABLE_SCAN_PROFILE
+static inline
+void scm_duration_init(struct wlan_scan_obj *scan)
+{
+	if (!scan)
+		return;
+
+	scan->scm_scan_event_duration = 0;
+	scan->scm_scan_to_post_scan_duration = 0;
+}
+
+static inline
+void scm_event_duration_start(struct wlan_scan_obj *scan)
+{
+	if (!scan)
+		return;
+
+	scan->scm_scan_event_duration =
+		qdf_ktime_to_ms(qdf_ktime_get());
+}
+
+static inline
+void scm_event_duration_end(struct wlan_scan_obj *scan)
+{
+	if (!scan)
+		return;
+
+	scan->scm_scan_event_duration =
+		(qdf_ktime_to_ms(qdf_ktime_get()) -
+		 scan->scm_scan_event_duration);
+}
+
+static inline
+void scm_to_post_scan_duration_set(struct wlan_scan_obj *scan)
+{
+	if (!scan)
+		return;
+
+	scan->scm_scan_to_post_scan_duration =
+		(qdf_ktime_to_ms(qdf_ktime_get()) -
+		 scan->scm_scan_event_duration);
+}
+
+static inline
+void scm_listener_cb_exe_dur_start(struct wlan_scan_obj *scan, uint8_t index)
+{
+	if (!scan || (index >= MAX_SCAN_EVENT_LISTENERS))
+		return;
+
+	scan->scan_listener_cb_exe_dur[index] =
+		qdf_ktime_to_ms(qdf_ktime_get());
+}
+
+static inline
+void scm_listener_cb_exe_dur_end(struct wlan_scan_obj *scan, uint8_t index)
+{
+	if (!scan || (index >= MAX_SCAN_EVENT_LISTENERS))
+		return;
+
+	scan->scan_listener_cb_exe_dur[index] =
+		(qdf_ktime_to_ms(qdf_ktime_get()) -
+		 scan->scan_listener_cb_exe_dur[index]);
+}
+
+static inline
+void scm_listener_duration_init(struct wlan_scan_obj *scan)
+{
+	if (!scan)
+		return;
+
+	qdf_mem_set(&scan->scan_listener_cb_exe_dur,
+		    sizeof(uint64_t) * MAX_SCAN_EVENT_LISTENERS,
+		    0);
+}
+#else
+static inline
+void scm_duration_init(struct wlan_scan_obj *scan)
+{
+}
+
+static inline
+void scm_event_duration_start(struct wlan_scan_obj *scan)
+{
+}
+
+static inline
+void scm_event_duration_end(struct wlan_scan_obj *scan)
+{
+}
+
+static inline
+void scm_to_post_scan_duration_set(struct wlan_scan_obj *scan)
+{
+}
+
+static inline
+void scm_listener_cb_exe_dur_start(struct wlan_scan_obj *scan, uint8_t index)
+{
+}
+
+static inline
+void scm_listener_cb_exe_dur_end(struct wlan_scan_obj *scan, uint8_t index)
+{
+}
+
+static inline
+void scm_listener_duration_init(struct wlan_scan_obj *scan)
+{
+}
+#endif
 
 /**
  * wlan_psoc_get_scan_obj() - private API to get scan object from psoc

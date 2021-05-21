@@ -187,8 +187,10 @@ static void update_cpu_capacity(unsigned int cpu)
 
 	topology_set_cpu_scale(cpu, cpu_capacity(cpu) / middle_capacity);
 
+#ifdef CONFIG_DEBUG_KERNEL
 	pr_info("CPU%u: update cpu_capacity %lu\n",
 		cpu, topology_get_cpu_scale(NULL, cpu));
+#endif
 }
 
 #else
@@ -346,9 +348,6 @@ void __init init_cpu_topology(void)
 	smp_wmb();
 
 	parse_dt_topology();
-
-	for_each_possible_cpu(cpu)
-		update_siblings_masks(cpu);
 
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);

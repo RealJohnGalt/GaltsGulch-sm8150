@@ -184,7 +184,6 @@ struct pe_session {
 	/* Identifies the 40 MHz extension channel */
 	ePhyChanBondState htSecondaryChannelOffset;
 	enum reg_wifi_band limRFBand;
-	uint8_t limIbssActive;  /* TO SUPPORT CONCURRENCY */
 
 	/* These global varibales moved to session Table to support BT-AMP : Oct 9th review */
 	tAniAuthType limCurrentAuthType;
@@ -242,8 +241,6 @@ struct pe_session {
 	uint8_t *tspecIes;
 #endif
 	uint32_t encryptType;
-
-	bool bTkipCntrMeasActive;       /* Used to keep record of TKIP counter measures start/stop */
 
 	uint8_t gLimProtectionControl;  /* used for 11n protection */
 
@@ -310,7 +307,6 @@ struct pe_session {
 	uint8_t limWmeEnabled:1;        /* WME */
 	uint8_t limWsmEnabled:1;        /* WSM */
 	uint8_t limHcfEnabled:1;
-	uint8_t lim11dEnabled:1;
 #ifdef WLAN_FEATURE_11W
 	uint8_t limRmfEnabled:1;        /* 11W */
 #endif
@@ -401,8 +397,6 @@ struct pe_session {
 	int8_t rssi;
 #endif
 	uint8_t max_amsdu_num;
-	uint8_t isCoalesingInIBSSAllowed;
-
 	struct ht_config ht_config;
 	struct sir_vht_config vht_config;
 	/*
@@ -530,7 +524,6 @@ struct pe_session {
 	uint16_t beacon_tx_rate;
 	uint8_t *access_policy_vendor_ie;
 	uint8_t access_policy;
-	bool ignore_assoc_disallowed;
 	bool send_p2p_conf_frame;
 	bool process_ho_fail;
 	/* Number of STAs that do not support ECSA capability */
@@ -564,7 +557,6 @@ struct pe_session {
 	bool is_session_obss_offload_enabled;
 	bool is_obss_reset_timer_initialized;
 	bool sae_pmk_cached;
-	bool fw_roaming_started;
 	bool recvd_deauth_while_roaming;
 	bool recvd_disassoc_while_roaming;
 	bool deauth_disassoc_rc;
@@ -585,6 +577,8 @@ struct pe_session {
 	uint16_t prot_status_code;
 	tSirResultCodes result_code;
 	uint32_t dfs_regdomain;
+	/* AP power type */
+	uint8_t ap_power_type;
 };
 
 /*-------------------------------------------------------------------------
@@ -750,7 +744,6 @@ void pe_delete_fils_info(struct pe_session *session);
  *
  * @mac_ctx: pointer to global mac context
  * @session: pointer to the PE session
- * @ibss_ssid: SSID of the session for IBSS sessions
  * @sap_channel: Operating Channel of the session for SAP sessions
  *
  * Sets the beacon/probe filter in the global mac context to filter
@@ -760,7 +753,6 @@ void pe_delete_fils_info(struct pe_session *session);
  */
 void lim_set_bcn_probe_filter(struct mac_context *mac_ctx,
 				struct pe_session *session,
-				tSirMacSSid *ibss_ssid,
 				uint8_t sap_channel);
 
 /**

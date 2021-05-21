@@ -442,7 +442,7 @@ static unsigned long zs_zpool_get_compacted(void *pool)
 	struct zs_pool_stats stats;
 
 	zs_pool_stats(pool, &stats);
-	return stats.pages_compacted;
+	return atomic_long_read(&stats.pages_compacted);
 }
 
 static u64 zs_zpool_total_size(void *pool)
@@ -858,7 +858,7 @@ static int get_pages_per_zspage(int class_size)
 
 static struct zspage *get_zspage(struct page *page)
 {
-	struct zspage *zspage = (struct zspage *)page->private;
+	struct zspage *zspage = (struct zspage *)page_private(page);
 
 	BUG_ON(zspage->magic != ZSPAGE_MAGIC);
 	return zspage;

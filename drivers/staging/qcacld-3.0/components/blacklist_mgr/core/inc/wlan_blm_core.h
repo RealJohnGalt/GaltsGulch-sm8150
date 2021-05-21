@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -163,31 +163,6 @@ struct blm_reject_ap {
 };
 
 /**
- * enum blm_bssid_action - action taken by driver for the scan results
- * @BLM_ACTION_NOP: No operation to be taken for the BSSID in the scan list.
- * @BLM_REMOVE_FROM_LIST: Remove the BSSID from the scan list ( Blacklisted APs)
- * @BLM_MOVE_AT_LAST: Attach the Ap at last of the scan list (Avoided Aps)
- */
-enum blm_bssid_action {
-	BLM_ACTION_NOP,
-	BLM_REMOVE_FROM_LIST,
-	BLM_MOVE_AT_LAST,
-};
-
-/**
- * blm_filter_bssid() - Filter out the bad Aps from the scan list.
- * @pdev: Pdev object
- * @scan_list: Scan list from the caller
- *
- * This API will filter out the bad Aps, or add the bad APs at the last
- * of the linked list if the APs are to be avoided.
- *
- * Return: QDF status
- */
-QDF_STATUS
-blm_filter_bssid(struct wlan_objmgr_pdev *pdev, qdf_list_t *scan_list);
-
-/**
  * blm_add_bssid_to_reject_list() - Add BSSID to the specific reject list.
  * @pdev: Pdev object
  * @ap_info: Ap info params such as BSSID, and the type of rejection to be done
@@ -201,6 +176,7 @@ QDF_STATUS
 blm_add_bssid_to_reject_list(struct wlan_objmgr_pdev *pdev,
 			     struct reject_ap_info *ap_info);
 
+#if defined(WLAN_FEATURE_ROAM_OFFLOAD)
 /**
  * blm_send_reject_ap_list_to_fw() - Send the blacklist BSSIDs to FW
  * @pdev: Pdev object
@@ -226,6 +202,18 @@ blm_send_reject_ap_list_to_fw(struct wlan_objmgr_pdev *pdev,
  * Return: None
  */
 void blm_update_reject_ap_list_to_fw(struct wlan_objmgr_psoc *psoc);
+#else
+static inline void blm_send_reject_ap_list_to_fw(struct wlan_objmgr_pdev *pdev,
+						 qdf_list_t *reject_db_list,
+						 struct blm_config *cfg)
+{
+}
+
+static inline void
+blm_update_reject_ap_list_to_fw(struct wlan_objmgr_psoc *psoc)
+{
+}
+#endif
 
 /**
  * blm_add_userspace_black_list() - Clear already existing userspace BSSID, and
@@ -292,6 +280,14 @@ blm_get_bssid_reject_list(struct wlan_objmgr_pdev *pdev,
 			  struct reject_ap_config_params *reject_list,
 			  uint8_t max_bssid_to_be_filled,
 			  enum blm_reject_ap_type reject_ap_type);
+
+/**
+ * blm_dump_blacklist_bssid - Dump blacklisted bssids
+ * @pdev: pdev object
+ *
+ * Return: None
+ */
+void blm_dump_blacklist_bssid(struct wlan_objmgr_pdev *pdev);
 
 /**
  * blm_get_rssi_blacklist_threshold() - Get rssi blacklist threshold value

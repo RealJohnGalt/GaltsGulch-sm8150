@@ -48,7 +48,7 @@ void target_if_vdev_mgr_handle_recovery(struct wlan_objmgr_psoc *psoc,
 				wlan_psoc_get_id(psoc), vdev_id);
 }
 
-QDF_STATUS target_if_vdev_mgr_rsp_timer_cb(struct vdev_response_timer *vdev_rsp)
+void target_if_vdev_mgr_rsp_timer_cb(void *arg)
 {
 	struct wlan_objmgr_psoc *psoc;
 	struct wlan_lmac_if_mlme_rx_ops *rx_ops;
@@ -56,25 +56,26 @@ QDF_STATUS target_if_vdev_mgr_rsp_timer_cb(struct vdev_response_timer *vdev_rsp)
 	struct vdev_stop_response stop_rsp = {0};
 	struct vdev_delete_response del_rsp = {0};
 	struct peer_delete_all_response peer_del_all_rsp = {0};
+	struct vdev_response_timer *vdev_rsp = arg;
 	enum qdf_hang_reason recovery_reason;
 	uint8_t vdev_id;
 	uint16_t rsp_pos = RESPONSE_BIT_MAX;
 
 	if (!vdev_rsp) {
 		mlme_err("Vdev response timer is NULL");
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
 
 	psoc = vdev_rsp->psoc;
 	if (!psoc) {
 		mlme_err("PSOC is NULL");
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
 	if (!rx_ops || !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("No Rx Ops");
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
 
 	if (!qdf_atomic_test_bit(START_RESPONSE_BIT, &vdev_rsp->rsp_status) &&
@@ -86,14 +87,14 @@ QDF_STATUS target_if_vdev_mgr_rsp_timer_cb(struct vdev_response_timer *vdev_rsp)
 			&vdev_rsp->rsp_status)) {
 		mlme_debug("No response bit is set, ignoring actions :%d",
 			   vdev_rsp->vdev_id);
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
 
 	vdev_id = vdev_rsp->vdev_id;
 	if (vdev_id >= WLAN_UMAC_PSOC_MAX_VDEVS) {
 		mlme_err("Invalid VDEV_%d PSOC_%d", vdev_id,
 			 wlan_psoc_get_id(psoc));
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
 
 	vdev_rsp->timer_status = QDF_STATUS_E_TIMEOUT;
@@ -152,10 +153,8 @@ QDF_STATUS target_if_vdev_mgr_rsp_timer_cb(struct vdev_response_timer *vdev_rsp)
 	} else {
 		mlme_err("PSOC_%d VDEV_%d: Unknown error",
 			 wlan_psoc_get_id(psoc), vdev_id);
-		return QDF_STATUS_E_FAILURE;
+		return;
 	}
-
-	return QDF_STATUS_SUCCESS;
 }
 
 #ifdef SERIALIZE_VDEV_RESP
@@ -202,8 +201,16 @@ target_if_vdev_mgr_rsp_cb_mc_ctx(void *arg)
 
 	msg.type = SYS_MSG_ID_MC_TIMER;
 	msg.reserved = SYS_MSG_COOKIE;
-	msg.callback = target_if_vdev_mgr_rsp_timer_cb;
-	msg.bodyptr = vdev_rsp;
+
+	/* msg.callback will explicitly cast back to qdf_mc_timer_callback_t
+	 * in scheduler_timer_q_mq_handler.
+	 * but in future we do not want to introduce more this kind of
+	 * typecast by properly using QDF MC timer for MCC from get go in
+	 * common code.
+	 */
+	msg.callback =
+		(scheduler_msg_process_fn_t)target_if_vdev_mgr_rsp_timer_cb;
+	msg.bodyptr = arg;
 	msg.bodyval = 0;
 	msg.flush_callback = target_if_vdev_mgr_rsp_flush_cb;
 
@@ -241,8 +248,7 @@ static int target_if_vdev_mgr_start_response_handler(ol_scn_t scn,
 	struct wlan_objmgr_psoc *psoc;
 	struct wmi_unified *wmi_handle;
 	struct wlan_lmac_if_mlme_rx_ops *rx_ops;
-	struct vdev_start_response rsp = {0};
-	wmi_host_vdev_start_resp vdev_start_resp;
+	struct vdev_start_response vdev_start_resp = {0};
 	uint8_t vdev_id;
 	struct vdev_response_timer *vdev_rsp;
 
@@ -296,18 +302,7 @@ static int target_if_vdev_mgr_start_response_handler(ol_scn_t scn,
 		goto err;
 	}
 
-	rsp.vdev_id = vdev_start_resp.vdev_id;
-	rsp.requestor_id = vdev_start_resp.requestor_id;
-	rsp.status = vdev_start_resp.status;
-	rsp.resp_type = vdev_start_resp.resp_type;
-	rsp.chain_mask = vdev_start_resp.chain_mask;
-	rsp.smps_mode = vdev_start_resp.smps_mode;
-	rsp.mac_id = vdev_start_resp.mac_id;
-	rsp.cfgd_tx_streams = vdev_start_resp.cfgd_tx_streams;
-	rsp.cfgd_rx_streams = vdev_start_resp.cfgd_rx_streams;
-	rsp.max_allowed_tx_power = vdev_start_resp.max_allowed_tx_power;
-
-	status = rx_ops->vdev_mgr_start_response(psoc, &rsp);
+	status = rx_ops->vdev_mgr_start_response(psoc, &vdev_start_resp);
 
 err:
 	return qdf_status_to_os_return(status);
@@ -384,8 +379,7 @@ static int target_if_vdev_mgr_delete_response_handler(ol_scn_t scn,
 	struct wlan_objmgr_psoc *psoc;
 	struct wmi_unified *wmi_handle;
 	struct wlan_lmac_if_mlme_rx_ops *rx_ops;
-	struct vdev_delete_response rsp = {0};
-	struct wmi_host_vdev_delete_resp vdev_del_resp;
+	struct vdev_delete_response vdev_del_resp = {0};
 	struct vdev_response_timer *vdev_rsp;
 
 	if (!scn || !data) {
@@ -434,8 +428,7 @@ static int target_if_vdev_mgr_delete_response_handler(ol_scn_t scn,
 		goto err;
 	}
 
-	rsp.vdev_id = vdev_del_resp.vdev_id;
-	status = rx_ops->vdev_mgr_delete_response(psoc, &rsp);
+	status = rx_ops->vdev_mgr_delete_response(psoc, &vdev_del_resp);
 	target_if_wake_lock_timeout_release(psoc, DELETE_WAKELOCK);
 err:
 	return qdf_status_to_os_return(status);
@@ -450,9 +443,7 @@ static int target_if_vdev_mgr_peer_delete_all_response_handler(
 	struct wlan_objmgr_psoc *psoc;
 	struct wmi_unified *wmi_handle;
 	struct wlan_lmac_if_mlme_rx_ops *rx_ops;
-	struct peer_delete_all_response rsp = {0};
-	struct wmi_host_vdev_peer_delete_all_response_event
-						vdev_peer_del_all_resp;
+	struct peer_delete_all_response vdev_peer_del_all_resp = {0};
 	struct vdev_response_timer *vdev_rsp;
 
 	if (!scn || !data) {
@@ -506,9 +497,9 @@ static int target_if_vdev_mgr_peer_delete_all_response_handler(
 		goto err;
 	}
 
-	rsp.vdev_id = vdev_peer_del_all_resp.vdev_id;
-	rsp.status = vdev_peer_del_all_resp.status;
-	status = rx_ops->vdev_mgr_peer_delete_all_response(psoc, &rsp);
+	status = rx_ops->vdev_mgr_peer_delete_all_response(
+						psoc,
+						&vdev_peer_del_all_resp);
 
 err:
 	return qdf_status_to_os_return(status);
@@ -719,10 +710,117 @@ static int target_if_vdev_mgr_multi_vdev_restart_resp_handler(
 	return qdf_status_to_os_return(status);
 }
 
+/**
+ * target_if_vdev_csa_complete - CSA complete event handler
+ * @psoc: psoc
+ * @vdev_id: vdev id
+ *
+ * Return: 0 on success
+ */
+static int target_if_vdev_csa_complete(struct wlan_objmgr_psoc *psoc,
+				       uint8_t vdev_id)
+{
+	QDF_STATUS status = QDF_STATUS_E_FAILURE;
+	struct vdev_mlme_obj *vdev_mlme;
+	struct wlan_objmgr_vdev *vdev;
+	int ret = 0;
+
+	if (!psoc) {
+		mlme_err("Invalid input");
+		return -EINVAL;
+	}
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_VDEV_TARGET_IF_ID);
+	if (!vdev) {
+		mlme_err("VDEV is NULL");
+		return -EINVAL;
+	}
+	vdev_mlme = wlan_vdev_mlme_get_cmpt_obj(vdev);
+	if (!vdev_mlme) {
+		mlme_err("VDEV_%d: PSOC_%d VDEV_MLME is NULL", vdev_id,
+			 wlan_psoc_get_id(psoc));
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if ((vdev_mlme->ops) && vdev_mlme->ops->mlme_vdev_csa_complete) {
+		status = vdev_mlme->ops->mlme_vdev_csa_complete(vdev_mlme);
+		if (QDF_IS_STATUS_ERROR(status)) {
+			mlme_err("vdev csa complete failed");
+			ret = -EINVAL;
+		}
+	}
+end:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_VDEV_TARGET_IF_ID);
+	return ret;
+}
+
+/**
+ * target_if_pdev_csa_status_event_handler - CSA event handler
+ * @scn: Pointer to scn structure
+ * @data: pointer to event data
+ * @datalen: event data length
+ *
+ * Return: 0 on success
+ */
+static int target_if_pdev_csa_status_event_handler(
+		ol_scn_t scn,
+		uint8_t *data,
+		uint32_t datalen)
+{
+	struct pdev_csa_switch_count_status csa_status;
+	struct wlan_objmgr_psoc *psoc;
+	struct wmi_unified *wmi_handle;
+	struct target_psoc_info *tgt_hdl;
+	int i;
+	QDF_STATUS status;
+
+	if (!scn || !data) {
+		mlme_err("Invalid input");
+		return -EINVAL;
+	}
+
+	psoc = target_if_get_psoc_from_scn_hdl(scn);
+	if (!psoc) {
+		mlme_err("PSOC is NULL");
+		return -EINVAL;
+	}
+
+	wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
+	if (!wmi_handle) {
+		mlme_err("wmi_handle is null");
+		return -EINVAL;
+	}
+
+	tgt_hdl = wlan_psoc_get_tgt_if_handle(psoc);
+	if (!tgt_hdl) {
+		mlme_err("target_psoc_info is null");
+		return -EINVAL;
+	}
+
+	qdf_mem_zero(&csa_status, sizeof(csa_status));
+	status = wmi_extract_pdev_csa_switch_count_status(
+			wmi_handle, data, &csa_status);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		mlme_err("Extracting CSA switch count status event failed");
+		return -EINVAL;
+	}
+
+	if (wlan_psoc_nif_fw_ext_cap_get(psoc, WLAN_SOC_CEXT_CSA_TX_OFFLOAD)) {
+		for (i = 0; i < csa_status.num_vdevs; i++) {
+			if (!csa_status.current_switch_count)
+				target_if_vdev_csa_complete(psoc,
+							csa_status.vdev_ids[i]);
+		}
+	}
+
+	return target_if_csa_switch_count_status(psoc, tgt_hdl, csa_status);
+}
+
 QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 				struct wlan_objmgr_psoc *psoc)
 {
-	int retval = 0;
+	QDF_STATUS retval = QDF_STATUS_SUCCESS;
 	struct wmi_unified *wmi_handle;
 
 	if (!psoc) {
@@ -741,7 +839,7 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 				wmi_vdev_stopped_event_id,
 				target_if_vdev_mgr_stop_response_handler,
 				VDEV_RSP_RX_CTX);
-	if (retval)
+	if (QDF_IS_STATUS_ERROR(retval))
 		mlme_err("failed to register for stop response");
 
 	retval = wmi_unified_register_event_handler(
@@ -749,7 +847,7 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 				wmi_vdev_delete_resp_event_id,
 				target_if_vdev_mgr_delete_response_handler,
 				VDEV_RSP_RX_CTX);
-	if (retval)
+	if (QDF_IS_STATUS_ERROR(retval))
 		mlme_err("failed to register for delete response");
 
 	retval = wmi_unified_register_event_handler(
@@ -757,7 +855,7 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 				wmi_vdev_start_resp_event_id,
 				target_if_vdev_mgr_start_response_handler,
 				VDEV_RSP_RX_CTX);
-	if (retval)
+	if (QDF_IS_STATUS_ERROR(retval))
 		mlme_err("failed to register for start response");
 
 	retval = wmi_unified_register_event_handler(
@@ -765,7 +863,7 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 			wmi_peer_delete_all_response_event_id,
 			target_if_vdev_mgr_peer_delete_all_response_handler,
 			VDEV_RSP_RX_CTX);
-	if (retval)
+	if (QDF_IS_STATUS_ERROR(retval))
 		mlme_err("failed to register for peer delete all response");
 
 	retval = wmi_unified_register_event_handler(
@@ -773,10 +871,20 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_register(
 			wmi_pdev_multi_vdev_restart_response_event_id,
 			target_if_vdev_mgr_multi_vdev_restart_resp_handler,
 			VDEV_RSP_RX_CTX);
-	if (retval)
+	if (QDF_IS_STATUS_ERROR(retval))
 		mlme_err("failed to register for multivdev restart response");
 
-	return qdf_status_from_os_return(retval);
+	if (wmi_service_enabled(wmi_handle, wmi_service_beacon_offload)) {
+		retval = wmi_unified_register_event_handler(
+				wmi_handle,
+				wmi_pdev_csa_switch_count_status_event_id,
+				target_if_pdev_csa_status_event_handler,
+				VDEV_RSP_RX_CTX);
+		if (QDF_IS_STATUS_ERROR(retval))
+			mlme_err("failed to register for csa event handler");
+	}
+
+	return retval;
 }
 
 QDF_STATUS target_if_vdev_mgr_wmi_event_unregister(

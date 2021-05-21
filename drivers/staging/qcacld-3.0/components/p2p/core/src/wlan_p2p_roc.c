@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -93,7 +93,6 @@ static QDF_STATUS p2p_scan_start(struct p2p_roc_context *roc_ctx)
 
 	req = qdf_mem_malloc(sizeof(*req));
 	if (!req) {
-		p2p_err("failed to alloc scan start request");
 		status = QDF_STATUS_E_NOMEM;
 		goto fail;
 	}
@@ -176,7 +175,6 @@ static QDF_STATUS p2p_scan_abort(struct p2p_roc_context *roc_ctx)
 
 	req = qdf_mem_malloc(sizeof(*req));
 	if (!req) {
-		p2p_err("failed to alloc scan cancel request");
 		status = QDF_STATUS_E_NOMEM;
 		goto fail;
 	}
@@ -672,7 +670,7 @@ QDF_STATUS p2p_restart_roc_timer(struct p2p_roc_context *roc_ctx)
 
 	if (QDF_TIMER_STATE_RUNNING ==
 		qdf_mc_timer_get_current_state(&roc_ctx->roc_timer)) {
-		p2p_debug("roc timer is running");
+		p2p_debug("roc restart duration:%d", roc_ctx->duration);
 		status = qdf_mc_timer_stop_sync(&roc_ctx->roc_timer);
 		if (status != QDF_STATUS_SUCCESS) {
 			p2p_err("Failed to stop roc timer");
@@ -704,10 +702,8 @@ QDF_STATUS p2p_cleanup_roc_sync(
 
 	p2p_debug("p2p_soc_obj:%pK, vdev:%pK", p2p_soc_obj, vdev);
 	param = qdf_mem_malloc(sizeof(*param));
-	if (!param) {
-		p2p_err("failed to allocate cleanup param");
+	if (!param)
 		return QDF_STATUS_E_NOMEM;
-	}
 
 	param->p2p_soc_obj = p2p_soc_obj;
 	if (vdev)

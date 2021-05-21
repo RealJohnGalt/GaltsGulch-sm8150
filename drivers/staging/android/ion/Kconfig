@@ -4,8 +4,8 @@ menuconfig ION
 	select GENERIC_ALLOCATOR
 	select DMA_SHARED_BUFFER
 	select MSM_SECURE_BUFFER
-	---help---
-	  Chose this option to enable the ION Memory Manager,
+	help
+	  Choose this option to enable the ION Memory Manager,
 	  used by Android to efficiently allocate buffers
 	  from userspace that can be shared between drivers.
 	  If you're not using Android its probably safe to

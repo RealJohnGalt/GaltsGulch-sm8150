@@ -773,6 +773,13 @@ config UCLAMP_BUCKETS_COUNT
 
 	  If in doubt, use the default value.
 
+config UCLAMP_ASSIST
+	bool "UClamp configuration helper"
+	depends on CPUSETS && ANDROID && UCLAMP_TASK && UCLAMP_TASK_GROUP
+	help
+	  This option enables setting default values in-kernel for uclamp.
+	  If unsure, say N.
+
 endmenu
 
 #
@@ -1274,6 +1281,13 @@ config STUNE_ASSIST
 
 	  If unsure, say N.
 
+config SCHED_TUNE_DUMMY
+	bool "Create dummy SCHEDTUNE nodes"
+	depends on SMP
+	depends on !SCHED_TUNE && !CGROUP_SCHEDTUNE
+	help
+	  Create dummy SCHEDTUNE nodes.
+
 config DEFAULT_USE_ENERGY_AWARE
 	bool "Default to enabling the Energy Aware Scheduler feature"
 	default n
@@ -1439,8 +1453,6 @@ config BPF
 
 menuconfig EXPERT
 	bool "Configure standard kernel features (expert users)"
-	# Unhide debug options, to make the on-by-default options visible
-	select DEBUG_KERNEL
 	help
 	  This option allows certain base kernel options and settings
           to be disabled or tweaked. This is for specialized

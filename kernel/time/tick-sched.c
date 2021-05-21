@@ -29,6 +29,7 @@
 #include <linux/timer.h>
 #include <linux/context_tracking.h>
 #include <linux/rq_stats.h>
+#include <linux/mm.h>
 
 #include <asm/irq_regs.h>
 
@@ -208,7 +209,7 @@ static bool check_tick_dependency(atomic_t *dep)
 
 static bool can_stop_full_tick(int cpu, struct tick_sched *ts)
 {
-	WARN_ON_ONCE(!irqs_disabled());
+	lockdep_assert_irqs_disabled();
 
 	if (unlikely(!cpu_online(cpu)))
 		return false;
@@ -823,6 +824,7 @@ static void tick_nohz_stop_tick(struct tick_sched *ts, int cpu)
 	if (!ts->tick_stopped) {
 		calc_load_nohz_start();
 		cpu_load_update_nohz_start();
+		quiet_vmstat();
 
 		ts->last_tick = hrtimer_get_expires(&ts->sched_timer);
 		ts->tick_stopped = 1;
@@ -1030,8 +1032,7 @@ void tick_nohz_idle_enter(void)
 {
 	struct tick_sched *ts;
 
-	WARN_ON_ONCE(irqs_disabled());
-
+	lockdep_assert_irqs_enabled();
 	/*
 	 * Update the idle state in the scheduler domain hierarchy
 	 * when tick_nohz_stop_tick() is called from the idle loop.

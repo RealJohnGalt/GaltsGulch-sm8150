@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -76,13 +76,11 @@ void hdd_debugfs_process_iface_stats(struct hdd_adapter *adapter,
 	buffer += len;
 	ll_stats.len += len;
 	len = scnprintf(buffer, DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
-			"\nmode: %u, MAC_ADDR: "QDF_FULL_MAC_FMT", state: %u, roaming: %u, capabilities: %u, SSID: %s, BSSID_MAC: "QDF_FULL_MAC_FMT", ap_country_str: %s, country_str: %s",
-			iface_info->mode,
-			QDF_FULL_MAC_REF(iface_info->macAddr.bytes),
+			"\nmode: %u, MAC_ADDR: %pM, state: %u, roaming: %u, capabilities: %u, SSID: %s, BSSID_MAC: %pM, ap_country_str: %s, country_str: %s",
+			iface_info->mode, &iface_info->macAddr.bytes[0],
 			iface_info->state, iface_info->roaming,
 			iface_info->capabilities, iface_info->ssid,
-			QDF_FULL_MAC_REF(iface_info->bssid.bytes),
-			iface_info->apCountryStr,
+			&iface_info->bssid.bytes[0], iface_info->apCountryStr,
 			iface_info->countryStr);
 
 	link_stats = &iface_stat->link_stats;
@@ -186,9 +184,9 @@ void hdd_debugfs_process_peer_stats(struct hdd_adapter *adapter, void *data)
 		ll_stats.len += len;
 		len = scnprintf(buffer,
 				DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
-				"\nType: %d, peer_mac: "QDF_FULL_MAC_FMT", capabilities: %u\nnum_rates: %d",
+				"\nType: %d, peer_mac: %pM, capabilities: %u\nnum_rates: %d",
 				wmi_to_sir_peer_type(peer_info->type),
-				QDF_FULL_MAC_REF(peer_info->peer_macaddr.bytes),
+				&peer_info->peer_macaddr.bytes[0],
 				peer_info->capabilities, peer_info->num_rate);
 
 		num_rate = peer_info->num_rate;
@@ -288,6 +286,17 @@ void hdd_debugfs_process_radio_stats(struct hdd_adapter *adapter,
 				chan_stat->channel.center_freq0,
 				chan_stat->channel.center_freq1,
 				chan_stat->on_time, chan_stat->cca_busy_time);
+
+			if (adapter->hdd_ctx &&
+			    adapter->hdd_ctx->ll_stats_per_chan_rx_tx_time) {
+				buffer += len;
+				ll_stats.len += len;
+				len = scnprintf(
+					buffer,
+					DEBUGFS_LLSTATS_BUF_SIZE - ll_stats.len,
+					", tx_time: %u, rx_time: %u",
+					chan_stat->tx_time, chan_stat->rx_time);
+			}
 		}
 
 		radio_stat++;
@@ -494,37 +503,6 @@ static int wlan_hdd_open_ll_stats_debugfs(struct inode *inode,
 }
 
 /**
- * __wlan_hdd_release_ll_stats_debugfs() - Function to save private on release
- * @net_dev: net_device context used to register the debugfs file
- *
- * Return: Errno
- */
-static int __wlan_hdd_release_ll_stats_debugfs(struct net_device *net_dev)
-{
-	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(net_dev);
-	struct hdd_context *hdd_ctx;
-	int ret;
-
-	hdd_enter();
-
-	if (adapter->magic != WLAN_HDD_ADAPTER_MAGIC) {
-		hdd_err("Invalid adapter or adapter has invalid magic");
-		return -EINVAL;
-	}
-
-	hdd_ctx = WLAN_HDD_GET_CTX(adapter);
-	ret = wlan_hdd_validate_context(hdd_ctx);
-	if (ret)
-		return ret;
-
-	wlan_hdd_llstats_free_buf();
-
-	hdd_exit();
-
-	return 0;
-}
-
-/**
  * wlan_hdd_release_ll_stats_debugfs() - SSR wrapper function to save private
  *                                       on release
  * @inode: Pointer to inode structure
@@ -535,19 +513,19 @@ static int __wlan_hdd_release_ll_stats_debugfs(struct net_device *net_dev)
 static int wlan_hdd_release_ll_stats_debugfs(struct inode *inode,
 					     struct file *file)
 {
-	struct net_device *net_dev = file_inode(file)->i_private;
-	struct osif_vdev_sync *vdev_sync;
-	int errno;
+	/* Memory allocated during open_ll_stats_debugfs is static to this file
+	 * and not related to vdev/psoc, and hence it can be freed without DSC
+	 * protection during release file op.
+	 *
+	 * Since ll_stats buffer is allocated during debugfs file open
+	 * it needs to be freed in file release but, DSC vdev op-protection is
+	 * not needed for releasing the ll_stats buffer. Adding DSC protection
+	 * will lead to resource leak because DSC will reject file release
+	 * op call if it is in the middle of vdev/psoc/driver transition.
+	 */
+	wlan_hdd_llstats_free_buf();
 
-	errno = osif_vdev_sync_op_start(net_dev, &vdev_sync);
-	if (errno)
-		return errno;
-
-	errno = __wlan_hdd_release_ll_stats_debugfs(net_dev);
-
-	osif_vdev_sync_op_stop(vdev_sync);
-
-	return errno;
+	return 0;
 }
 
 static const struct file_operations fops_ll_stats_debugfs = {

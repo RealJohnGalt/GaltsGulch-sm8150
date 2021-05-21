@@ -25,6 +25,8 @@
 #ifndef __REG_UTILS_H_
 #define __REG_UTILS_H_
 
+#include <wlan_lmac_if_def.h>
+
 #ifdef WLAN_FEATURE_DSRC
 #define REG_DSRC_START_FREQ channel_map[MIN_DSRC_CHANNEL].center_freq
 #define REG_DSRC_END_FREQ   channel_map[MAX_DSRC_CHANNEL].center_freq
@@ -72,15 +74,6 @@ bool reg_chan_has_dfs_attribute(struct wlan_objmgr_pdev *pdev, uint8_t ch);
  * Return: true if channel is passive or disabled, else false.
  */
 bool reg_is_passive_or_disable_ch(struct wlan_objmgr_pdev *pdev, uint8_t chan);
-
-/**
- * reg_is_disable_ch() - Check if the given channel in disable state
- * @pdev: Pointer to pdev
- * @chan: channel number
- *
- * Return: True if channel state is disabled, else false
- */
-bool reg_is_disable_ch(struct wlan_objmgr_pdev *pdev, uint8_t chan);
 #else
 static inline bool
 reg_chan_has_dfs_attribute(struct wlan_objmgr_pdev *pdev, uint8_t ch)
@@ -90,12 +83,6 @@ reg_chan_has_dfs_attribute(struct wlan_objmgr_pdev *pdev, uint8_t ch)
 
 static inline bool
 reg_is_passive_or_disable_ch(struct wlan_objmgr_pdev *pdev, uint8_t chan)
-{
-	return false;
-}
-
-static inline bool
-reg_is_disable_ch(struct wlan_objmgr_pdev *pdev, uint8_t chan)
 {
 	return false;
 }
@@ -124,15 +111,6 @@ bool reg_chan_has_dfs_attribute_for_freq(struct wlan_objmgr_pdev *pdev,
  */
 bool reg_is_passive_or_disable_for_freq(struct wlan_objmgr_pdev *pdev,
 					qdf_freq_t freq);
-/**
- * reg_is_disable_for_freq() - Check if the given channel frequency in
- * disable state
- * @pdev: Pointer to pdev
- * @freq: Channel frequency
- *
- * Return: True if channel state is disabled, else false
- */
-bool reg_is_disable_for_freq(struct wlan_objmgr_pdev *pdev, qdf_freq_t freq);
 #else
 static inline bool
 reg_chan_has_dfs_attribute_for_freq(struct wlan_objmgr_pdev *pdev,
@@ -144,12 +122,6 @@ reg_chan_has_dfs_attribute_for_freq(struct wlan_objmgr_pdev *pdev,
 static inline bool
 reg_is_passive_or_disable_for_freq(struct wlan_objmgr_pdev *pdev,
 				   qdf_freq_t freq)
-{
-	return false;
-}
-
-static inline bool
-reg_is_disable_for_freq(struct wlan_objmgr_pdev *pdev, qdf_freq_t freq)
 {
 	return false;
 }
@@ -172,6 +144,7 @@ QDF_STATUS reg_restore_cached_channels(struct wlan_objmgr_pdev *pdev)
 {
 	return QDF_STATUS_SUCCESS;
 }
+
 static inline
 QDF_STATUS reg_disable_cached_channels(struct wlan_objmgr_pdev *pdev)
 {
@@ -417,6 +390,22 @@ QDF_STATUS reg_set_curr_country(
 bool reg_ignore_default_country(struct wlan_regulatory_psoc_priv_obj *soc_reg,
 				struct cur_regulatory_info *regulat_info);
 
+#ifdef CONFIG_BAND_6GHZ
+/**
+ * reg_decide_6g_ap_pwr_type() - Decide which power mode AP should operate in
+ *
+ * @pdev: pdev ptr
+ *
+ * Return: AP power type
+ */
+enum reg_6g_ap_type reg_decide_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev);
+#else
+static inline enum reg_6g_ap_type
+reg_decide_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev)
+{
+	return REG_CURRENT_MAX_AP_TYPE;
+}
+#endif /* CONFIG_BAND_6GHZ */
 #else
 static inline QDF_STATUS reg_read_current_country(struct wlan_objmgr_psoc *psoc,
 						  uint8_t *country_code)
@@ -513,6 +502,12 @@ static inline
 bool reg_get_fcc_constraint(struct wlan_objmgr_pdev *pdev, uint32_t freq)
 {
 	return false;
+}
+
+static inline enum reg_6g_ap_type
+reg_decide_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev)
+{
+	return REG_CURRENT_MAX_AP_TYPE;
 }
 
 #endif

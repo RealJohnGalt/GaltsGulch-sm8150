@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
@@ -43,6 +44,9 @@
 #define DBR_EVENT_TIMEOUT_IN_MS_CFR 1
 #define DBR_NUM_RESP_PER_EVENT_CFR 1
 #define MAX_CFR_ENABLED_CLIENTS 10
+#define CFR_CAPTURE_HOST_MEM_REQ_ID 9
+#define CFR_HOST_MEM_READ_INDEX_DEFAULT 8
+#define CFR_VENDOR_ID 0x8cfdf0
 #ifdef WLAN_ENH_CFR_ENABLE
 #define MAX_CFR_MU_USERS 4
 #define NUM_CHAN_CAPTURE_STATUS 4
@@ -50,6 +54,7 @@
 #define MAX_TA_RA_ENTRIES 16
 #define MAX_RESET_CFG_ENTRY 0xFFFF
 #define CFR_INVALID_VDEV_ID 0xff
+#define DEFAULT_SRNGID_CFR 0
 #endif
 
 enum cfrmetaversion {
@@ -90,6 +95,10 @@ enum cfrradiotype {
 	CFR_CAPTURE_RADIO_HKV2,
 	CFR_CAPTURE_RADIO_CYP,
 	CFR_CAPTURE_RADIO_HSP,
+	CFR_CAPTURE_RADIO_PINE,
+	CFR_CAPTURE_RADIO_ADRASTEA,
+	CFR_CAPTURE_RADIO_MAPLE,
+	CFR_CAPTURE_RADIO_MOSELLE,
 	CFR_CAPTURE_RADIO_MAX = 0xFF,
 };
 
@@ -216,10 +225,18 @@ struct cfr_capture_params {
  * struct psoc_cfr - private psoc object for cfr
  * psoc_obj: pointer to psoc object
  * is_cfr_capable: flag to determine if cfr is enabled or not
+ * is_cap_interval_mode_sel_support: flag to determine if target supports both
+ *				     capture_count and capture_duration modes
+ *				     with a nob provided to configure
+ * is_mo_marking_support: flag to determine if MO marking is supported or not
  */
 struct psoc_cfr {
 	struct wlan_objmgr_psoc *psoc_obj;
 	uint8_t is_cfr_capable;
+#ifdef WLAN_ENH_CFR_ENABLE
+	uint8_t is_cap_interval_mode_sel_support;
+	uint8_t is_mo_marking_support;
+#endif
 };
 
 /**
@@ -231,7 +248,7 @@ struct psoc_cfr {
  */
 struct cfr_wmi_host_mem_chunk {
 	uint32_t *vaddr;
-	uint32_t paddr;
+	qdf_dma_addr_t paddr;
 	uint32_t len;
 	uint32_t req_id;
 };
@@ -395,11 +412,16 @@ struct ta_ra_cfr_cfg {
  * m_ta_ra_filter: Filter Frames based on TA/RA/Subtype as provided in CFR Group
  * config
  * m_all_packet: Filter in All packets for CFR Capture
+ * en_ta_ra_filter_in_as_fp: Filter in frames as FP/MO in m_ta_ra_filter mode
  * num_grp_tlvs: Indicates the number of groups in M_TA_RA mode, that have
  * changes in the current commit session, use to construct WMI group TLV(s)
  * curr: Placeholder for M_TA_RA group config in current commit session
  * modified_in_curr_session: Bitmap indicating number of groups in M_TA_RA mode
  * that have changed in current commit session.
+ * capture_count: After capture_count+1 number of captures, MAC stops RCC  and
+ * waits for capture_interval duration before enabling again
+ * capture_intval_mode_sel: 0 indicates capture_duration mode, 1 indicates the
+ * capture_count mode.
  */
 struct cfr_rcc_param {
 	uint8_t pdev_id;
@@ -413,17 +435,21 @@ struct cfr_rcc_param {
 		 freeze_tlv_delay_cnt_thr :8,
 		 rsvd0 :7;
 	uint16_t filter_group_bitmap;
-	uint8_t m_directed_ftm      : 1,
-		m_all_ftm_ack       : 1,
-		m_ndpa_ndp_directed : 1,
-		m_ndpa_ndp_all      : 1,
-		m_ta_ra_filter      : 1,
-		m_all_packet        : 1,
-		rsvd1               : 2;
+	uint8_t m_directed_ftm           : 1,
+		m_all_ftm_ack            : 1,
+		m_ndpa_ndp_directed      : 1,
+		m_ndpa_ndp_all           : 1,
+		m_ta_ra_filter           : 1,
+		m_all_packet             : 1,
+		en_ta_ra_filter_in_as_fp : 1,
+		rsvd1                    : 1;
 	uint8_t num_grp_tlvs;
 
 	struct ta_ra_cfr_cfg curr[MAX_TA_RA_ENTRIES];
-	uint16_t modified_in_curr_session;
+	unsigned long modified_in_curr_session;
+	uint32_t capture_count            :16,
+		 capture_intval_mode_sel  :1,
+		 rsvd2                    :15;
 };
 #endif /* WLAN_ENH_CFR_ENABLE */
 
@@ -448,6 +474,12 @@ struct cfr_rcc_param {
  * total_tx_evt_cnt: No. of Tx completion events since wifi was up
  * dbr_evt_cnt: No. of WMI DBR completion events
  * release_cnt: No. of CFR data buffers relayed to userspace
+ * tx_peer_status_cfr_fail: No. of tx events without tx status set to
+ * PEER_CFR_CAPTURE_EVT_STATUS_MASK indicating CFR capture failure on a peer.
+ * tx_evt_status_cfr_fail: No. of tx events without tx status set to
+ * CFR_TX_EVT_STATUS_MASK indicating CFR capture status failure.
+ * tx_dbr_cookie_lookup_fail: No. of dbr cookie lookup failures during tx event
+ * process.
  * rcc_param: Structure to store CFR config for the current commit session
  * global: Structure to store accumulated CFR config
  * rx_tlv_evt_cnt: Number of CFR WDI events from datapath
@@ -460,11 +492,15 @@ struct cfr_rcc_param {
  * data length was invalid
  * flush_timeout_dbr_cnt: No. of DBR completion flushed out in ageout logic
  * clear_txrx_event: No. of PPDU status TLVs over-written in LUT
- * unassoc_pool: Pool of un-associated clients used when capture method is
- * CFR_CAPTURE_METHOD_PROBE_RESPONSE
  * last_success_tstamp: DBR timestamp which indicates that both DBR and TX/RX
  * events have been received successfully.
  * cfr_dma_aborts: No. of CFR DMA aborts in ucode
+ * is_cap_interval_mode_sel_support: flag to determine if target supports both
+ * is_mo_marking_support: flag to determine if MO marking is supported or not
+ * capture_count and capture_duration modes with a nob provided to configure.
+ * unassoc_pool: Pool of un-associated clients used when capture method is
+ * CFR_CAPTURE_METHOD_PROBE_RESPONSE
+ * lut_lock: Lock to protect access to cfr lookup table
  */
 /*
  * To be extended if we get more capbality info
@@ -486,10 +522,14 @@ struct pdev_cfr {
 	uint32_t lut_num;
 	uint32_t dbr_buf_size;
 	uint32_t dbr_num_bufs;
+	uint32_t max_mu_users;
 	uint64_t tx_evt_cnt;
 	uint64_t total_tx_evt_cnt;
 	uint64_t dbr_evt_cnt;
 	uint64_t release_cnt;
+	uint64_t tx_peer_status_cfr_fail;
+	uint64_t tx_evt_status_cfr_fail;
+	uint64_t tx_dbr_cookie_lookup_fail;
 #ifdef WLAN_ENH_CFR_ENABLE
 	struct cfr_rcc_param rcc_param;
 	struct ta_ra_cfr_cfg global[MAX_TA_RA_ENTRIES];
@@ -503,12 +543,23 @@ struct pdev_cfr {
 	uint64_t clear_txrx_event;
 	uint64_t last_success_tstamp;
 	uint64_t cfr_dma_aborts;
+	uint8_t is_cap_interval_mode_sel_support;
+	uint8_t is_mo_marking_support;
 #endif
 	struct unassoc_pool_entry unassoc_pool[MAX_CFR_ENABLED_CLIENTS];
+	qdf_spinlock_t lut_lock;
 };
 
-#define PEER_CFR_CAPTURE_ENABLE   1
-#define PEER_CFR_CAPTURE_DISABLE  0
+/**
+ * enum cfr_capt_status - CFR capture status
+ */
+enum cfr_capt_status {
+	/* Capture not in progress */
+	PEER_CFR_CAPTURE_DISABLE,
+	/* Capture in progress */
+	PEER_CFR_CAPTURE_ENABLE,
+};
+
 /**
  * struct peer_cfr - private peer object for cfr
  * peer_obj: pointer to peer_obj
@@ -577,7 +628,15 @@ QDF_STATUS wlan_cfr_pdev_close(struct wlan_objmgr_pdev *pdev);
  *
  * Return: No. of set bits
  */
-uint8_t count_set_bits(uint32_t value);
+uint8_t count_set_bits(unsigned long value);
+
+/**
+ * wlan_cfr_is_feature_disabled() - Check if cfr feature is disabled
+ * @pdev - the physical device object.
+ *
+ * Return : true if cfr is disabled, else false.
+ */
+bool wlan_cfr_is_feature_disabled(struct wlan_objmgr_pdev *pdev);
 
 #ifdef WLAN_ENH_CFR_ENABLE
 /**

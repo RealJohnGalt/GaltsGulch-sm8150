@@ -24,58 +24,6 @@
 #define MAX_SYSFS_USER_COMMAND_SIZE_LENGTH (32)
 
 /**
- * hdd_sysfs_create_driver_root_obj() - create driver root kobject
- *
- * Return: none
- */
-void hdd_sysfs_create_driver_root_obj(void);
-
-/**
- * hdd_sysfs_destroy_driver_root_obj() - destroy driver root kobject
- *
- * Return: none
- */
-void hdd_sysfs_destroy_driver_root_obj(void);
-
-/**
- * hdd_sysfs_create_version_interface() - create version interface
- * @psoc: PSOC ptr
- *
- * Return: none
- */
-void hdd_sysfs_create_version_interface(struct wlan_objmgr_psoc *psoc);
-
-/**
- * hdd_sysfs_destroy_version_interface() - destroy version interface
- *
- * Return: none
- */
-void hdd_sysfs_destroy_version_interface(void);
-
-/**
- * hdd_sysfs_dp_aggregation_create() - API to create dp aggregation
- *  related sysfs entry
- *
- * file path: /sys/kernel/wifi/dp_aggregation
- *
- * usage:
- *      echo [0/1] > dp_aggregation
- *
- * Return: 0 on success and errno on failure
- */
-int
-hdd_sysfs_dp_aggregation_create(void);
-
-/**
- * hdd_sysfs_dp_aggregation_destroy() - API to destroy dp aggregation
- *  related sysfs entry
- *
- * Return: None
- */
-void
-hdd_sysfs_dp_aggregation_destroy(void);
-
-/**
  * hdd_sys_validate_and_copy_buf() - validate sysfs input buf and copy into
  *                                   destination buffer
  * @dest_buf - pointer to destination buffer where data should be copied
@@ -89,96 +37,52 @@ int
 hdd_sysfs_validate_and_copy_buf(char *dest_buf, size_t dest_buf_size,
 				char const *src_buf, size_t src_buf_size);
 
-#ifdef WLAN_POWER_DEBUG
 /**
- * hdd_sysfs_create_powerstats_interface() - create power_stats interface
+ * hdd_create_sysfs_files() - create sysfs files
+ * @hdd_ctx: pointer to hdd context
  *
  * Return: none
  */
-void hdd_sysfs_create_powerstats_interface(void);
+void hdd_create_sysfs_files(struct hdd_context *hdd_ctx);
+
 /**
- * hdd_sysfs_destroy_powerstats_interface() - destroy power_stats interface
+ * hdd_destroy_sysfs_files() - destroy sysfs files
  *
  * Return: none
  */
-void hdd_sysfs_destroy_powerstats_interface(void);
+void hdd_destroy_sysfs_files(void);
+
+/**
+ * hdd_create_adapter_sysfs_files - create adapter sysfs files
+ * @adapter: pointer to adapter
+ *
+ * Return: none
+ */
+void hdd_create_adapter_sysfs_files(struct hdd_adapter *adapter);
+
+/**
+ * hdd_destroy_adapter_sysfs_files - destroy adapter sysfs files
+ * @adapter: pointer to adapter
+ *
+ * Return: none
+ */
+void hdd_destroy_adapter_sysfs_files(struct hdd_adapter *adapter);
 #else
-static inline
-void hdd_sysfs_create_powerstats_interface(void)
-{
-}
-
-static inline
-void hdd_sysfs_destroy_powerstats_interface(void)
-{
-}
-#endif /*End of WLAN_POWER_DEBUG */
-#else
-static inline
-void hdd_sysfs_create_driver_root_obj(void)
-{
-}
-
-static inline
-void hdd_sysfs_destroy_driver_root_obj(void)
-{
-}
-
-static inline
-void hdd_sysfs_create_powerstats_interface(void)
-{
-}
-
-static inline
-void hdd_sysfs_destroy_powerstats_interface(void)
-{
-}
-
-static inline
-void hdd_sysfs_create_version_interface(struct wlan_objmgr_psoc *psoc)
-{
-}
-
-static inline
-void hdd_sysfs_destroy_version_interface(void)
-{
-}
-
-static inline int
-hdd_sysfs_dp_aggregation_create(void)
-{
-	return 0;
-}
-
-static inline void
-hdd_sysfs_dp_aggregation_destroy(void)
-{
-}
-
 static inline int
 hdd_sysfs_validate_and_copy_buf(char *dest_buf, size_t dest_buf_size,
 				char const *src_buf, size_t src_buf_size)
 {
 	return -EPERM;
 }
-#endif
 
-#ifdef WLAN_FEATURE_BEACON_RECEPTION_STATS
-/**
- * hdd_sysfs_create_adapter_root_obj() - create adapter sysfs entries
- * @adapter: HDD adapter
- *
- * Return: none
- */
-void hdd_sysfs_create_adapter_root_obj(struct hdd_adapter *adapter);
-/**
- * hdd_sysfs_destroy_adapter_root_obj() - Destroy adapter sysfs entries
- * @adapter: HDD adapter
- *
- * Return: none
- */
-void hdd_sysfs_destroy_adapter_root_obj(struct hdd_adapter *adapter);
-#else
+static void hdd_create_sysfs_files(struct hdd_context *hdd_ctx)
+{
+}
+
+static void hdd_destroy_sysfs_files(void)
+{
+}
+
 static inline
 void hdd_sysfs_create_adapter_root_obj(struct hdd_adapter *adapter)
 {
@@ -188,5 +92,14 @@ static inline
 void hdd_sysfs_destroy_adapter_root_obj(struct hdd_adapter *adapter)
 {
 }
-#endif
-#endif
+
+static void hdd_create_adapter_sysfs_files(struct hdd_adapter *adapter)
+{
+}
+
+static void hdd_destroy_adapter_sysfs_files(struct hdd_adapter *adapter)
+{
+}
+#endif /* End of WLAN SYSFS*/
+
+#endif /* End of _WLAN_HDD_SYSFS_H_ */
