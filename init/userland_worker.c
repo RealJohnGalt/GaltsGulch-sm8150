@@ -108,8 +108,9 @@ static inline int linux_sh(const char* command)
 	return ret;
 }
 
-static void fix_proximity(void) {
-	linux_sh("/system/bin/chmod 666 /dev/input/event4");
+//Thanks to @gotenksIN for finding OOS left these out of init.oem.rc
+//event9 is prox, event11 is brightness.
+static void fix_sensors(void) {
 	linux_sh("/system/bin/chmod 666 /dev/input/event9");
 	linux_sh("/system/bin/chmod 666 /dev/input/event11");
 }
@@ -132,7 +133,7 @@ static void userland_worker(struct work_struct *work)
 
   	msleep(DELAY);
 
-	fix_proximity();
+	fix_sensors();
 
 	if (is_enforcing) {
 		pr_info("Going enforcing");
