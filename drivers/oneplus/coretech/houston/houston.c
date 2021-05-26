@@ -22,6 +22,12 @@ module_param(ais_enable, int, 0664);
 static int ht_enable = 0;
 module_param(ht_enable, int, 0664);
 
+static int hwui_boost_enable = 0;
+module_param(hwui_boost_enable, int, 0664);
+
+static int fps_boost_strategy = 0;
+module_param(fps_boost_strategy, int, 0664);
+
 static int perf_ready = -1;
 module_param(perf_ready, int, 0664);
 
@@ -30,6 +36,9 @@ module_param(sample_rate_ms, int, 0664);
 
 static bool fps_boost_enable = true;
 module_param(fps_boost_enable, bool, 0664);
+
+static bool tb_enable = false;
+module_param(tb_enable, bool, 0664);
 
 static int null_store(const char *buf, const struct kernel_param *kp)
 {
@@ -42,6 +51,7 @@ static struct kernel_param_ops null_store_ops = {
 
 module_param_cb(fps_boost, &null_store_ops, NULL, 0220);
 module_param_cb(fps_data_sync, &null_store_ops, NULL, 0220);
+module_param_cb(tb_ctl, &null_store_ops, NULL, 0664);
 module_param_cb(reset, &null_store_ops, NULL, 0664);
 
 static unsigned int ht_ctl_poll(struct file *fp, poll_table *wait)
