@@ -5115,7 +5115,7 @@ static bool is_service_enabled_tlv(wmi_unified_t wmi_handle,
 	}
 
 	if (service_id >= WMI_MAX_EXT_SERVICE) {
-		wmi_err("Service id %d but WMI ext2 service bitmap is NULL",
+		wmi_debug("Service id %d but WMI ext2 service bitmap is NULL",
 			service_id);
 		return false;
 	}
@@ -5128,7 +5128,7 @@ static bool is_service_enabled_tlv(wmi_unified_t wmi_handle,
 				service_id);
 
 	if (service_id >= WMI_MAX_SERVICE) {
-		wmi_err("Service id %d but WMI ext service bitmap is NULL",
+		wmi_debug("Service id %d but WMI ext service bitmap is NULL",
 			service_id);
 		return false;
 	}

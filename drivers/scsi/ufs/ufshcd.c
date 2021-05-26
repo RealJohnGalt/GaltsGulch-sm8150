@@ -11358,6 +11358,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		hba->is_irq_enabled = true;
 	}
 
+	irq_set_affinity(irq, cpumask_of(1));
 	err = scsi_add_host(host, hba->dev);
 	if (err) {
 		dev_err(hba->dev, "scsi_add_host failed\n");
@@ -11443,8 +11444,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	ufsdbg_add_debugfs(hba);
 
 	ufshcd_add_sysfs_nodes(hba);
-
-	device_enable_async_suspend(dev);
 
 	return 0;
 

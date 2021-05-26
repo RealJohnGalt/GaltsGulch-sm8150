@@ -123,6 +123,7 @@ static inline struct qrtr_sock *qrtr_sk(struct sock *sk)
 }
 
 static unsigned int qrtr_local_nid = CONFIG_QRTR_NODE_ID;
+static unsigned int qrtr_wakeup_ms = CONFIG_QRTR_WAKEUP_MS;
 
 /* for node ids */
 static RADIX_TREE(qrtr_nodes, GFP_KERNEL);
@@ -657,7 +658,7 @@ static void qrtr_node_assign(struct qrtr_node *node, unsigned int nid)
 	 * From other nodes sensor service stream samples
 	 * cause APPS suspend problems and power drain issue.
 	 */
-	if (!node->ws && nid == 0)
+	if (!node->ws && nid != 9)
 		node->ws = wakeup_source_register(NULL, name);
 }
 
@@ -841,7 +842,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	    cb->type != QRTR_TYPE_RESUME_TX)
 		goto err;
 
-	__pm_wakeup_event(node->ws, 0);
+	pm_wakeup_ws_event(node->ws, qrtr_wakeup_ms, true);
 
 	skb->data_len = size;
 	skb->len = size;

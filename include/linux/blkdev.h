@@ -119,6 +119,8 @@ typedef __u32 __bitwise req_flags_t;
 /* Look at ->special_vec for the actual data payload instead of the
    bio chain. */
 #define RQF_SPECIAL_PAYLOAD	((__force req_flags_t)(1 << 18))
+/* increased nr_pending for this request */
+#define RQF_PM_ADDED		((__force req_flags_t)(1 << 19))
 
 /* flags that prevent us from merging requests: */
 #define RQF_NOMERGE_FLAGS \
@@ -663,10 +665,9 @@ struct request_queue {
 #define QUEUE_FLAG_QUIESCED    28	/* queue has been quiesced */
 #define QUEUE_FLAG_PREEMPT_ONLY 29	/* only process REQ_PREEMPT requests */
 
-#define QUEUE_FLAG_DEFAULT	((1 << QUEUE_FLAG_IO_STAT) |		\
+#define QUEUE_FLAG_DEFAULT	((1 << QUEUE_FLAG_NONROT) |		\
 				 (1 << QUEUE_FLAG_STACKABLE)	|	\
-				 (1 << QUEUE_FLAG_SAME_COMP)	|	\
-				 (1 << QUEUE_FLAG_ADD_RANDOM))
+				 (1 << QUEUE_FLAG_SAME_COMP))
 
 #define QUEUE_FLAG_MQ_DEFAULT	((1 << QUEUE_FLAG_IO_STAT) |		\
 				 (1 << QUEUE_FLAG_STACKABLE)	|	\
@@ -1401,6 +1402,7 @@ static inline struct request *blk_map_queue_find_tag(struct blk_queue_tag *bqt,
 }
 
 extern int blkdev_issue_flush(struct block_device *, gfp_t, sector_t *);
+extern void blkdev_issue_flush_nowait(struct block_device *, gfp_t);
 extern int blkdev_issue_write_same(struct block_device *bdev, sector_t sector,
 		sector_t nr_sects, gfp_t gfp_mask, struct page *page);
 
@@ -2117,6 +2119,10 @@ static inline int blkdev_issue_flush(struct block_device *bdev, gfp_t gfp_mask,
 				     sector_t *error_sector)
 {
 	return 0;
+}
+
+static inline void blkdev_issue_flush_nowait(struct block_device *bdev, gfp_t gfp_mask)
+{
 }
 
 #endif /* CONFIG_BLOCK */

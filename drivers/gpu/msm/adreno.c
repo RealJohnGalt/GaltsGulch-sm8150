@@ -59,7 +59,7 @@ MODULE_PARM_DESC(swfdetect, "Enable soft fault detection");
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
-#define KGSL_LOG_LEVEL_DEFAULT 3
+#define KGSL_LOG_LEVEL_DEFAULT 0
 
 static void adreno_pwr_on_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,
@@ -4068,7 +4068,6 @@ static struct platform_driver adreno_platform_driver = {
 		.name = DEVICE_3D_NAME,
 		.pm = &kgsl_pm_ops,
 		.of_match_table = adreno_match_table,
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	}
 };
 

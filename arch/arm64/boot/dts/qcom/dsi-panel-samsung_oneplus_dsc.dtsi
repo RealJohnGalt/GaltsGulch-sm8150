@@ -323,7 +323,7 @@
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,mdss-dsi-off-command=[
 				05 01 00 00 0A 00 02 28 00
-				05 01 00 00 0a 00 02 10 00
+				05 01 00 00 78 00 02 10 00
 				];
 				qcom,mdss-dsi-panel-hbm-brightness-on-command = [
 				/* ELVSS DIM OFF */
@@ -944,7 +944,7 @@
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,mdss-dsi-off-command=[
 				05 01 00 00 0A 00 02 28 00
-				05 01 00 00 0a 00 02 10 00
+				05 01 00 00 78 00 02 10 00
 				];
 				qcom,mdss-dsi-panel-hbm-brightness-on-command = [
 				/* ELVSS DIM OFF */
@@ -1560,7 +1560,7 @@
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,mdss-dsi-off-command=[
 				05 01 00 00 0A 00 02 28 00
-				05 01 00 00 0a 00 02 10 00
+				05 01 00 00 78 00 02 10 00
 				];
 				qcom,mdss-dsi-panel-hbm-brightness-on-command = [
 				/* ELVSS DIM OFF */
@@ -2174,7 +2174,7 @@
 				qcom,mdss-dsi-h-sync-pulse = <0>;
 				qcom,mdss-dsi-off-command=[
 				05 01 00 00 0A 00 02 28 00
-				05 01 00 00 0a 00 02 10 00
+				05 01 00 00 78 00 02 10 00
 				];
 				qcom,mdss-dsi-panel-hbm-brightness-on-command = [
 				/* ELVSS DIM OFF */
