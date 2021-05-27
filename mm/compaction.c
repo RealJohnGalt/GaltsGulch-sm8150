@@ -23,6 +23,8 @@
 #include <linux/freezer.h>
 #include <linux/page_owner.h>
 #include <linux/psi.h>
+#include <linux/cpu_input_boost.h>
+#include <linux/devfreq_boost.h>
 #include "internal.h"
 
 #ifdef CONFIG_COMPACTION
@@ -1386,7 +1388,7 @@ static enum compact_result __compact_finished(struct zone *zone,
 		 * other migratetype buddy lists.
 		 */
 		if (find_suitable_fallback(area, order, migratetype,
-						true, &can_steal) != -1) {
+						true, cc->order, &can_steal) != -1) {
 
 			/* movable pages are OK in any pageblock */
 			if (migratetype == MIGRATE_MOVABLE)
@@ -1970,6 +1972,10 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 							cc.classzone_idx);
 	count_compact_event(KCOMPACTD_WAKE);
 
+	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
+	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
+	cpu_input_boost_kick_max(100);
+
 	for (zoneid = 0; zoneid <= cc.classzone_idx; zoneid++) {
 		int status;
 
@@ -2092,7 +2098,8 @@ int kcompactd_run(int nid)
 	if (pgdat->kcompactd)
 		return 0;
 
-	pgdat->kcompactd = kthread_run(kcompactd, pgdat, "kcompactd%d", nid);
+	pgdat->kcompactd = kthread_run_perf_critical(cpu_perf_mask, kcompactd,
+					pgdat, "kcompactd%d", nid);
 	if (IS_ERR(pgdat->kcompactd)) {
 		pr_err("Failed to start kcompactd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kcompactd);
