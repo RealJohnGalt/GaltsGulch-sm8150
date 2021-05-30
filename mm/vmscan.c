@@ -3819,7 +3819,7 @@ static int kswapd_cpu_online(unsigned int cpu)
 
 		mask = cpumask_of_node(pgdat->node_id);
 
-		if (cpumask_any_and(cpu_online_mask, mask) < nr_cpu_ids)
+		if (cpumask_any_and_distribute(cpu_online_mask, mask) < nr_cpu_ids)
 			/* One of our CPUs online: restore mask */
 			set_cpus_allowed_ptr(pgdat->kswapd, mask);
 	}
