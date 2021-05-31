@@ -396,7 +396,7 @@ int smp_call_function_any(const struct cpumask *mask,
 	}
 
 	/* Any online will do: smp_call_function_single handles nr_cpu_ids. */
-	cpu = cpumask_any_and_distribute(mask, cpu_online_mask);
+	cpu = cpumask_any_and(mask, cpu_online_mask);
 call:
 	ret = smp_call_function_single(cpu, func, info, wait);
 	put_cpu();
