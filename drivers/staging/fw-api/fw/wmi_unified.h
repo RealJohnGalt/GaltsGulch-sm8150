@@ -1575,8 +1575,7 @@ typedef enum {
     WMI_VDEV_BCN_LATENCY_EVENTID,
     /** Disconnect request from FW */
     WMI_VDEV_DISCONNECT_EVENTID,
-    /** Send Smart Monitor related params to host */
-    WMI_VDEV_SMART_MONITOR_EVENTID,
+
 
     /* peer specific events */
     /** FW reauet to kick out the station for reasons like inactivity,lack of response ..etc */
@@ -5672,12 +5671,10 @@ typedef struct {
     };
 } wmi_tx_send_params;
 
-#define WMI_MLO_MGMT_TID 0xFFFFFFFF
-
 typedef struct {
     A_UINT32 tlv_header; /* TLV tag (WMITLV_TAG_STRUC_wmi_mlo_tx_send_params) and len */
     A_UINT32 hw_link_id; /** Unique link id across SOCs, provided by QMI handshake.
-                           * If WMI_MLO_MGMT_TID then the frame will be queued in the MLO queue
+                           * If 0xFFFF then the frame will be queued in the MLO queue
                            * If valid hw_link_id
                            */
 } wmi_mlo_tx_send_params;
@@ -8245,7 +8242,6 @@ typedef enum {
     WMI_REQUEST_MIB_EXTD_STAT        = 0x04000,
     WMI_REQUEST_PMF_BCN_PROTECT_STAT = 0x08000,
     WMI_REQUEST_VDEV_EXTD_STAT       = 0x10000,
-    WMI_REQUEST_PDEV_EXTD_STAT       = 0x20000,
 } wmi_stats_id;
 
 /*
@@ -9042,10 +9038,6 @@ typedef struct {
  */
 /* If WMI_REQUEST_VDEV_EXTD_STAT is set in stats_id, then TLV
  * wmi_vdev_extd_stats wmi_vdev_extd_stats[]
- * follows the other TLVs
- */
-/* If WMI_REQUEST_PDEV_EXTD_STAT is set in stats_id, then TLV
- * wmi_pdev_extd_stats wmi_pdev_extd_stats[]
  * follows the other TLVs
  */
 } wmi_stats_event_fixed_param;
@@ -10062,30 +10054,6 @@ typedef struct {
 #endif
 
 /**
- *  pdev extension statistics
- */
-typedef struct {
-    A_UINT32 tlv_header;
-    /* pdev id */
-    A_UINT32 pdev_id;
-    /** my_rx_count
-     * What portion of time, as measured by the MAC HW clock was occupied
-     * by receiving PPDUs addressed to one of the vdevs within this pdev.
-     */
-    A_UINT32 my_rx_count;
-    /** rx_matched_11ax_msdu_cnt
-     * number of Rx 11ax MSDUs with matching BSS color counter
-     * updated at EOP (end of packet)
-     */
-    A_UINT32 rx_matched_11ax_msdu_cnt;
-    /** rx_other_11ax_msdu_cnt
-     * number of Rx 11ax MSDUs with other BSS color counter updated at EOP
-     * (end of packet)
-     */
-    A_UINT32 rx_other_11ax_msdu_cnt;
-} wmi_pdev_extd_stats;
-
-/**
  *  VDEV statistics
  *  @todo
  *  add all VDEV stats here
@@ -10478,16 +10446,13 @@ typedef struct {
 
 /*
  * Param values to be sent for WMI_VDEV_PARAM_SGI command
- * which are used in 11ax, 11be systems
+ * which are used in 11ax systems
  */
 #define WMI_SGI_LEGACY         0x1 /* for HT and VHT   */
 #define WMI_SGI_HE_400_NS      0x2 /* for HE 400 nsec  */
 #define WMI_SGI_HE_800_NS      0x4 /* for HE 800 nsec  */
 #define WMI_SGI_HE_1600_NS     0x8 /* for HE 1600 nsec */
 #define WMI_SGI_HE_3200_NS    0x10 /* for HE 3200 nsec */
-#define WMI_SGI_EHT_800_NS    0x20 /* for EHT 800 nsec  */
-#define WMI_SGI_EHT_1600_NS   0x40 /* for EHT 1600 nsec */
-#define WMI_SGI_EHT_3200_NS   0x80 /* for EHT 3200 nsec */
 
 /*
  * Param values to be sent for WMI_VDEV_PARAM_HE_LTF command
@@ -10497,14 +10462,6 @@ typedef struct {
 #define WMI_HE_LTF_1X      0x1
 #define WMI_HE_LTF_2X      0x2
 #define WMI_HE_LTF_4X      0x3
-/*
- * Param values to be sent for WMI_VDEV_EHT_PARAM_LTF command
- * which are used in 11be systems
- */
-#define WMI_EHT_LTF_DEFAULT 0x4
-#define WMI_EHT_LTF_1X      0x5
-#define WMI_EHT_LTF_2X      0x6
-#define WMI_EHT_LTF_4X      0x7
 
 /** values for vdev_subtype */
 #define WMI_UNIFIED_VDEV_SUBTYPE_P2P_DEVICE 0x1
@@ -11219,7 +11176,6 @@ typedef struct {
 
     /** vdevid of transmitting VAP (mbssid case). Ignored for non mbssid case */
     A_UINT32 vdevid_trans;
-    A_UINT32 eht_ops;
 
 /* The TLVs follows this structure:
  *     wmi_channel chan; <-- WMI channel
@@ -11365,7 +11321,6 @@ typedef enum {
     WMI_RATE_PREAMBLE_HT,
     WMI_RATE_PREAMBLE_VHT,
     WMI_RATE_PREAMBLE_HE,
-    WMI_RATE_PREAMBLE_EHT,
 } WMI_RATE_PREAMBLE;
 
 /** Value to disable fixed rate setting */
@@ -11940,10 +11895,7 @@ typedef enum {
      *     BIT0   = 1 (WMI_HE_LTF_1X)
      *     BIT1   = 1 (WMI_HE_LTF_2X)
      *     BIT2   = 1 (WMI_HE_LTF_4X)
-     *     BIT3   = 1 (WMI_EHT_LTF_1X)
-     *     BIT4   = 1 (WMI_EHT_LTF_2X)
-     *     BIT5   = 1 (WMI_EHT_LTF_4X)
-     *     BIT6-7 = Reserved bits.
+     *     BIT3-7 = Reserved bits.
      * bits 15:8 (SGI): When bitmask is set, then corresponding SGI value is
      *                 used for auto rate.
      *     BIT8     = 1 (400 NS)
@@ -12307,13 +12259,6 @@ typedef enum {
      */
     WMI_VDEV_PARAM_FORCE_DTIM_CNT,           /* 0xA8 */
 
-    /* vdev param to configure the Smart Monitor features
-     *  Bit : 0     - enable/disable Trigger frames
-     *  Bit : 1     - enable/disable QOS frames
-     *  Bit : 2-31  - reserved
-     */
-    WMI_VDEV_PARAM_SMART_MONITOR_CONFIG,     /* 0xA9  */
-
 
     /*=== ADD NEW VDEV PARAM TYPES ABOVE THIS LINE ===
      * The below vdev param types are used for prototyping, and are
@@ -12350,7 +12295,7 @@ typedef enum {
          * For a STA mode vdev this will enable/disable triggered access
          * and enable/disable Multi User mode of operation.
          * A value of 0 in a given bit disables corresponding mode.
-         * bit | EHT mu mode
+         * bit | hemu mode
          * ---------------
          *  0  | EHT SUBFEE
          *  1  | EHT SUBFER
@@ -12365,50 +12310,6 @@ typedef enum {
          *  9  | EHT UL OFDMA + MU-MIMO
          */
         WMI_VDEV_PARAM_SET_EHT_MU_MODE,                       /* 0x8005 */
-
-        /**
-         * Specify the EHT LTF setting that should be used for fixed rate
-         * transmissions.
-         *
-         * Expects values of WMI_EHT_LTF_DEFAULT, WMI_EHT_LTF_1X,
-         * WMI_EHT_LTF_2X, or WMI_EHT_LTF_4X.
-         */
-         WMI_VDEV_PARAM_EHT_LTF,                               /* 0x8006 */
-
-        /**
-         * Expects values of WMI_EHT_LTF_DEFAULT, WMI_EHT_LTF_1X,
-         * WMI_EHT_LTF_2X, or WMI_EHT_LTF_4X.
-         */
-        WMI_VDEV_PARAM_UL_EHT_LTF,                             /* 0x8007 */
-
-        /**
-         * Enable or disable Dual Carrier Modulation
-         * valid values: 0-Disable EHT DCM, 1-Enable EHT DCM.
-         */
-        WMI_VDEV_PARAM_EHT_DCM,                                /* 0x8008 */
-
-        /**
-         * Enable or disable Extended range
-         * valid values: 0-Disable ER, 1-Enable ER.
-         */
-        WMI_VDEV_PARAM_EHT_RANGE_EXT,                          /* 0x8009 */
-
-        /**
-         * Enable or disable Non-data EHT Extended range
-         *  valid values: 0-Disable ER, 1-Enable ER.
-         */
-        WMI_VDEV_PARAM_NON_DATA_EHT_RANGE_EXT,                 /* 0x800A */
-
-        /*
-         * 0 - fixed pattern disable,
-         * 1 - Fixed pattern enable and value pointed by
-         *     WMI_VDEV_PARAM_FIXED_PUNCTURE_PATTERN
-         *     punctured mode for 11be systems
-         */
-        WMI_VDEV_PARAM_FIXED_PUNCTURE_PATTERN,                /* 0x800B */
-
-        WMI_VDEV_PARAM_EHTOPS_0_31,                           /* 0x800C */
-
     /*=== END VDEV_PARAM_PROTOTYPE SECTION ===*/
 } WMI_VDEV_PARAM;
 
@@ -26656,12 +26557,6 @@ typedef enum wmi_coex_config_type {
      * arg1: select fixed coex algorithm
      */
     WMI_COEX_CONFIG_FORCED_ALGO = 47,
-    /* WMI_COEX_CONFIG_LE_SCAN_POLICY
-     * BLE scan Coex policy hint
-     * 0 to place more emphasis on BLE Scan results
-     * 1 to place more emphasis on WLAN performance
-     */
-    WMI_COEX_CONFIG_LE_SCAN_POLICY = 48,
 } WMI_COEX_CONFIG_TYPE;
 
 typedef struct {
@@ -29471,17 +29366,8 @@ typedef struct {
 
 typedef struct {
     A_UINT32 tlv_header;    /* TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_twt_disable_complete_event_fixed_param */
-    A_UINT32 pdev_id;
-    A_UINT32 status; /* refer to WMI_DISABLE_TWT_STATUS_T enum */
+    A_UINT32 reserved0;     /* unused right now */
 } wmi_twt_disable_complete_event_fixed_param;
-
-/* status code of TWT Disable */
-typedef enum _WMI_DISABLE_TWT_STATUS_T {
-    WMI_DISABLE_TWT_STATUS_OK,                  /*  Disabling TWT successfully completed */
-    WMI_DISABLE_TWT_STATUS_ROAM_IN_PROGRESS,    /* Roaming in progress */
-    WMI_DISABLE_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_DISABLE_TWT_STATUS_SCAN_IN_PROGRESS,    /* Scan in progress */
-} WMI_DISABLE_TWT_STATUS_T;
 
 typedef struct {
     A_UINT32 tlv_header;    /* TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_twt_notify_event_fixed_param */
@@ -29598,7 +29484,6 @@ typedef enum _WMI_ADD_TWT_STATUS_T {
     WMI_ADD_TWT_STATUS_AP_IE_VALIDATION_FAILED, /* peer AP IE Validation Failed */
     WMI_ADD_TWT_STATUS_ROAM_IN_PROGRESS,    /* Roaming in progress */
     WMI_ADD_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_ADD_TWT_STATUS_SCAN_IN_PROGRESS,    /* Scan in progress */
 } WMI_ADD_TWT_STATUS_T;
 
 typedef struct {
@@ -29651,7 +29536,6 @@ typedef enum _WMI_DEL_TWT_STATUS_T {
     WMI_DEL_TWT_STATUS_ROAMING,             /* Reason Roaming Start*/
     WMI_DEL_TWT_STATUS_CONCURRENCY,         /* Teardown due to concurrency */
     WMI_DEL_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_DEL_TWT_STATUS_SCAN_IN_PROGRESS,    /* Reason Scan in progress */
 } WMI_DEL_TWT_STATUS_T;
 
 typedef struct {
@@ -29681,8 +29565,6 @@ typedef enum _WMI_PAUSE_TWT_STATUS_T {
     WMI_PAUSE_TWT_STATUS_ALREADY_PAUSED,      /* The TWT dialog is already paused */
     WMI_PAUSE_TWT_STATUS_TWT_INFO_FRM_NOT_SUPPORTED, /* TWT information frame is not supported by AP */
     WMI_PAUSE_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_PAUSE_TWT_STATUS_ROAM_IN_PROGRESS,    /* Roam in progress */
-    WMI_PAUSE_TWT_STATUS_SCAN_IN_PROGRESS,    /* Scan in progress */
 } WMI_PAUSE_TWT_STATUS_T;
 
 typedef struct {
@@ -29714,8 +29596,6 @@ typedef enum _WMI_RESUME_TWT_STATUS_T {
     WMI_RESUME_TWT_STATUS_UNKNOWN_ERROR,       /* resuming TWT dialog failed with an unknown reason */
     WMI_RESUME_TWT_STATUS_TWT_INFO_FRM_NOT_SUPPORTED, /* TWT information frame is not supported by AP */
     WMI_RESUME_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_RESUME_TWT_STATUS_ROAM_IN_PROGRESS,    /* Roam in progress */
-    WMI_RESUME_TWT_STATUS_SCAN_IN_PROGRESS,    /* Scan in progress */
 } WMI_RESUME_TWT_STATUS_T;
 
 typedef struct {
@@ -29747,8 +29627,6 @@ typedef enum _WMI_TWT_NUDGE_STATUS_T {
     WMI_NUDGE_TWT_STATUS_ALREADY_PAUSED,      /* The TWT dialog is already paused */
     WMI_NUDGE_TWT_STATUS_TWT_INFO_FRM_NOT_SUPPORTED, /* TWT information frame is not supported by AP */
     WMI_NUDGE_TWT_STATUS_CHAN_SW_IN_PROGRESS, /* Channel switch in progress */
-    WMI_NUDGE_TWT_STATUS_ROAM_IN_PROGRESS,    /* Roam in progress */
-    WMI_NUDGE_TWT_STATUS_SCAN_IN_PROGRESS,    /* Scan in progress */
 } WMI_TWT_NUDGE_STATUS_T;
 
 typedef struct {
@@ -34109,16 +33987,6 @@ typedef struct {
  *     WMI_IPV4_ADDR  grp_ip_address[num_mcast_ipv4_addr];
  */
 } wmi_igmp_offload_fixed_param;
-
-typedef struct {
-    /** TLV tag and len; tag equals
-    * WMITLV_TAG_STRUC_wmi_vdev_smart_monitor_event_fixed_param */
-    A_UINT32 tlv_header;
-    /* VDEV identifier */
-    A_UINT32 vdev_id;
-    /** Average RSSI value of Data Frames */
-    A_INT32 avg_rssi_data_dbm;
-} wmi_vdev_smart_monitor_event_fixed_param;
 
 
 
