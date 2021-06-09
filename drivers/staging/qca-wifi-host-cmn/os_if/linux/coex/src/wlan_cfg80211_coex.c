@@ -25,7 +25,7 @@
 #include <wlan_coex_ucfg_api.h>
 #include <wlan_cfg80211_coex.h>
 
-const struct nla_policy
+static const struct nla_policy
 btc_chain_mode_policy[QCA_VENDOR_ATTR_BTC_CHAIN_MODE_MAX + 1] = {
 	[QCA_VENDOR_ATTR_BTC_CHAIN_MODE] = {.type = NLA_U32},
 	[QCA_VENDOR_ATTR_BTC_CHAIN_MODE_RESTART] = {.type = NLA_FLAG},
@@ -74,7 +74,7 @@ __wlan_cfg80211_coex_set_btc_chain_mode(struct wlan_objmgr_vdev *vdev,
 	}
 
 	wlan_objmgr_for_each_psoc_vdev(psoc, vdev_id, vdev_tmp) {
-		status = ucfg_coex_send_btc_chain_mode(vdev_tmp, mode);
+		status = ucfg_coex_send_btc_chain_mode(vdev, mode);
 		err = qdf_status_to_os_return(status);
 		if (err) {
 			coex_err("Failed to set btc chain mode to %d for vdev %d",
@@ -87,7 +87,7 @@ __wlan_cfg80211_coex_set_btc_chain_mode(struct wlan_objmgr_vdev *vdev,
 		if (!do_restart)
 			continue;
 
-		wlan_coex_config_updated(vdev_tmp, COEX_CONFIG_BTC_CHAIN_MODE);
+		wlan_coex_config_updated(vdev, COEX_CONFIG_BTC_CHAIN_MODE);
 	}
 
 	return 0;

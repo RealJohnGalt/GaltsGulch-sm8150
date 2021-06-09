@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -41,7 +41,7 @@ QDF_STATUS target_if_psoc_vdev_rsp_timer_inuse(struct wlan_objmgr_psoc *psoc,
 	}
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
-	if (!(rx_ops && rx_ops->psoc_get_vdev_response_timer_info)) {
+	if (!rx_ops && !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("VDEV_%d PSOC_%d No Rx Ops", vdev_id,
 			 wlan_psoc_get_id(psoc));
 		return QDF_STATUS_E_INVAL;
@@ -76,7 +76,7 @@ QDF_STATUS target_if_psoc_vdev_rsp_timer_init(struct wlan_objmgr_psoc *psoc,
 	}
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
-	if (!(rx_ops && rx_ops->psoc_get_vdev_response_timer_info)) {
+	if (!rx_ops && !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("VDEV_%d PSOC_%d No Rx Ops", vdev_id,
 			 wlan_psoc_get_id(psoc));
 		return QDF_STATUS_E_INVAL;
@@ -95,7 +95,6 @@ QDF_STATUS target_if_psoc_vdev_rsp_timer_init(struct wlan_objmgr_psoc *psoc,
 		       target_if_vdev_mgr_rsp_timer_mgmt_cb,
 		       vdev_rsp, QDF_TIMER_TYPE_WAKE_APPS);
 	qdf_atomic_init(&vdev_rsp->rsp_timer_inuse);
-	qdf_atomic_inc(&vdev_rsp->rsp_timer_inuse);
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -113,7 +112,7 @@ void target_if_psoc_vdev_rsp_timer_deinit(struct wlan_objmgr_psoc *psoc,
 	}
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
-	if (!(rx_ops && rx_ops->psoc_get_vdev_response_timer_info)) {
+	if (!rx_ops && !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("VDEV_%d PSOC_%d No Rx Ops", vdev_id,
 			 wlan_psoc_get_id(psoc));
 		return;
@@ -138,7 +137,7 @@ void target_if_flush_psoc_vdev_timers(struct wlan_objmgr_psoc *psoc)
 	int i;
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
-	if (!(rx_ops && rx_ops->psoc_get_vdev_response_timer_info)) {
+	if (!rx_ops && !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("PSOC_%d No Rx Ops", wlan_psoc_get_id(psoc));
 		return;
 	}
@@ -146,8 +145,7 @@ void target_if_flush_psoc_vdev_timers(struct wlan_objmgr_psoc *psoc)
 	for (i = 0; i < WLAN_UMAC_PSOC_MAX_VDEVS; i++) {
 		vdev_rsp = rx_ops->psoc_get_vdev_response_timer_info(psoc,
 								     i);
-		if (vdev_rsp && qdf_atomic_read(&vdev_rsp->rsp_timer_inuse) &&
-		    qdf_timer_sync_cancel(&vdev_rsp->rsp_timer))
+		if (vdev_rsp && qdf_timer_sync_cancel(&vdev_rsp->rsp_timer))
 			target_if_vdev_mgr_rsp_timer_cb(vdev_rsp);
 	}
 }
@@ -166,7 +164,7 @@ QDF_STATUS target_if_vdev_mgr_rsp_timer_mod(
 	}
 
 	rx_ops = target_if_vdev_mgr_get_rx_ops(psoc);
-	if (!(rx_ops && rx_ops->psoc_get_vdev_response_timer_info)) {
+	if (!rx_ops && !rx_ops->psoc_get_vdev_response_timer_info) {
 		mlme_err("VDEV_%d PSOC_%d No Rx Ops", vdev_id,
 			 wlan_psoc_get_id(psoc));
 		return QDF_STATUS_E_FAILURE;

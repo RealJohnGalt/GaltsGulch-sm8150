@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -243,9 +243,9 @@ static int get_sar_version(wmi_unified_t handle, uint8_t *evt,
 static bool new_hw_mode_preferred(uint32_t current_hw_mode,
 				  uint32_t new_hw_mode)
 {
-	uint8_t hw_mode_id_precedence[WMI_HOST_HW_MODE_MAX + 1] = { 6, 2, 5,
-								    4, 1, 3,
-								    7, 0, 8};
+	uint8_t hw_mode_id_precedence[WMI_HOST_HW_MODE_MAX + 1] = { 5, 1, 4,
+								    3, 0, 2,
+								    6 };
 
 	if (current_hw_mode > WMI_HOST_HW_MODE_MAX ||
 	    new_hw_mode > WMI_HOST_HW_MODE_MAX)
@@ -310,26 +310,6 @@ select_preferred_hw_mode(struct target_psoc_info *tgt_hdl,
 	return selected_mode;
 }
 
-#ifdef FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT
-static void init_deinit_change_def_hw_mode(struct target_psoc_info *tgt_hdl,
-					   struct wmi_unified *wmi_handle)
-{
-	struct tgt_info *info = &tgt_hdl->info;
-
-	if ((info->hw_modes.num_modes == 1) &&
-	    (info->hw_modes.hw_mode_ids[0] == WMI_HOST_HW_MODE_DBS) &&
-	    !wmi_service_enabled(wmi_handle,
-				 wmi_service_dual_band_simultaneous_support))
-		target_psoc_set_preferred_hw_mode(tgt_hdl,
-						  WMI_HOST_HW_MODE_DETECT);
-}
-#else
-static void init_deinit_change_def_hw_mode(struct target_psoc_info *tgt_hdl,
-					   struct wmi_unified *wmi_handle)
-{
-}
-#endif
-
 int init_deinit_populate_hw_mode_capability(
 		wmi_unified_t wmi_handle, uint8_t *event,
 		struct target_psoc_info *tgt_hdl)
@@ -353,6 +333,7 @@ int init_deinit_populate_hw_mode_capability(
 	info->hw_modes.num_modes = 0;
 	info->hw_mode_cap.hw_mode_id = WMI_HOST_HW_MODE_MAX;
 
+	preferred_mode = target_psoc_get_preferred_hw_mode(tgt_hdl);
 	for (hw_idx = 0; hw_idx < num_hw_modes; hw_idx++) {
 		status = get_hw_mode(wmi_handle, event, hw_idx,
 						&hw_mode_caps[hw_idx]);
@@ -362,8 +343,6 @@ int init_deinit_populate_hw_mode_capability(
 		if (hw_idx < WMI_HOST_HW_MODE_MAX) {
 			info->hw_modes.hw_mode_ids[hw_idx] =
 				hw_mode_caps[hw_idx].hw_mode_id;
-			info->hw_modes.phy_bit_map[hw_idx] =
-				hw_mode_caps[hw_idx].phy_id_map;
 			info->hw_modes.num_modes++;
 		}
 
@@ -372,22 +351,15 @@ int init_deinit_populate_hw_mode_capability(
 		if (status)
 			goto return_exit;
 
-		if (num_hw_modes == 1)
-			init_deinit_change_def_hw_mode(tgt_hdl, wmi_handle);
-
 		selected_mode = select_preferred_hw_mode(tgt_hdl,
 							 &hw_mode_caps[hw_idx],
 							 selected_mode);
 	}
 
-	preferred_mode = target_psoc_get_preferred_hw_mode(tgt_hdl);
 	if (preferred_mode == WMI_HOST_HW_MODE_DETECT) {
 		target_if_info("Preferred mode is not set, use mode id %d\n",
 			       selected_mode);
 		target_psoc_set_preferred_hw_mode(tgt_hdl, selected_mode);
-
-		/* Change default DBS hw mode as per selected one */
-		info->target_caps.default_dbs_hw_mode_index = selected_mode;
 	}
 
 	status = get_sar_version(wmi_handle, event, &info->service_ext_param);
@@ -675,170 +647,6 @@ int init_deinit_populate_phy_reg_cap(struct wlan_objmgr_psoc *psoc,
 	return qdf_status_to_os_return(status);
 }
 
-int init_deinit_populate_mac_phy_cap_ext2(wmi_unified_t wmi_handle,
-					  uint8_t *event,
-					  struct tgt_info *info)
-{
-	struct wlan_psoc_host_mac_phy_caps_ext2
-		mac_phy_caps_ext2[PSOC_MAX_MAC_PHY_CAP] = {{0} };
-	uint32_t num_hw_modes;
-	uint8_t hw_idx;
-	uint32_t hw_mode_id;
-	uint32_t phy_bit_map;
-	uint8_t phy_id;
-	uint8_t mac_phy_count = 0;
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
-	struct wlan_psoc_host_mac_phy_caps *mac_phy_cap;
-
-	if (!event)
-		return -EINVAL;
-
-	num_hw_modes = info->hw_modes.num_modes;
-
-	for (hw_idx = 0; hw_idx < num_hw_modes; hw_idx++) {
-		hw_mode_id = info->hw_modes.hw_mode_ids[hw_idx];
-		phy_bit_map = info->hw_modes.phy_bit_map[hw_idx];
-
-		phy_id = info->mac_phy_cap[mac_phy_count].phy_id;
-		while (phy_bit_map) {
-			if (mac_phy_count >= info->total_mac_phy_cnt) {
-				target_if_err("total MAC PHY count exceeds max limit %d, mac_phy_count = %d",
-					      info->total_mac_phy_cnt,
-					      mac_phy_count);
-				return -EINVAL;
-			}
-
-			mac_phy_cap = &info->mac_phy_cap[mac_phy_count];
-			status = wmi_extract_mac_phy_cap_service_ready_ext2(
-					wmi_handle, event, hw_mode_id, phy_id,
-					mac_phy_cap->phy_idx,
-					&mac_phy_caps_ext2[mac_phy_count]);
-
-			if (QDF_IS_STATUS_ERROR(status)) {
-				target_if_err("failed to parse mac phy capability ext2");
-				return qdf_status_to_os_return(status);
-			}
-
-			mac_phy_cap->reg_cap_ext.wireless_modes |=
-				mac_phy_caps_ext2[phy_id].wireless_modes_ext;
-
-			mac_phy_count++;
-			phy_bit_map &= (phy_bit_map - 1);
-			phy_id++;
-		}
-	}
-
-	return 0;
-}
-
-int init_deinit_populate_hal_reg_cap_ext2(wmi_unified_t wmi_handle,
-					  uint8_t *event,
-					  struct tgt_info *info)
-{
-	struct wlan_psoc_host_hal_reg_capabilities_ext2
-		reg_cap[PSOC_MAX_PHY_REG_CAP] = {{0} };
-	struct wlan_objmgr_psoc *psoc;
-	uint32_t num_phy_reg_cap;
-	uint8_t reg_idx;
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
-
-	if (!event) {
-		target_if_err("event buffer is null");
-		return -EINVAL;
-	}
-
-	psoc = target_if_get_psoc_from_scn_hdl(wmi_handle->scn_handle);
-	if (!psoc) {
-		target_if_err("psoc is null");
-		return -EINVAL;
-	}
-
-	num_phy_reg_cap = info->service_ext_param.num_phy;
-	if (num_phy_reg_cap > PSOC_MAX_PHY_REG_CAP) {
-		target_if_err("Invalid num_phy_reg_cap %d", num_phy_reg_cap);
-		return -EINVAL;
-	}
-
-	for (reg_idx = 0; reg_idx < num_phy_reg_cap; reg_idx++) {
-		status = wmi_extract_hal_reg_cap_ext2(
-				wmi_handle, event, reg_idx, &reg_cap[reg_idx]);
-		if (QDF_IS_STATUS_ERROR(status)) {
-			target_if_err("failed to parse hal reg cap ext2");
-			return qdf_status_to_os_return(status);
-		}
-
-		status = ucfg_reg_update_hal_reg_cap(
-				psoc, reg_cap[reg_idx].wireless_modes_ext,
-				reg_idx);
-		if (QDF_IS_STATUS_ERROR(status)) {
-			target_if_err("Failed to update hal reg cap");
-			return qdf_status_to_os_return(status);
-		}
-	}
-
-	return 0;
-}
-
-int init_deinit_populate_scan_radio_cap_ext2(wmi_unified_t wmi_handle,
-					     uint8_t *event,
-					     struct tgt_info *info)
-{
-	struct wlan_psoc_host_scan_radio_caps *param;
-	uint32_t num_scan_radio_caps;
-	uint8_t cap_idx;
-	QDF_STATUS status;
-
-	if (!event) {
-		target_if_err("Invalid event buffer");
-		return -EINVAL;
-	}
-
-	num_scan_radio_caps = info->service_ext2_param.num_scan_radio_caps;
-	target_if_debug("num scan radio capabilities = %d",
-			num_scan_radio_caps);
-
-	if (!num_scan_radio_caps)
-		return 0;
-
-	info->scan_radio_caps = qdf_mem_malloc(
-				sizeof(struct wlan_psoc_host_scan_radio_caps) *
-				num_scan_radio_caps);
-
-	if (!info->scan_radio_caps) {
-		target_if_err("Failed to allocate memory for scan radio caps");
-		return -EINVAL;
-	}
-
-	for (cap_idx = 0; cap_idx < num_scan_radio_caps; cap_idx++) {
-		param = &info->scan_radio_caps[cap_idx];
-		status = wmi_extract_scan_radio_cap_service_ready_ext2(
-				wmi_handle, event, cap_idx, param);
-		if (QDF_IS_STATUS_ERROR(status)) {
-			target_if_err("Extraction of scan radio cap failed");
-			goto free_and_return;
-		}
-	}
-
-	return 0;
-
-free_and_return:
-	qdf_mem_free(info->scan_radio_caps);
-	info->scan_radio_caps = NULL;
-
-	return qdf_status_to_os_return(status);
-}
-
-QDF_STATUS init_deinit_scan_radio_cap_free(
-		struct target_psoc_info *tgt_psoc_info)
-{
-	qdf_mem_free(tgt_psoc_info->info.scan_radio_caps);
-	tgt_psoc_info->info.scan_radio_caps = NULL;
-
-	return QDF_STATUS_SUCCESS;
-}
-
-qdf_export_symbol(init_deinit_scan_radio_cap_free);
-
 static bool init_deinit_regdmn_160mhz_support(
 		struct wlan_psoc_host_hal_reg_capabilities_ext *hal_cap)
 {
@@ -891,7 +699,6 @@ QDF_STATUS init_deinit_validate_160_80p80_fw_caps(
 
 	if ((tgt_hdl->info.target_type == TARGET_TYPE_QCA8074) ||
 	    (tgt_hdl->info.target_type == TARGET_TYPE_QCA8074V2) ||
-	    (tgt_hdl->info.target_type == TARGET_TYPE_QCN9100) ||
 	    (tgt_hdl->info.target_type == TARGET_TYPE_QCA6290)) {
 		/**
 		 * Return true for now. This is not available in

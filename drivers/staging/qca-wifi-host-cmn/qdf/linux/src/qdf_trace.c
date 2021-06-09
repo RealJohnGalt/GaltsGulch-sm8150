@@ -343,7 +343,7 @@ qdf_export_symbol(qdf_trace_deinit);
  *
  * Return: None
  */
-void qdf_trace(uint8_t module, uint16_t code, uint16_t session, uint32_t data)
+void qdf_trace(uint8_t module, uint8_t code, uint16_t session, uint32_t data)
 {
 	tp_qdf_trace_record rec = NULL;
 	unsigned long flags;
@@ -2267,35 +2267,6 @@ void qdf_dp_track_noack_check(qdf_nbuf_t nbuf, enum qdf_proto_subtype *subtype)
 }
 qdf_export_symbol(qdf_dp_track_noack_check);
 
-enum qdf_dp_tx_rx_status qdf_dp_get_status_from_htt(uint8_t status)
-{
-	switch (status) {
-	case QDF_TX_COMP_STATUS_OK:
-		return QDF_TX_RX_STATUS_OK;
-	case QDF_TX_COMP_STATUS_STAT_DISCARD:
-	case QDF_TX_COMP_STATUS_STAT_DROP:
-		return QDF_TX_RX_STATUS_FW_DISCARD;
-	case QDF_TX_COMP_STATUS_STAT_NO_ACK:
-		return QDF_TX_RX_STATUS_NO_ACK;
-	default:
-		return QDF_TX_RX_STATUS_MAX;
-	}
-}
-
-qdf_export_symbol(qdf_dp_get_status_from_htt);
-
-enum qdf_dp_tx_rx_status qdf_dp_get_status_from_a_status(uint8_t status)
-{
-	if (status == QDF_A_STATUS_ERROR)
-		return QDF_TX_RX_STATUS_INVALID;
-	else if (status == QDF_A_STATUS_OK)
-		return QDF_TX_RX_STATUS_OK;
-	else
-		return QDF_TX_RX_STATUS_MAX;
-}
-
-qdf_export_symbol(qdf_dp_get_status_from_a_status);
-
 /**
  * qdf_dp_trace_ptr() - record dptrace
  * @code: dptrace code
@@ -2318,12 +2289,12 @@ void qdf_dp_trace_ptr(qdf_nbuf_t nbuf, enum QDF_DP_TRACE_ID code,
 	pkt_type = qdf_dp_get_pkt_proto_type(nbuf);
 	if ((code == QDF_DP_TRACE_FREE_PACKET_PTR_RECORD ||
 	     code == QDF_DP_TRACE_LI_DP_FREE_PACKET_PTR_RECORD) &&
-	    qdf_dp_proto_log_enable_check(pkt_type, status))
+	    qdf_dp_proto_log_enable_check(pkt_type, status + 1))
 		qdf_dp_log_proto_pkt_info(nbuf->data + QDF_NBUF_SRC_MAC_OFFSET,
 					 nbuf->data + QDF_NBUF_DEST_MAC_OFFSET,
 					 pkt_type,
 					 qdf_dp_get_pkt_subtype(nbuf, pkt_type),
-					 QDF_TX, msdu_id, status);
+					 QDF_TX, msdu_id, status + 1);
 
 	if (qdf_dp_enable_check(nbuf, code, QDF_TX) == false)
 		return;
@@ -3174,7 +3145,6 @@ struct category_name_info g_qdf_category_name[MAX_SUPPORTED_CATEGORY] = {
 	[QDF_MODULE_ID_CONFIG] = {"CONFIG"},
 	[QDF_MODULE_ID_IPA] = {"IPA"},
 	[QDF_MODULE_ID_CP_STATS] = {"CP_STATS"},
-	[QDF_MODULE_ID_DCS] = {"DCS"},
 	[QDF_MODULE_ID_ACTION_OUI] = {"action_oui"},
 	[QDF_MODULE_ID_TARGET] = {"TARGET"},
 	[QDF_MODULE_ID_MBSSIE] = {"MBSSIE"},
@@ -3192,13 +3162,6 @@ struct category_name_info g_qdf_category_name[MAX_SUPPORTED_CATEGORY] = {
 	[QDF_MODULE_ID_MON_FILTER] = {"Monitor Filter"},
 	[QDF_MODULE_ID_ANY] = {"ANY"},
 	[QDF_MODULE_ID_PKT_CAPTURE] = {"pkt_capture"},
-	[QDF_MODULE_ID_RPTR] = {"RPTR"},
-	[QDF_MODULE_ID_6GHZ] = {"6GHZ"},
-	[QDF_MODULE_ID_IOT_SIM] = {"IOT_SIM"},
-	[QDF_MODULE_ID_MSCS] = {"MSCS"},
-	[QDF_MODULE_ID_GPIO] = {"GPIO_CFG"},
-	[QDF_MODULE_ID_IFMGR] = {"IF_MGR"},
-	[QDF_MODULE_ID_DIAG] = {"DIAG"},
 };
 qdf_export_symbol(g_qdf_category_name);
 
@@ -3280,17 +3243,13 @@ void qdf_trace_msg_cmn(unsigned int idx,
 
 	/* Check if category passed is valid */
 	if (category < 0 || category >= MAX_SUPPORTED_CATEGORY) {
-		vscnprintf(str_buffer, QDF_TRACE_BUFFER_SIZE, str_format, val);
-		pr_info("%s: Invalid category: %d, log: %s\n",
-			__func__, category, str_buffer);
+		pr_info("%s: Invalid category: %d\n", __func__, category);
 		return;
 	}
 
 	/* Check if verbose mask is valid */
 	if (verbose < 0 || verbose >= QDF_TRACE_LEVEL_MAX) {
-		vscnprintf(str_buffer, QDF_TRACE_BUFFER_SIZE, str_format, val);
-		pr_info("%s: Invalid verbose level %d, log: %s\n",
-			__func__, verbose, str_buffer);
+		pr_info("%s: Invalid verbose level %d\n", __func__, verbose);
 		return;
 	}
 
@@ -3326,7 +3285,7 @@ void qdf_trace_msg_cmn(unsigned int idx,
 #if defined(WLAN_LOGGING_SOCK_SVC_ENABLE)
 		wlan_log_to_user(verbose, (char *)str_buffer,
 				 strlen(str_buffer));
-		if (qdf_unlikely(qdf_log_dump_at_kernel_enable))
+		if (qdf_likely(qdf_log_dump_at_kernel_enable))
 			print_to_console(str_buffer);
 #else
 		pr_err("%s\n", str_buffer);
@@ -3649,14 +3608,13 @@ static void set_default_trace_levels(struct category_info *cinfo)
 		[QDF_MODULE_ID_IPA] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_ACTION_OUI] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_CP_STATS] = QDF_TRACE_LEVEL_ERROR,
-		[QDF_MODULE_ID_DCS] = QDF_TRACE_LEVEL_ERROR,
 		[QDF_MODULE_ID_MBSSIE] = QDF_TRACE_LEVEL_INFO,
 		[QDF_MODULE_ID_FWOL] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_SM_ENGINE] = QDF_TRACE_LEVEL_ERROR,
 		[QDF_MODULE_ID_CMN_MLME] = QDF_TRACE_LEVEL_INFO,
 		[QDF_MODULE_ID_BSSCOLOR] = QDF_TRACE_LEVEL_ERROR,
 		[QDF_MODULE_ID_CFR] = QDF_TRACE_LEVEL_ERROR,
-		[QDF_MODULE_ID_TX_CAPTURE] = QDF_TRACE_LEVEL_FATAL,
+		[QDF_MODULE_ID_TX_CAPTURE] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_INTEROP_ISSUES_AP] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_BLACKLIST_MGR] = QDF_TRACE_LEVEL_NONE,
 		[QDF_MODULE_ID_QLD] = QDF_TRACE_LEVEL_ERROR,
@@ -3665,13 +3623,6 @@ static void set_default_trace_levels(struct category_info *cinfo)
 		[QDF_MODULE_ID_MON_FILTER] = QDF_TRACE_LEVEL_INFO,
 		[QDF_MODULE_ID_ANY] = QDF_TRACE_LEVEL_INFO,
 		[QDF_MODULE_ID_PKT_CAPTURE] = QDF_TRACE_LEVEL_NONE,
-		[QDF_MODULE_ID_RPTR] = QDF_TRACE_LEVEL_INFO,
-		[QDF_MODULE_ID_6GHZ] = QDF_TRACE_LEVEL_ERROR,
-		[QDF_MODULE_ID_IOT_SIM] = QDF_TRACE_LEVEL_ERROR,
-		[QDF_MODULE_ID_MSCS] = QDF_TRACE_LEVEL_INFO,
-		[QDF_MODULE_ID_GPIO] = QDF_TRACE_LEVEL_NONE,
-		[QDF_MODULE_ID_IFMGR] = QDF_TRACE_LEVEL_ERROR,
-		[QDF_MODULE_ID_DIAG] = QDF_TRACE_LEVEL_ERROR,
 	};
 
 	for (i = 0; i < MAX_SUPPORTED_CATEGORY; i++) {
@@ -3952,13 +3903,11 @@ void qdf_logging_init(void)
 {
 	wlan_logging_sock_init_svc();
 	nl_srv_init(NULL, WLAN_NLINK_PROTO_FAMILY);
-	wlan_logging_notifier_init(qdf_log_dump_at_kernel_enable);
 	wlan_logging_set_flush_timer(qdf_log_flush_timer_period);
 }
 
 void qdf_logging_exit(void)
 {
-	wlan_logging_notifier_deinit(qdf_log_dump_at_kernel_enable);
 	nl_srv_exit();
 	wlan_logging_sock_deinit_svc();
 }

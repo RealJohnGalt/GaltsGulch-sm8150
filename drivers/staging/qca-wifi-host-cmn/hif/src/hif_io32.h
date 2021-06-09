@@ -23,7 +23,8 @@
 #include "hif.h"
 #include "hif_main.h"
 
-#if defined(HIF_REG_WINDOW_SUPPORT) && defined(HIF_PCI)
+#if defined(HIF_REG_WINDOW_SUPPORT) && (defined(HIF_PCI) || \
+    defined(HIF_IPCI))
 
 static inline
 void hif_write32_mb_reg_window(void *sc,
@@ -98,27 +99,8 @@ uint32_t hif_read32_mb_reg_window(void *sc,
 #include "hif_io32_ipci.h"
 #endif
 
-#ifdef HIF_IPCI
-/**
- * hif_target_access_allowed(): Check if target access is allowed
- *
- * @scn: HIF handler
- *
- * Return: True if access is allowed else False
- */
-static inline
-bool hif_target_access_allowed(struct hif_softc *scn)
-{
-	return !(scn->recovery);
-}
-
-#define TARGET_ACCESS_ALLOWED(scn) \
-	hif_target_access_allowed(scn)
-#else
-#define TARGET_ACCESS_ALLOWED(scn) (1)
-#endif
-
-#if defined(HIF_REG_WINDOW_SUPPORT) && defined(HIF_PCI)
+#if defined(HIF_REG_WINDOW_SUPPORT) && (defined(HIF_PCI) || \
+    defined(HIF_IPCI))
 
 #include "qdf_lock.h"
 #include "qdf_util.h"

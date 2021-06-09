@@ -37,21 +37,6 @@
 /* Max number of scans allowed from userspace */
 #define WLAN_MAX_SCAN_COUNT 8
 
-extern const struct nla_policy cfg80211_scan_policy[
-			QCA_WLAN_VENDOR_ATTR_SCAN_MAX + 1];
-
-#define FEATURE_ABORT_SCAN_VENDOR_COMMANDS \
-	{ \
-		.info.vendor_id = QCA_NL80211_VENDOR_ID, \
-		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_ABORT_SCAN, \
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | \
-			WIPHY_VENDOR_CMD_NEED_NETDEV | \
-			WIPHY_VENDOR_CMD_NEED_RUNNING, \
-		.doit = wlan_hdd_vendor_abort_scan, \
-		vendor_command_policy(cfg80211_scan_policy, \
-				      QCA_WLAN_VENDOR_ATTR_SCAN_MAX) \
-	},
-
 /* GPS application requirement */
 #define QCOM_VENDOR_IE_ID 221
 #define QCOM_OUI1         0x00
@@ -298,17 +283,14 @@ void wlan_cfg80211_inform_bss_frame(struct wlan_objmgr_pdev *pdev,
 /**
  * __wlan_cfg80211_unlink_bss_list() - flush bss from the kernel cache
  * @wiphy: wiphy
- * @pdev: pdev object
  * @bssid: bssid of the BSS to find
  * @ssid: ssid of the BSS to find
  * @ssid_len: ssid len of of the BSS to find
  *
- * Return: QDF_STATUS
+ * Return: None
  */
-QDF_STATUS __wlan_cfg80211_unlink_bss_list(struct wiphy *wiphy,
-					   struct wlan_objmgr_pdev *pdev,
-					   uint8_t *bssid, uint8_t *ssid,
-					   uint8_t ssid_len);
+void __wlan_cfg80211_unlink_bss_list(struct wiphy *wiphy, uint8_t *bssid,
+				     uint8_t *ssid, uint8_t ssid_len);
 
 /**
  * wlan_cfg80211_get_bss() - Get the bss entry matching the chan, bssid and ssid
@@ -432,17 +414,4 @@ void wlan_config_sched_scan_plans_to_wiphy(struct wiphy *wiphy,
 }
 #endif /* FEATURE_WLAN_SCAN_PNO */
 
-/**
- * wlan_cfg80211_scan_done() - Scan completed callback to cfg80211
- * @netdev: Net device
- * @req : Scan request
- * @aborted : true scan aborted false scan success
- *
- * This function notifies scan done to cfg80211
- *
- * Return: none
- */
-void wlan_cfg80211_scan_done(struct net_device *netdev,
-			     struct cfg80211_scan_request *req,
-			     bool aborted);
 #endif

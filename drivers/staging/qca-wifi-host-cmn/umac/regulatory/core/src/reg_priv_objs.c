@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -73,7 +73,7 @@ QDF_STATUS wlan_regulatory_psoc_obj_created_notification(
 	enum channel_enum chan_enum;
 	QDF_STATUS status;
 	uint8_t i;
-	uint8_t phy_cnt;
+	uint8_t pdev_cnt;
 
 	soc_reg_obj = qdf_mem_malloc(sizeof(*soc_reg_obj));
 	if (!soc_reg_obj)
@@ -91,22 +91,19 @@ QDF_STATUS wlan_regulatory_psoc_obj_created_notification(
 	soc_reg_obj->vdev_cnt_11d = 0;
 	soc_reg_obj->vdev_id_for_11d_scan = INVALID_VDEV_ID;
 	soc_reg_obj->restart_beaconing = CH_AVOID_RULE_RESTART;
-	soc_reg_obj->enable_srd_chan_in_master_mode = 0xFF;
+	soc_reg_obj->enable_srd_chan_in_master_mode = true;
 	soc_reg_obj->enable_11d_in_world_mode = false;
-	soc_reg_obj->five_dot_nine_ghz_supported = false;
-	soc_reg_obj->enable_5dot9_ghz_chan_in_master_mode = false;
 	soc_reg_obj->retain_nol_across_regdmn_update = false;
-	soc_reg_obj->is_ext_tpc_supported = false;
 
 	for (i = 0; i < MAX_STA_VDEV_CNT; i++)
 		soc_reg_obj->vdev_ids_11d[i] = INVALID_VDEV_ID;
 
 	qdf_spinlock_create(&soc_reg_obj->cbk_list_lock);
 
-	for (phy_cnt = 0; phy_cnt < PSOC_MAX_PHY_REG_CAP; phy_cnt++) {
+	for (pdev_cnt = 0; pdev_cnt < PSOC_MAX_PHY_REG_CAP; pdev_cnt++) {
 		mas_chan_list =
-			soc_reg_obj->mas_chan_params[phy_cnt].mas_chan_list;
-		soc_reg_obj->chan_list_recvd[phy_cnt] = false;
+			soc_reg_obj->mas_chan_params[pdev_cnt].mas_chan_list;
+		soc_reg_obj->chan_list_recvd[pdev_cnt] = false;
 
 		for (chan_enum = 0; chan_enum < NUM_CHANNELS; chan_enum++) {
 			mas_chan_list[chan_enum].chan_flags |=
@@ -178,51 +175,6 @@ reg_reset_unii_5g_bitmap(struct wlan_regulatory_pdev_priv_obj *pdev_priv_obj)
 }
 #endif
 
-#if defined(CONFIG_BAND_6GHZ)
-#if defined(CONFIG_REG_CLIENT)
-/**
- * reg_init_def_client_type() - Initialize the regulatory 6G client type.
- *
- * @pdev_priv_obj: pointer to wlan_regulatory_pdev_priv_obj.
- *
- * Return : void
- */
-static void
-reg_init_def_client_type(struct wlan_regulatory_pdev_priv_obj *pdev_priv_obj)
-{
-	pdev_priv_obj->reg_cur_6g_client_mobility_type = REG_DEFAULT_CLIENT;
-}
-#else
-static void
-reg_init_def_client_type(struct wlan_regulatory_pdev_priv_obj *pdev_priv_obj)
-{
-	pdev_priv_obj->reg_cur_6g_client_mobility_type = REG_SUBORDINATE_CLIENT;
-}
-#endif
-
-/**
- * reg_init_6g_vars() - Initialize the regulatory 6G variables viz.
- * AP power type, client mobility type, rnr tpe usable and unspecified ap
- * usable.
- * @pdev_priv_obj: pointer to wlan_regulatory_pdev_priv_obj.
- *
- * Return : void
- */
-static void
-reg_init_6g_vars(struct wlan_regulatory_pdev_priv_obj *pdev_priv_obj)
-{
-	pdev_priv_obj->reg_cur_6g_ap_pwr_type = REG_INDOOR_AP;
-	pdev_priv_obj->reg_rnr_tpe_usable = false;
-	pdev_priv_obj->reg_unspecified_ap_usable = false;
-	reg_init_def_client_type(pdev_priv_obj);
-}
-#else
-static void
-reg_init_6g_vars(struct wlan_regulatory_pdev_priv_obj *pdev_priv_obj)
-{
-}
-#endif
-
 QDF_STATUS wlan_regulatory_pdev_obj_created_notification(
 	struct wlan_objmgr_pdev *pdev, void *arg_list)
 {
@@ -230,14 +182,12 @@ QDF_STATUS wlan_regulatory_pdev_obj_created_notification(
 	struct wlan_regulatory_psoc_priv_obj *psoc_priv_obj;
 	struct wlan_psoc_host_hal_reg_capabilities_ext *reg_cap_ptr;
 	struct wlan_objmgr_psoc *parent_psoc;
-	uint8_t pdev_id;
-	uint8_t phy_id;
+	uint32_t pdev_id;
 	uint32_t cnt;
 	uint32_t range_2g_low, range_2g_high;
 	uint32_t range_5g_low, range_5g_high;
 	QDF_STATUS status;
 	struct reg_rule_info *psoc_reg_rules;
-	struct wlan_lmac_if_reg_tx_ops *tx_ops;
 
 	pdev_priv_obj = qdf_mem_malloc(sizeof(*pdev_priv_obj));
 	if (!pdev_priv_obj)
@@ -245,12 +195,6 @@ QDF_STATUS wlan_regulatory_pdev_obj_created_notification(
 
 	parent_psoc = wlan_pdev_get_psoc(pdev);
 	pdev_id = wlan_objmgr_pdev_get_pdev_id(pdev);
-	tx_ops = reg_get_psoc_tx_ops(parent_psoc);
-
-	if (tx_ops->get_phy_id_from_pdev_id)
-		tx_ops->get_phy_id_from_pdev_id(parent_psoc, pdev_id, &phy_id);
-	else
-		phy_id = pdev_id;
 
 	psoc_priv_obj = reg_get_psoc_obj(parent_psoc);
 	if (!psoc_priv_obj) {
@@ -281,7 +225,7 @@ QDF_STATUS wlan_regulatory_pdev_obj_created_notification(
 			return QDF_STATUS_E_FAULT;
 		}
 
-		if (reg_cap_ptr->phy_id == phy_id)
+		if (reg_cap_ptr->phy_id == pdev_id)
 			break;
 		reg_cap_ptr++;
 	}
@@ -302,15 +246,14 @@ QDF_STATUS wlan_regulatory_pdev_obj_created_notification(
 	pdev_priv_obj->range_5g_low = range_5g_low;
 	pdev_priv_obj->range_5g_high = range_5g_high;
 	pdev_priv_obj->wireless_modes = reg_cap_ptr->wireless_modes;
-	reg_init_6g_vars(pdev_priv_obj);
 
 	reg_init_pdev_mas_chan_list(pdev_priv_obj,
-				    &psoc_priv_obj->mas_chan_params[phy_id]);
+				    &psoc_priv_obj->mas_chan_params[pdev_id]);
 
-	psoc_reg_rules = &psoc_priv_obj->mas_chan_params[phy_id].reg_rules;
+	psoc_reg_rules = &psoc_priv_obj->mas_chan_params[pdev_id].reg_rules;
 	reg_save_reg_rules_to_pdev(psoc_reg_rules, pdev_priv_obj);
 	pdev_priv_obj->chan_list_recvd =
-		psoc_priv_obj->chan_list_recvd[phy_id];
+		psoc_priv_obj->chan_list_recvd[pdev_id];
 
 	status = wlan_objmgr_pdev_component_obj_attach(
 			pdev, WLAN_UMAC_COMP_REGULATORY, pdev_priv_obj,

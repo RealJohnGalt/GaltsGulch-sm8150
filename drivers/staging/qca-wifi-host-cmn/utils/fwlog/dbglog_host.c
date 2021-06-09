@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1750,7 +1750,8 @@ send_diag_netlink_data(const uint8_t *buffer, uint32_t len, uint32_t cmd)
 
 		skb_out = nlmsg_new(slot_len, GFP_ATOMIC);
 		if (!skb_out) {
-			diag_err_rl("Failed to allocate new skb");
+			AR_DEBUG_PRINTF(ATH_DEBUG_ERR,
+					("Failed to allocate new skb\n"));
 			return A_ERROR;
 		}
 
@@ -4478,7 +4479,7 @@ int dbglog_parser_type_init(wmi_unified_t wmi_handle, int type)
 
 int dbglog_init(wmi_unified_t wmi_handle)
 {
-	QDF_STATUS res;
+	int res = 0;
 
 	OS_MEMSET(mod_print, 0, sizeof(mod_print));
 
@@ -4508,24 +4509,24 @@ int dbglog_init(wmi_unified_t wmi_handle)
 		wmi_unified_register_event_handler(wmi_handle,
 						   wmi_dbg_msg_event_id,
 						   dbglog_parse_debug_logs,
-						   WMI_RX_DIAG_WORK_CTX);
-	if (QDF_IS_STATUS_ERROR(res))
-		return A_ERROR;
+						   WMA_RX_WORK_CTX);
+	if (res != 0)
+		return res;
 
 	/* Register handler for FW diag events */
 	res = wmi_unified_register_event_handler(wmi_handle,
 						 wmi_diag_container_event_id,
 						 fw_diag_data_event_handler,
-						 WMI_RX_DIAG_WORK_CTX);
-	if (QDF_IS_STATUS_ERROR(res))
-		return A_ERROR;
+						 WMA_RX_WORK_CTX);
+	if (res != 0)
+		return res;
 
 	/* Register handler for new FW diag  Event, LOG, MSG combined */
 	res = wmi_unified_register_event_handler(wmi_handle, wmi_diag_event_id,
 						 diag_fw_handler,
-						 WMI_RX_DIAG_WORK_CTX);
-	if (QDF_IS_STATUS_ERROR(res))
-		return A_ERROR;
+						 WMA_RX_WORK_CTX);
+	if (res != 0)
+		return res;
 
 #ifdef WLAN_OPEN_SOURCE
 	/* Initialize the fw debug log queue */
@@ -4536,12 +4537,12 @@ int dbglog_init(wmi_unified_t wmi_handle)
 	dbglog_debugfs_init(wmi_handle);
 #endif /* WLAN_OPEN_SOURCE */
 
-	return A_OK;
+	return res;
 }
 
 int dbglog_deinit(wmi_unified_t wmi_handle)
 {
-	QDF_STATUS res;
+	int res = 0;
 
 #ifdef WLAN_OPEN_SOURCE
 	/* DeInitialize the fw debug log queue */
@@ -4555,8 +4556,8 @@ int dbglog_deinit(wmi_unified_t wmi_handle)
 	res =
 		wmi_unified_unregister_event_handler(wmi_handle,
 						     wmi_dbg_msg_event_id);
-	if (QDF_IS_STATUS_ERROR(res))
-		return A_ERROR;
+	if (res != 0)
+		return res;
 
-	return A_OK;
+	return res;
 }

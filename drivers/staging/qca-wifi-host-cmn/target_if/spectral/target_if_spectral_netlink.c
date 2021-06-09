@@ -49,7 +49,6 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 	static int samp_msg_index;
 	size_t pwr_count = 0;
 	size_t pwr_count_sec80 = 0;
-	size_t pwr_count_5mhz = 0;
 	enum spectral_msg_type msg_type;
 	QDF_STATUS ret;
 	struct spectral_fft_bin_len_adj_swar *swar = &spectral->len_adj_swar;
@@ -58,7 +57,8 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 	if (QDF_IS_STATUS_ERROR(ret))
 		return;
 
-	if (is_primaryseg_rx_inprog(spectral, params->smode)) {
+	if ((params->smode == SPECTRAL_SCAN_MODE_AGILE) ||
+	    is_primaryseg_rx_inprog(spectral)) {
 		spec_samp_msg  = (struct spectral_samp_msg *)
 		      spectral->nl_cb.get_sbuff(spectral->pdev_obj,
 						msg_type,
@@ -73,11 +73,9 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 
 		spec_samp_msg->signature = SPECTRAL_SIGNATURE;
 		spec_samp_msg->freq = params->freq;
-		spec_samp_msg->agile_freq1 = params->agile_freq1;
-		spec_samp_msg->agile_freq2 = params->agile_freq2;
+		if (params->smode == SPECTRAL_SCAN_MODE_AGILE)
+			spec_samp_msg->agile_freq = params->agile_freq;
 		spec_samp_msg->freq_loading = params->freq_loading;
-		spec_samp_msg->vhtop_ch_freq_seg1 = params->vhtop_ch_freq_seg1;
-		spec_samp_msg->vhtop_ch_freq_seg2 = params->vhtop_ch_freq_seg2;
 		samp_data->spectral_mode = params->smode;
 		samp_data->spectral_data_len = params->datalen;
 		samp_data->spectral_rssi = params->rssi;
@@ -171,7 +169,7 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 		p_sops->get_mac_address(spectral, spec_samp_msg->macaddr);
 	}
 
-	if (is_secondaryseg_rx_inprog(spectral, params->smode)) {
+	if (is_secondaryseg_rx_inprog(spectral)) {
 		spec_samp_msg  = (struct spectral_samp_msg *)
 		      spectral->nl_cb.get_sbuff(spectral->pdev_obj,
 						msg_type,
@@ -183,6 +181,8 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 		}
 
 		samp_data = &spec_samp_msg->samp_data;
+		spec_samp_msg->vhtop_ch_freq_seg1 = params->vhtop_ch_freq_seg1;
+		spec_samp_msg->vhtop_ch_freq_seg2 = params->vhtop_ch_freq_seg2;
 		samp_data->spectral_rssi_sec80 =
 		    params->rssi_sec80;
 		samp_data->noise_floor_sec80 =
@@ -217,11 +217,8 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 		 */
 		pwr_count_sec80 = qdf_min((size_t)params->pwr_count_sec80,
 					  sizeof(samp_data->bin_pwr_sec80));
-		pwr_count_5mhz = qdf_min((size_t)params->pwr_count_5mhz,
-					 sizeof(samp_data->bin_pwr_5mhz));
 
 		samp_data->bin_pwr_count_sec80 = pwr_count_sec80;
-		samp_data->bin_pwr_count_5mhz = pwr_count_5mhz;
 
 		bin_pwr_data = params->bin_pwr_data_sec80;
 		if (swar->fftbin_size_war ==
@@ -234,10 +231,6 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 			binptr_16 = (uint16_t *)bin_pwr_data;
 			for (idx = 0; idx < pwr_count_sec80; idx++)
 				samp_data->bin_pwr_sec80[idx] = *(binptr_16++);
-
-			binptr_16 = (uint16_t *)params->bin_pwr_data_5mhz;
-			for (idx = 0; idx < pwr_count_5mhz; idx++)
-				samp_data->bin_pwr_5mhz[idx] = *(binptr_16++);
 		} else {
 			SPECTRAL_MESSAGE_COPY_CHAR_ARRAY(
 					&samp_data->bin_pwr_sec80[0],
@@ -246,8 +239,9 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 		}
 	}
 
-	if (!is_ch_width_160_or_80p80(spectral->ch_width[params->smode]) ||
-	    is_secondaryseg_rx_inprog(spectral, params->smode)) {
+	if (spectral->ch_width[SPECTRAL_SCAN_MODE_NORMAL] != CH_WIDTH_160MHZ ||
+	    (params->smode == SPECTRAL_SCAN_MODE_AGILE) ||
+	    is_secondaryseg_rx_inprog(spectral)) {
 		if (spectral->send_phy_data(spectral->pdev_obj,
 					    msg_type) == 0)
 			spectral->spectral_sent_msg++;
@@ -255,10 +249,9 @@ target_if_spectral_create_samp_msg(struct target_if_spectral *spectral,
 	}
 
 	/* Take care of state transitions for 160MHz/ 80p80 */
-	if (spectral->spectral_gen == SPECTRAL_GEN3 &&
-	    is_ch_width_160_or_80p80(spectral->ch_width[params->smode]) &&
-	    spectral->rparams.fragmentation_160[params->smode])
+	if ((spectral->spectral_gen == SPECTRAL_GEN3) &&
+	    (params->smode != SPECTRAL_SCAN_MODE_AGILE))
 		target_if_160mhz_delivery_state_change(
-				spectral, params->smode,
-				SPECTRAL_DETECTOR_ID_INVALID);
+				spectral,
+				SPECTRAL_DETECTOR_INVALID);
 }

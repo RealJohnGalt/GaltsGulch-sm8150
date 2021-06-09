@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -20,7 +20,6 @@
 #include "qdf_status.h"
 #include "qdf_trace.h"
 #include "qdf_types.h"
-#include "qdf_module.h"
 
 #ifdef WLAN_DELAYED_WORK_DEBUG
 #include "qdf_tracker.h"
@@ -99,8 +98,6 @@ QDF_STATUS __qdf_delayed_work_create(struct qdf_delayed_work *dwork,
 	return QDF_STATUS_SUCCESS;
 }
 
-qdf_export_symbol(__qdf_delayed_work_create);
-
 void __qdf_delayed_work_destroy(struct qdf_delayed_work *dwork,
 				const char *func, uint32_t line)
 {
@@ -108,25 +105,13 @@ void __qdf_delayed_work_destroy(struct qdf_delayed_work *dwork,
 	qdf_dwork_dbg_untrack(dwork, func, line);
 }
 
-qdf_export_symbol(__qdf_delayed_work_destroy);
-
-bool __qdf_delayed_work_start(struct qdf_delayed_work *dwork, uint32_t msec)
+bool qdf_delayed_work_start(struct qdf_delayed_work *dwork, uint32_t msec)
 {
 	return schedule_delayed_work(&dwork->dwork, msecs_to_jiffies(msec));
 }
 
-qdf_export_symbol(__qdf_delayed_work_start);
-
-bool __qdf_delayed_work_stop_sync(struct qdf_delayed_work *dwork)
+bool qdf_delayed_work_stop_sync(struct qdf_delayed_work *dwork)
 {
 	return cancel_delayed_work_sync(&dwork->dwork);
 }
 
-qdf_export_symbol(__qdf_delayed_work_stop_sync);
-
-bool __qdf_delayed_work_stop(struct qdf_delayed_work *dwork)
-{
-	return cancel_delayed_work(&dwork->dwork);
-}
-
-qdf_export_symbol(__qdf_delayed_work_stop);

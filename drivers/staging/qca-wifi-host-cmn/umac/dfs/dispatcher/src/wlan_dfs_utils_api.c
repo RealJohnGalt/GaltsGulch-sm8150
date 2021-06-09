@@ -36,8 +36,6 @@
 #include <pld_common.h>
 #endif
 #include <qdf_module.h>
-#include "wlan_dfs_lmac_api.h"
-#include "../../core/src/dfs_internal.h"
 
 struct dfs_nol_info {
 	uint16_t num_chans;
@@ -776,9 +774,8 @@ static void utils_dfs_get_channel_list(struct wlan_objmgr_pdev *pdev,
 	bool is_curchan_5g;
 	bool is_curchan_24g;
 	bool is_curchan_49g;
-	bool is_inter_band_switch_allowed;
-	uint8_t chan_num;
-	uint16_t center_freq;
+	uint32_t chan_num;
+	uint32_t center_freq;
 	uint16_t flagext;
 	int i, j = 0;
 
@@ -799,8 +796,6 @@ static void utils_dfs_get_channel_list(struct wlan_objmgr_pdev *pdev,
 	is_curchan_5g = WLAN_REG_IS_5GHZ_CH_FREQ(center_freq);
 	is_curchan_24g = WLAN_REG_IS_24GHZ_CH_FREQ(center_freq);
 	is_curchan_49g = WLAN_REG_IS_49GHZ_FREQ(center_freq);
-	is_inter_band_switch_allowed =
-		dfs_mlme_is_inter_band_chan_switch_allowed(dfs->dfs_pdev_obj);
 
 	for (i = 0; i < *num_chan; i++) {
 		chan_num = tmp_chan_list[i].dfs_ch_ieee;
@@ -810,19 +805,11 @@ static void utils_dfs_get_channel_list(struct wlan_objmgr_pdev *pdev,
 		if (!dfs_mlme_check_allowed_prim_chanlist(pdev, center_freq))
 			continue;
 
-		if (is_curchan_5g) {
-			/*
-			 * Always add 5G channels.
-			 * If inter band is allowed, add 6G also.
-			 */
-			if (WLAN_REG_IS_5GHZ_CH_FREQ(center_freq) ||
-			    (is_inter_band_switch_allowed &&
-			     WLAN_REG_IS_6GHZ_CHAN_FREQ(center_freq))) {
-				chan_list[j].dfs_ch_ieee = chan_num;
-				chan_list[j].dfs_ch_freq = center_freq;
-				chan_list[j].dfs_ch_flagext = flagext;
-				j++;
-			}
+		if ((is_curchan_5g) && WLAN_REG_IS_5GHZ_CH_FREQ(center_freq)) {
+			chan_list[j].dfs_ch_ieee = chan_num;
+			chan_list[j].dfs_ch_freq = center_freq;
+			chan_list[j].dfs_ch_flagext = flagext;
+			j++;
 		} else if ((is_curchan_24g) &&
 				WLAN_REG_IS_24GHZ_CH_FREQ(center_freq)) {
 			chan_list[j].dfs_ch_ieee = chan_num;
@@ -871,8 +858,8 @@ static void utils_dfs_get_channel_list(struct wlan_objmgr_pdev *pdev,
 
 	chan_num = dfs->dfs_curchan->dfs_ch_ieee;
 	center_freq = dfs->dfs_curchan->dfs_ch_freq;
-	is_curchan_5g = WLAN_REG_IS_5GHZ_CH_FREQ(center_freq);
-	is_curchan_24g = WLAN_REG_IS_24GHZ_CH_FREQ(center_freq);
+	is_curchan_5g = WLAN_REG_IS_5GHZ_CH(chan_num);
+	is_curchan_24g = WLAN_REG_IS_24GHZ_CH(chan_num);
 	is_curchan_49g = WLAN_REG_IS_49GHZ_FREQ(center_freq);
 
 	for (i = 0; i < *num_chan; i++) {
@@ -883,13 +870,13 @@ static void utils_dfs_get_channel_list(struct wlan_objmgr_pdev *pdev,
 		if (!dfs_mlme_check_allowed_prim_chanlist(pdev, chan_num))
 			continue;
 
-		if ((is_curchan_5g) && WLAN_REG_IS_5GHZ_CH_FREQ(center_freq)) {
+		if ((is_curchan_5g) && WLAN_REG_IS_5GHZ_CH(chan_num)) {
 			chan_list[j].dfs_ch_ieee = chan_num;
 			chan_list[j].dfs_ch_freq = center_freq;
 			chan_list[j].dfs_ch_flagext = flagext;
 			j++;
 		} else if ((is_curchan_24g) &&
-				WLAN_REG_IS_24GHZ_CH_FREQ(center_freq)) {
+				WLAN_REG_IS_24GHZ_CH(chan_num)) {
 			chan_list[j].dfs_ch_ieee = chan_num;
 			chan_list[j].dfs_ch_freq = center_freq;
 			j++;
@@ -977,12 +964,6 @@ void utils_dfs_get_chan_list(struct wlan_objmgr_pdev *pdev,
 {
 	utils_dfs_get_channel_list(pdev, NULL, (struct dfs_channel *)clist,
 				   num_chan);
-}
-
-bool utils_dfs_can_ignore_radar_event(struct wlan_objmgr_pdev *pdev)
-{
-	return policy_mgr_get_can_skip_radar_event(
-		wlan_pdev_get_psoc(pdev), INVALID_VDEV_ID);
 }
 #endif
 
@@ -1072,6 +1053,7 @@ QDF_STATUS utils_dfs_get_vdev_random_channel_for_freq(
 	struct wlan_dfs *dfs = NULL;
 	struct wlan_objmgr_psoc *psoc;
 	struct dfs_channel *chan_list = NULL;
+	struct dfs_channel cur_chan;
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
 
 	*target_chan_freq = 0;
@@ -1098,13 +1080,23 @@ QDF_STATUS utils_dfs_get_vdev_random_channel_for_freq(
 		goto random_chan_error;
 	}
 
+	cur_chan.dfs_ch_vhtop_ch_freq_seg1 = chan_params->center_freq_seg0;
+	cur_chan.dfs_ch_vhtop_ch_freq_seg2 = chan_params->center_freq_seg1;
+	cur_chan.dfs_ch_mhz_freq_seg1 = chan_params->mhz_freq_seg0;
+	cur_chan.dfs_ch_mhz_freq_seg2 = chan_params->mhz_freq_seg1;
+
 	if (!chan_params->ch_width)
 		utils_dfs_get_max_sup_width(pdev,
 					    (uint8_t *)&chan_params->ch_width);
 
-	*target_chan_freq = dfs_prepare_random_channel_for_freq(
-			dfs, chan_list, num_chan, flags, chan_params,
-			(uint8_t)dfs_reg, acs_info);
+	*target_chan_freq = dfs_prepare_random_channel_for_freq(dfs, chan_list,
+		num_chan, flags, (uint8_t *)&chan_params->ch_width,
+		&cur_chan, (uint8_t)dfs_reg, acs_info);
+
+	chan_params->center_freq_seg0 = cur_chan.dfs_ch_vhtop_ch_freq_seg1;
+	chan_params->center_freq_seg1 = cur_chan.dfs_ch_vhtop_ch_freq_seg2;
+	chan_params->mhz_freq_seg0 =  cur_chan.dfs_ch_mhz_freq_seg1;
+	chan_params->mhz_freq_seg1 =  cur_chan.dfs_ch_mhz_freq_seg2;
 
 	dfs_info(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
 		 "input width=%d", chan_params->ch_width);
@@ -1346,14 +1338,16 @@ void utils_dfs_save_nol(struct wlan_objmgr_pdev *pdev)
 
 	qdf_mem_zero(dfs_nolinfo, sizeof(*dfs_nolinfo));
 	DFS_GET_NOL_LOCKED(dfs, dfs_nolinfo->dfs_nol, &num_chans);
+	if (num_chans > 0) {
 
-	if (num_chans > DFS_MAX_NOL_CHANNEL)
-		dfs_nolinfo->num_chans = DFS_MAX_NOL_CHANNEL;
-	else
-		dfs_nolinfo->num_chans = num_chans;
+		if (num_chans > DFS_MAX_NOL_CHANNEL)
+			dfs_nolinfo->num_chans = DFS_MAX_NOL_CHANNEL;
+		else
+			dfs_nolinfo->num_chans = num_chans;
 
-	pld_wlan_set_dfs_nol(qdf_dev->dev, (void *)dfs_nolinfo,
-			     (uint16_t)sizeof(*dfs_nolinfo));
+		pld_wlan_set_dfs_nol(qdf_dev->dev, (void *)dfs_nolinfo,
+				     (uint16_t)sizeof(*dfs_nolinfo));
+	}
 	qdf_mem_free(dfs_nolinfo);
 }
 #endif
@@ -1564,20 +1558,6 @@ QDF_STATUS utils_dfs_is_spoof_check_failed(struct wlan_objmgr_pdev *pdev,
 }
 
 qdf_export_symbol(utils_dfs_is_spoof_check_failed);
-
-bool utils_dfs_is_spoof_done(struct wlan_objmgr_pdev *pdev)
-{
-	struct wlan_dfs *dfs;
-
-	dfs = wlan_pdev_get_dfs_obj(pdev);
-	if (!dfs)
-		return false;
-
-	if (lmac_is_host_dfs_check_support_enabled(dfs->dfs_pdev_obj) &&
-	    utils_get_dfsdomain(dfs->dfs_pdev_obj) == DFS_FCC_DOMAIN)
-		return !!dfs->dfs_spoof_test_done;
-	return true;
-}
 #endif
 
 int dfs_get_num_chans(void)
@@ -1643,84 +1623,3 @@ void utils_dfs_reset_dfs_prevchan(struct wlan_objmgr_pdev *pdev)
 
 	dfs_reset_dfs_prevchan(dfs);
 }
-
-#ifdef QCA_SUPPORT_AGILE_DFS
-
-void utils_dfs_agile_sm_deliver_evt(struct wlan_objmgr_pdev *pdev,
-				    enum dfs_agile_sm_evt event)
-{
-	struct wlan_dfs *dfs;
-	void *event_data;
-
-	if (!tgt_dfs_is_pdev_5ghz(pdev))
-		return;
-
-	dfs = wlan_pdev_get_dfs_obj(pdev);
-	if (!dfs) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,  "dfs is null");
-		return;
-	}
-
-	if (!dfs_is_agile_cac_enabled(dfs))
-		return;
-
-	event_data = (void *)dfs;
-
-	dfs_agile_sm_deliver_evt(dfs->dfs_soc_obj,
-				 event,
-				 0,
-				 event_data);
-}
-#endif
-
-#ifdef QCA_SUPPORT_ADFS_RCAC
-QDF_STATUS utils_dfs_get_rcac_channel(struct wlan_objmgr_pdev *pdev,
-				      struct ch_params *chan_params,
-				      qdf_freq_t *target_chan_freq)
-{
-	struct wlan_dfs *dfs = NULL;
-	QDF_STATUS status = QDF_STATUS_E_FAILURE;
-
-	if (!target_chan_freq)
-		return status;
-
-	*target_chan_freq = 0;
-
-	dfs = wlan_pdev_get_dfs_obj(pdev);
-	if (!dfs) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,  "null dfs");
-		return status;
-	}
-
-	if (!dfs_is_agile_rcac_enabled(dfs))
-		return status;
-
-	*target_chan_freq = dfs->dfs_rcac_param.rcac_pri_freq;
-
-	/* Do not modify the input ch_params if no RCAC channel is present. */
-	if (!*target_chan_freq)
-		return status;
-
-	*chan_params = dfs->dfs_rcac_param.rcac_ch_params;
-
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-#ifdef ATH_SUPPORT_ZERO_CAC_DFS
-enum precac_status_for_chan
-utils_dfs_precac_status_for_channel(struct wlan_objmgr_pdev *pdev,
-				    struct wlan_channel *deschan)
-{
-	struct wlan_dfs *dfs;
-	struct dfs_channel chan;
-
-	dfs = wlan_pdev_get_dfs_obj(pdev);
-	if (!dfs)
-		return false;
-
-	dfs_fill_chan_info(&chan, deschan);
-
-	return dfs_precac_status_for_channel(dfs, &chan);
-}
-#endif

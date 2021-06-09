@@ -34,8 +34,6 @@
 		QDF_TRACE_DEBUG(QDF_MODULE_ID_CP_STATS, ## args)
 #define cp_stats_err(args ...) \
 		QDF_TRACE_ERROR(QDF_MODULE_ID_CP_STATS, ## args)
-#define cp_stats_rl_err(args ...) \
-		QDF_TRACE_ERROR_RL(QDF_MODULE_ID_CP_STATS, ## args)
 #define cp_stats_nofl_debug(args ...) \
 		QDF_TRACE_DEBUG_NO_FL(QDF_MODULE_ID_CP_STATS, ## args)
 /**

@@ -28,7 +28,6 @@
 #include <wlan_objmgr_psoc_obj.h>
 #include <wlan_objmgr_pdev_obj.h>
 #include <wlan_dfs_ioctl.h>
-#include <wlan_dfs_public_struct.h>
 
 /**
  * struct dfs_to_mlme - These are MLME function pointer used by DFS component.
@@ -36,6 +35,7 @@
  * @pdev_component_obj_detach:         Detach DFS object from PDEV.
  * @pdev_get_comp_private_obj:         Get DFS object from PDEV.
  * @dfs_start_rcsa:                    Send RCSA to RootAP.
+ * @mlme_mark_dfs:                     Calls dfs_action function.
  * @mlme_start_csa:                    Sends CSA.
  * @mlme_proc_cac:                     Process the CAC completion event.
  * @mlme_deliver_event_up_after_cac:   Send a CAC timeout, VAP up event to user
@@ -66,9 +66,7 @@
  * @mlme_dfs_deliver_event:            Deliver DFS events to user space
  * @mlme_precac_chan_change_csa_for_freq:Channel change triggered by PrCAC using
  *                                     Channel Switch Announcement.
- * @mlme_postnol_chan_switch:          Channel change post NOL using Channel
- *                                     Switch Announcement.
- * @mlme_mark_dfs:                     Mark DFS channel frequency as radar.
+ * @mlme_mark_dfs_for_freq:            Mark DFS channel frequency as radar.
  * @mlme_get_extchan_for_freq:         Get the extension channel.
  * @mlme_find_dot11_chan_for_freq:     Find a channel pointer.
  * @mlme_get_dfs_channels_for_freq:    Get DFS channels from current channel
@@ -90,11 +88,20 @@ struct dfs_to_mlme {
 			void *comp_priv_obj);
 	QDF_STATUS (*dfs_start_rcsa)(struct wlan_objmgr_pdev *pdev,
 			bool *wait_for_csa);
+#ifdef CONFIG_CHAN_NUM_API
 	QDF_STATUS (*mlme_mark_dfs)(struct wlan_objmgr_pdev *pdev,
 			uint8_t ieee,
 			uint16_t freq,
-			uint16_t vhtop_ch_freq_seg2,
+			uint8_t vhtop_ch_freq_seg2,
 			uint64_t flags);
+#endif
+#ifdef CONFIG_CHAN_FREQ_API
+	QDF_STATUS (*mlme_mark_dfs_for_freq)(struct wlan_objmgr_pdev *pdev,
+					     uint8_t ieee,
+					     uint16_t freq,
+					     uint16_t ic_mhz_freq_seg2,
+					     uint64_t flags);
+#endif
 #ifdef CONFIG_CHAN_NUM_API
 	QDF_STATUS (*mlme_start_csa)(struct wlan_objmgr_pdev *pdev,
 			uint8_t ieee_chan, uint16_t freq,
@@ -204,13 +211,6 @@ struct dfs_to_mlme {
 					       enum wlan_phymode des_mode);
 #endif
 #endif
-#ifdef QCA_SUPPORT_DFS_CHAN_POSTNOL
-	QDF_STATUS
-	(*mlme_postnol_chan_switch)(struct wlan_objmgr_pdev *pdev,
-				    qdf_freq_t des_chan_freq,
-				    qdf_freq_t des_cfreq2,
-				    enum wlan_phymode des_mode);
-#endif
 	QDF_STATUS (*mlme_nol_timeout_notification)(
 			struct wlan_objmgr_pdev *pdev);
 	QDF_STATUS (*mlme_clist_update)(struct wlan_objmgr_pdev *pdev,
@@ -246,8 +246,6 @@ struct dfs_to_mlme {
 			(struct wlan_objmgr_pdev *pdev,
 			 uint16_t freq,
 			 enum WLAN_DFS_EVENTS event);
-	bool (*mlme_is_inter_band_chan_switch_allowed)
-			(struct wlan_objmgr_pdev *pdev);
 	void (*mlme_acquire_radar_mode_switch_lock)
 			(struct wlan_objmgr_pdev *pdev);
 	void (*mlme_release_radar_mode_switch_lock)
@@ -598,203 +596,4 @@ static inline QDF_STATUS ucfg_dfs_reset_agile_config(struct wlan_objmgr_psoc
 	return QDF_STATUS_SUCCESS;
 }
 #endif
-
-/**
- * ucfg_dfs_set_rcac_enable() - Set rcac enable flag.
- * @pdev: Pointer to DFS pdev object.
- * @rcac_en: User input value to enable/disable rolling cac feature.
- *
- */
-#ifdef QCA_SUPPORT_ADFS_RCAC
-QDF_STATUS ucfg_dfs_set_rcac_enable(struct wlan_objmgr_pdev *pdev,
-				    bool rcac_en);
-#else
-static inline QDF_STATUS
-ucfg_dfs_set_rcac_enable(struct wlan_objmgr_pdev *pdev,
-			 bool rcac_en)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-/**
- * ucfg_dfs_get_rcac_enable() - Get rcac enable flag.
- * @pdev: Pointer to DFS pdev object.
- * @rcac_en: Pointer to hold the "rcac" config.
- *
- */
-#ifdef QCA_SUPPORT_ADFS_RCAC
-QDF_STATUS ucfg_dfs_get_rcac_enable(struct wlan_objmgr_pdev *pdev,
-				    bool *rcac_en);
-#else
-static inline QDF_STATUS
-ucfg_dfs_get_rcac_enable(struct wlan_objmgr_pdev *pdev,
-			 bool *rcac_en)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-/**
- * ucfg_dfs_set_rcac_freq() - Set rcac freq.
- * @pdev: Pointer to DFS pdev object.
- * @rcac_freq: User configured rcac freq in MHZ.
- *
- */
-#ifdef QCA_SUPPORT_ADFS_RCAC
-QDF_STATUS ucfg_dfs_set_rcac_freq(struct wlan_objmgr_pdev *pdev,
-				  qdf_freq_t rcac_freq);
-#else
-static inline QDF_STATUS
-ucfg_dfs_set_rcac_freq(struct wlan_objmgr_pdev *pdev,
-		       qdf_freq_t rcac_freq)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-#ifdef QCA_SUPPORT_DFS_CHAN_POSTNOL
-/**
- * ucfg_dfs_set_postnol_freq() - Set PostNOL freq.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_freq: User configured freq to switch to, post NOL, in MHZ.
- *
- */
-QDF_STATUS ucfg_dfs_set_postnol_freq(struct wlan_objmgr_pdev *pdev,
-				     qdf_freq_t postnol_freq);
-
-/**
- * ucfg_dfs_set_postnol_mode() - Set PostNOL mode.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_mode: User configured mode to switch to, post NOL, in MHZ.
- *
- */
-QDF_STATUS ucfg_dfs_set_postnol_mode(struct wlan_objmgr_pdev *pdev,
-				     uint8_t postnol_mode);
-
-/**
- * ucfg_dfs_set_postnol_cfreq2() - Set PostNOL secondary center frequency.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_freq: User configured secondary center frequency to switch to,
- * post NOL, in MHZ.
- *
- */
-QDF_STATUS ucfg_dfs_set_postnol_cfreq2(struct wlan_objmgr_pdev *pdev,
-				       qdf_freq_t postnol_cfreq2);
-
-/**
- * ucfg_dfs_get_postnol_freq() - Get PostNOL freq.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_freq: Pointer to user configured freq to switch to, post NOL.
- *
- */
-QDF_STATUS ucfg_dfs_get_postnol_freq(struct wlan_objmgr_pdev *pdev,
-				     qdf_freq_t *postnol_freq);
-
-/**
- * ucfg_dfs_get_postnol_mode() - Set PostNOL mode.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_mode: Pointer to user configured mode to switch to, post NOL.
- *
- */
-QDF_STATUS ucfg_dfs_get_postnol_mode(struct wlan_objmgr_pdev *pdev,
-				     uint8_t *postnol_mode);
-
-/**
- * ucfg_dfs_get_postnol_cfreq2() - Set PostNOL secondary center frequency.
- * @pdev: Pointer to DFS pdev object.
- * @postnol_freq: Pointer to user configured secondary center frequency to
- * switch to post NOL.
- *
- */
-QDF_STATUS ucfg_dfs_get_postnol_cfreq2(struct wlan_objmgr_pdev *pdev,
-				       qdf_freq_t *postnol_cfreq2);
-#else
-static inline QDF_STATUS
-ucfg_dfs_set_postnol_freq(struct wlan_objmgr_pdev *pdev,
-			  qdf_freq_t postnol_freq)
-{
-	return QDF_STATUS_SUCCESS;
-}
-
-static inline QDF_STATUS
-ucfg_dfs_set_postnol_mode(struct wlan_objmgr_pdev *pdev,
-			  uint8_t postnol_mode)
-{
-	return QDF_STATUS_SUCCESS;
-}
-
-static inline QDF_STATUS
-ucfg_dfs_set_postnol_cfreq2(struct wlan_objmgr_pdev *pdev,
-			    qdf_freq_t postnol_cfreq2)
-{
-	return QDF_STATUS_SUCCESS;
-}
-
-static inline QDF_STATUS
-ucfg_dfs_get_postnol_freq(struct wlan_objmgr_pdev *pdev,
-			  qdf_freq_t *postnol_freq)
-{
-	*postnol_freq = 0;
-	return QDF_STATUS_SUCCESS;
-}
-
-static inline QDF_STATUS
-ucfg_dfs_get_postnol_mode(struct wlan_objmgr_pdev *pdev,
-			  uint8_t *postnol_mode)
-{
-	*postnol_mode = CH_WIDTH_INVALID;
-	return QDF_STATUS_SUCCESS;
-}
-
-static inline QDF_STATUS
-ucfg_dfs_get_postnol_cfreq2(struct wlan_objmgr_pdev *pdev,
-			    qdf_freq_t *postnol_cfreq2)
-{
-	*postnol_cfreq2 = 0;
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-/**
- * ucfg_dfs_get_rcac_freq() - Get rcac freq.
- * @pdev: Pointer to DFS pdev object.
- * @rcac_freq: Pointer to store the user configured rcac freq in MHZ.
- *
- */
-#ifdef QCA_SUPPORT_ADFS_RCAC
-QDF_STATUS ucfg_dfs_get_rcac_freq(struct wlan_objmgr_pdev *pdev,
-				  qdf_freq_t *rcac_freq);
-#else
-static inline QDF_STATUS
-ucfg_dfs_get_rcac_freq(struct wlan_objmgr_pdev *pdev,
-		       qdf_freq_t *rcac_freq)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-/**
- * ucfg_dfs_is_agile_rcac_enabled() - Determine if Rolling CAC is supported
- * or not.
- * @pdev: Pointer to struct wlan_objmgr_pdev.
- *
- * Following are the conditions needed to assertain that rolling CAC
- * is enabled:
- * 1. DFS domain of the PDEV must be FCC or MKK.
- * 2. User has enabled Rolling CAC configuration.
- * 3. FW capability to support ADFS.
- *
- * Return: True if RCAC support is enabled, false otherwise.
- */
-#ifdef QCA_SUPPORT_ADFS_RCAC
-bool ucfg_dfs_is_agile_rcac_enabled(struct wlan_objmgr_pdev *pdev);
-#else
-static inline bool
-ucfg_dfs_is_agile_rcac_enabled(struct wlan_objmgr_pdev *pdev)
-{
-	return false;
-}
-#endif
-
 #endif /* _WLAN_DFS_UCFG_API_H_ */

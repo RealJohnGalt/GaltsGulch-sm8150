@@ -25,10 +25,8 @@
 #include "qdf_mem.h"
 #include "qdf_nbuf.h"
 #include "pld_common.h"
-#if defined(FEATURE_HAL_DELAYED_REG_WRITE) || \
-	defined(FEATURE_HAL_DELAYED_REG_WRITE_V2)
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
 #include "qdf_defer.h"
-#include "qdf_timer.h"
 #endif
 
 #define hal_alert(params...) QDF_TRACE_FATAL(QDF_MODULE_ID_HAL, params)
@@ -69,36 +67,6 @@ extern bool is_hal_verbose_debug_enabled;
  */
 struct hal_soc_handle;
 typedef struct hal_soc_handle *hal_soc_handle_t;
-
-/**
- * hal_ring_desc - opaque handle for DP ring descriptor
- */
-struct hal_ring_desc;
-typedef struct hal_ring_desc *hal_ring_desc_t;
-
-/**
- * hal_link_desc - opaque handle for DP link descriptor
- */
-struct hal_link_desc;
-typedef struct hal_link_desc *hal_link_desc_t;
-
-/**
- * hal_rxdma_desc - opaque handle for DP rxdma dst ring descriptor
- */
-struct hal_rxdma_desc;
-typedef struct hal_rxdma_desc *hal_rxdma_desc_t;
-
-/**
- * hal_buff_addrinfo - opaque handle for DP buffer address info
- */
-struct hal_buff_addrinfo;
-typedef struct hal_buff_addrinfo *hal_buff_addrinfo_t;
-
-/**
- * hal_rx_mon_desc_info - opaque handle for sw monitor ring desc info
- */
-struct hal_rx_mon_desc_info;
-typedef struct hal_rx_mon_desc_info *hal_rx_mon_desc_info_t;
 
 /* TBD: This should be movded to shared HW header file */
 enum hal_srng_ring_id {
@@ -195,35 +163,6 @@ enum hal_srng_ring_id {
 	HAL_SRNG_LMAC1_ID_END = 143
 };
 
-/* SRNG type to be passed in APIs hal_srng_get_entrysize and hal_srng_setup */
-enum hal_ring_type {
-	REO_DST = 0,
-	REO_EXCEPTION = 1,
-	REO_REINJECT = 2,
-	REO_CMD = 3,
-	REO_STATUS = 4,
-	TCL_DATA = 5,
-	TCL_CMD_CREDIT = 6,
-	TCL_STATUS = 7,
-	CE_SRC = 8,
-	CE_DST = 9,
-	CE_DST_STATUS = 10,
-	WBM_IDLE_LINK = 11,
-	SW2WBM_RELEASE = 12,
-	WBM2SW_RELEASE = 13,
-	RXDMA_BUF = 14,
-	RXDMA_DST = 15,
-	RXDMA_MONITOR_BUF = 16,
-	RXDMA_MONITOR_STATUS = 17,
-	RXDMA_MONITOR_DST = 18,
-	RXDMA_MONITOR_DESC = 19,
-	DIR_BUF_RX_DMA_SRC = 20,
-#ifdef WLAN_FEATURE_CIF_CFR
-	WIFI_POS_SRC,
-#endif
-	MAX_RING_TYPES
-};
-
 #define HAL_RXDMA_MAX_RING_SIZE 0xFFFF
 #define HAL_MAX_LMACS 3
 #define HAL_MAX_RINGS_PER_LMAC (HAL_SRNG_LMAC1_ID_END - HAL_SRNG_LMAC1_ID_START)
@@ -240,7 +179,6 @@ enum hal_srng_dir {
 #define hal_srng_lock_t qdf_spinlock_t
 #define SRNG_LOCK_INIT(_lock) qdf_spinlock_create(_lock)
 #define SRNG_LOCK(_lock) qdf_spin_lock_bh(_lock)
-#define SRNG_TRY_LOCK(_lock) qdf_spin_trylock_bh(_lock)
 #define SRNG_UNLOCK(_lock) qdf_spin_unlock_bh(_lock)
 #define SRNG_LOCK_DESTROY(_lock) qdf_spinlock_destroy(_lock)
 
@@ -259,8 +197,7 @@ typedef struct hal_ring_handle *hal_ring_handle_t;
  */
 #define HAL_SRNG_FLUSH_EVENT BIT(0)
 
-#if defined(FEATURE_HAL_DELAYED_REG_WRITE) || \
-	defined(FEATURE_HAL_DELAYED_REG_WRITE_V2)
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
 
 /**
  * struct hal_reg_write_q_elem - delayed register write queue element
@@ -335,21 +272,6 @@ struct hal_reg_write_soc_stats {
 	uint32_t max_q_depth;
 	uint32_t sched_delay[REG_WRITE_SCHED_DELAY_HIST_MAX];
 };
-
-#ifdef FEATURE_HAL_DELAYED_REG_WRITE_V2
-struct hal_reg_write_tcl_stats {
-	uint32_t wq_delayed;
-	uint32_t wq_direct;
-	uint32_t timer_enq;
-	uint32_t timer_direct;
-	uint32_t enq_timer_set;
-	uint32_t direct_timer_set;
-	uint32_t timer_reset;
-	qdf_time_t enq_time;
-	qdf_time_t deq_time;
-	uint32_t sched_delay[REG_WRITE_SCHED_DELAY_HIST_MAX];
-};
-#endif
 #endif
 
 /* Common SRNG ring structure for source and destination rings */
@@ -408,9 +330,6 @@ struct hal_srng {
 	 */
 	void *hwreg_base[MAX_SRNG_REG_GROUPS];
 
-	/* Ring type/name */
-	enum hal_ring_type ring_type;
-
 	/* Source or Destination ring */
 	enum hal_srng_dir ring_dir;
 
@@ -468,12 +387,10 @@ struct hal_srng {
 	unsigned long srng_event;
 	/* last flushed time stamp */
 	uint64_t last_flush_ts;
-#if defined(FEATURE_HAL_DELAYED_REG_WRITE) || \
-	defined(FEATURE_HAL_DELAYED_REG_WRITE_V2)
-	/* Previous hp/tp (based on ring dir) value written to the reg */
-	uint32_t last_reg_wr_val;
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
 	/* flag to indicate whether srng is already queued for delayed write */
 	uint8_t reg_write_in_progress;
+
 	/* srng specific delayed write stats */
 	struct hal_reg_write_srng_stats wstats;
 #endif
@@ -569,8 +486,6 @@ struct hal_hw_txrx_ops {
 	uint8_t (*hal_tx_comp_get_release_reason)(void *hal_desc);
 	uint8_t (*hal_get_wbm_internal_error)(void *hal_desc);
 	void (*hal_tx_desc_set_mesh_en)(void *desc, uint8_t en);
-	void (*hal_tx_init_cmd_credit_ring)(hal_soc_handle_t hal_soc_hdl,
-					    hal_ring_handle_t hal_ring_hdl);
 
 	/* rx */
 	uint32_t (*hal_rx_msdu_start_nss_get)(uint8_t *);
@@ -629,8 +544,7 @@ struct hal_hw_txrx_ops {
 	uint8_t (*hal_rx_get_mpdu_sequence_control_valid)(uint8_t *buf);
 	bool (*hal_rx_is_unicast)(uint8_t *buf);
 	uint32_t (*hal_rx_tid_get)(hal_soc_handle_t hal_soc_hdl, uint8_t *buf);
-	uint32_t (*hal_rx_hw_desc_get_ppduid_get)(void *rx_tlv_hdr,
-						  void *rxdma_dst_ring_desc);
+	uint32_t (*hal_rx_hw_desc_get_ppduid_get)(void *hw_desc_addr);
 	uint32_t (*hal_rx_mpdu_start_mpdu_qos_control_valid_get)(uint8_t *buf);
 	uint32_t (*hal_rx_msdu_end_sa_sw_peer_id_get)(uint8_t *buf);
 	void * (*hal_rx_msdu0_buffer_addr_lsb)(void *link_desc_addr);
@@ -668,32 +582,8 @@ struct hal_hw_txrx_ops {
 	bool (*hal_rx_get_fisa_flow_agg_continuation)(uint8_t *buf);
 	uint8_t (*hal_rx_get_fisa_flow_agg_count)(uint8_t *buf);
 	bool (*hal_rx_get_fisa_timeout)(uint8_t *buf);
-	uint8_t (*hal_rx_mpdu_start_tlv_tag_valid)(void *rx_tlv_hdr);
-	void (*hal_rx_sw_mon_desc_info_get)(hal_ring_desc_t rxdma_dst_ring_desc,
-					    hal_rx_mon_desc_info_t mon_desc_info);
-	uint8_t (*hal_rx_wbm_err_msdu_continuation_get)(void *ring_desc);
-	uint32_t (*hal_rx_msdu_end_offset_get)(void);
-	uint32_t (*hal_rx_attn_offset_get)(void);
-	uint32_t (*hal_rx_msdu_start_offset_get)(void);
-	uint32_t (*hal_rx_mpdu_start_offset_get)(void);
-	uint32_t (*hal_rx_mpdu_end_offset_get)(void);
-	void * (*hal_rx_flow_setup_fse)(uint8_t *rx_fst,
-					uint32_t table_offset,
-					uint8_t *rx_flow);
-	void (*hal_compute_reo_remap_ix2_ix3)(uint32_t *ring,
-					      uint32_t num_rings,
-					      uint32_t *remap1,
-					      uint32_t *remap2);
-	uint32_t (*hal_rx_flow_setup_cmem_fse)(
-				struct hal_soc *soc, uint32_t cmem_ba,
-				uint32_t table_offset, uint8_t *rx_flow);
-	uint32_t (*hal_rx_flow_get_cmem_fse_ts)(struct hal_soc *soc,
-						uint32_t fse_offset);
-	void (*hal_rx_flow_get_cmem_fse)(struct hal_soc *soc,
-					 uint32_t fse_offset,
-					 uint32_t *fse, qdf_size_t len);
 	void (*hal_rx_msdu_get_reo_destination_indication)(uint8_t *buf,
-							   uint32_t *reo_destination_indication);
+							uint32_t *reo_destination_indication);
 };
 
 /**
@@ -707,8 +597,7 @@ struct hal_hw_txrx_ops {
  */
 struct hal_soc_stats {
 	uint32_t reg_write_fail;
-#if defined(FEATURE_HAL_DELAYED_REG_WRITE) || \
-	defined(FEATURE_HAL_DELAYED_REG_WRITE_V2)
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
 	struct hal_reg_write_soc_stats wstats;
 #endif
 #ifdef GENERIC_SHADOW_REGISTER_ACCESS_ENABLE
@@ -769,8 +658,6 @@ struct hal_soc {
 
 	/* Device base address */
 	void *dev_base_addr;
-	/* Device base address for ce - qca5018 target */
-	void *dev_base_addr_ce;
 
 	/* HAL internal state for all SRNG rings.
 	 * TODO: See if this is required
@@ -823,21 +710,7 @@ struct hal_soc {
 	qdf_atomic_t write_idx;
 	/* read index used by worker thread to dequeue/write registers */
 	uint32_t read_idx;
-#endif /*FEATURE_HAL_DELAYED_REG_WRITE */
-#ifdef FEATURE_HAL_DELAYED_REG_WRITE_V2
-	/* delayed work for TCL reg write to be queued into workqueue */
-	qdf_work_t tcl_reg_write_work;
-	/* workqueue for TCL delayed register writes */
-	qdf_workqueue_t *tcl_reg_write_wq;
-	/* flag denotes whether TCL delayed write work is active */
-	qdf_atomic_t tcl_work_active;
-	/* flag indiactes TCL write happening from direct context */
-	bool tcl_direct;
-	/* timer to handle the pending TCL reg writes */
-	qdf_timer_t tcl_reg_write_timer;
-	/* stats related to TCL reg write */
-	struct hal_reg_write_tcl_stats tcl_stats;
-#endif /* FEATURE_HAL_DELAYED_REG_WRITE_V2 */
+#endif
 	qdf_atomic_t active_work_cnt;
 #ifdef GENERIC_SHADOW_REGISTER_ACCESS_ENABLE
 	struct shadow_reg_config
@@ -846,8 +719,7 @@ struct hal_soc {
 #endif
 };
 
-#if defined(FEATURE_HAL_DELAYED_REG_WRITE) || \
-	defined(FEATURE_HAL_DELAYED_REG_WRITE_V2)
+#ifdef FEATURE_HAL_DELAYED_REG_WRITE
 /**
  *  hal_delayed_reg_write() - delayed regiter write
  * @hal_soc: HAL soc handle

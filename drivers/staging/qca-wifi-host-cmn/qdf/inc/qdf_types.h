@@ -210,13 +210,10 @@ typedef struct qdf_shared_mem {
  * on expiry
  * @QDF_TIMER_TYPE_WAKE_APPS: Non deferrable timer which will cause CPU to
  * wake up on expiry
- * @QDF_TIMER_TYPE_SW_SPIN: Deferrable&Pinned SW timer, it will not cause cpu
- * to wake up on expiry and be able to queue on assigned cpu by add_timer_on
  */
 typedef enum {
 	QDF_TIMER_TYPE_SW,
-	QDF_TIMER_TYPE_WAKE_APPS,
-	QDF_TIMER_TYPE_SW_SPIN
+	QDF_TIMER_TYPE_WAKE_APPS
 } QDF_TIMER_TYPE;
 
 /**
@@ -387,18 +384,8 @@ typedef bool (*qdf_irqlocked_func_t)(void *);
  * @QDF_MODULE_ID_FTM_TIME_SYNC: FTM Time sync module ID
  * @QDF_MODULE_ID_PKT_CAPTURE: PACKET CAPTURE module ID
  * @QDF_MODULE_ID_MON_FILTER: Monitor filter related config module ID
- * @QDF_MODULE_ID_DCS: DCS module ID
- * @QDF_MODULE_ID_RPTR: Repeater module ID
- * @QDF_MODULE_ID_6GHZ: 6Ghz specific feature ID
- * @QDF_MODULE_ID_IOT_SIM: IOT Simulation for rogue AP module ID
- * @QDF_MODULE_ID_IFMGR: Interface Manager feature ID
- * @QDF_MODULE_ID_MSCS: MSCS feature ID
- * @QDF_MODULE_ID_GPIO: GPIO configuration module ID
- * @QDF_MODULE_ID_DIAG: Host diag module ID
  * @QDF_MODULE_ID_ANY: anything
  * @QDF_MODULE_ID_MAX: Max place holder module ID
- *
- * New module ID needs to be added in qdf trace along with this enum.
  */
 typedef enum {
 	QDF_MODULE_ID_MIN       = 0,
@@ -519,14 +506,6 @@ typedef enum {
 	QDF_MODULE_ID_FTM_TIME_SYNC,
 	QDF_MODULE_ID_PKT_CAPTURE,
 	QDF_MODULE_ID_MON_FILTER,
-	QDF_MODULE_ID_DCS,
-	QDF_MODULE_ID_RPTR,
-	QDF_MODULE_ID_6GHZ,
-	QDF_MODULE_ID_IOT_SIM,
-	QDF_MODULE_ID_IFMGR,
-	QDF_MODULE_ID_MSCS,
-	QDF_MODULE_ID_GPIO,
-	QDF_MODULE_ID_DIAG,
 	QDF_MODULE_ID_ANY,
 	QDF_MODULE_ID_MAX,
 } QDF_MODULE_ID;
@@ -1058,22 +1037,6 @@ struct qdf_ipv6_addr {
 QDF_STATUS qdf_ipv6_parse(const char *ipv6_str, struct qdf_ipv6_addr *out_addr);
 
 /**
- * qdf_uint32_array_parse() - parse the given string as uint32 array
- * @in_str: the input string to parse
- * @out_array: the output uint32 array, populated on success
- * @array_size: size of the array
- * @out_size: size of the populated array
- *
- * This API is called to convert string (each value separated by
- * a comma) into an uint32 array
- *
- * Return: QDF_STATUS
- */
-
-QDF_STATUS qdf_uint32_array_parse(const char *in_str, uint32_t *out_array,
-				  qdf_size_t array_size, qdf_size_t *out_size);
-
-/**
  * qdf_uint16_array_parse() - parse the given string as uint16 array
  * @in_str: the input string to parse
  * @out_array: the output uint16 array, populated on success
@@ -1351,7 +1314,7 @@ enum qdf_suspend_type {
  * @QDF_WMI_BUF_SEQUENCE_MISMATCH: WMI Tx completion buffer sequence mismatch
  * @QDF_HAL_REG_WRITE_FAILURE: HAL register writing failures
  * @QDF_SUSPEND_NO_CREDIT: host lack of credit after suspend
- * @QDF_TASKLET_CREDIT_LATENCY_DETECT: tasklet or credit latency happened
+ * @QCA_HANG_BUS_FAILURE: Bus failure
  */
 enum qdf_hang_reason {
 	QDF_REASON_UNSPECIFIED,
@@ -1377,7 +1340,7 @@ enum qdf_hang_reason {
 	QDF_WMI_BUF_SEQUENCE_MISMATCH,
 	QDF_HAL_REG_WRITE_FAILURE,
 	QDF_SUSPEND_NO_CREDIT,
-	QDF_TASKLET_CREDIT_LATENCY_DETECT,
+	QCA_HANG_BUS_FAILURE,
 };
 
 /**
@@ -1443,7 +1406,6 @@ enum qdf_context_mode {
  * @QDF_TX_RX_STATUS_FW_DISCARD: packet not sent
  * @QDF_TX_RX_STATUS_NO_ACK: packet sent but no ack
  * @QDF_TX_RX_STATUS_DROP: packet dropped in host
- * @QDF_TX_RX_STATUS_DOWNLOAD_SUCC: packet delivered to target
  */
 enum qdf_dp_tx_rx_status {
 	QDF_TX_RX_STATUS_INVALID,
@@ -1451,38 +1413,6 @@ enum qdf_dp_tx_rx_status {
 	QDF_TX_RX_STATUS_FW_DISCARD,
 	QDF_TX_RX_STATUS_NO_ACK,
 	QDF_TX_RX_STATUS_DROP,
-	QDF_TX_RX_STATUS_DOWNLOAD_SUCC,
-	QDF_TX_RX_STATUS_MAX,
 };
 
-/**
- * enum qdf_dp_tx_comp_status - TX COMPL packet status
- * @QDF_TX_COMP_STATUS_OK: successfully sent + acked
- * @QDF_TX_COMP_STATUS_STAT_DISCARD: packet not sent in FW
- * @QDF_TX_COMP_STATUS_STAT_NO_ACK: packet sent but no ack
- * @QDF_TX_COMP_STATUS_STAT_POSTPONE: equal HTT_TX_COMPL_IND_STAT_POSTPONE
- * @QDF_TX_COMP_STATUS_STAT_PEER_DEL: equal HTT_TX_COMPL_IND_STAT_PEER_DEL
- * @QDF_TX_COMP_STATUS_STAT_DROP: packet dropped in FW
- * @QDF_TX_COMP_STATUS_STAT_INSPECT: equal HTT_TX_COMPL_IND_STAT_HOST_INSPECT
- */
-enum qdf_dp_tx_comp_status {
-	QDF_TX_COMP_STATUS_OK,
-	QDF_TX_COMP_STATUS_STAT_DISCARD,
-	QDF_TX_COMP_STATUS_STAT_NO_ACK,
-	QDF_TX_COMP_STATUS_STAT_POSTPONE,
-	QDF_TX_COMP_STATUS_STAT_PEER_DEL,
-	QDF_TX_COMP_STATUS_STAT_DROP,
-	QDF_TX_COMP_STATUS_STAT_INSPECT,
-	QDF_TX_COMP_STATUS_STAT_MAX,
-};
-
-/**
- * enum qdf_dp_a_status - A_STATUS
- * @QDF_A_STATUS_ERROR: Generic error return
- * @QDF_A_STATUS_OK: success
- */
-enum qdf_dp_a_status {
-	QDF_A_STATUS_ERROR = -1,
-	QDF_A_STATUS_OK,
-};
 #endif /* __QDF_TYPES_H */

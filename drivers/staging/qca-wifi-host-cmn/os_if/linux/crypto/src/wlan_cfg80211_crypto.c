@@ -151,7 +151,7 @@ int wlan_cfg80211_crypto_add_key(struct wlan_objmgr_vdev *vdev,
 	return qdf_status_to_os_return(status);
 }
 
-#ifdef WLAN_CONV_CRYPTO_SUPPORTED
+#ifdef CONFIG_CRYPTO_COMPONENT
 int wlan_cfg80211_set_default_key(struct wlan_objmgr_vdev *vdev,
 				  uint8_t key_index, struct qdf_mac_addr *bssid)
 {

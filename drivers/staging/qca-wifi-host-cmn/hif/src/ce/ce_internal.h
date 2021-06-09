@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -552,15 +552,6 @@ static inline void ce_t2h_msg_ce_cleanup(struct CE_handle *ce_hdl)
  */
 int hif_get_wake_ce_id(struct hif_softc *scn, uint8_t *ce_id);
 
-/**
- * hif_get_fw_diag_ce_id() - gets the copy engine id used for FW diag
- * @scn: The hif context to use
- * @ce_id: a pointer where the copy engine Id should be populated
- *
- * Return: errno
- */
-int hif_get_fw_diag_ce_id(struct hif_softc *scn, uint8_t *ce_id);
-
 #if defined(HIF_CONFIG_SLUB_DEBUG_ON) || defined(HIF_CE_DEBUG_DATA_BUF)
 
 #ifndef HIF_CE_HISTORY_MAX
@@ -588,7 +579,6 @@ struct hif_ce_desc_event {
 	int index;
 	enum hif_ce_event_type type;
 	uint64_t time;
-	int cpu_id;
 #ifdef HELIUMPLUS
 	union ce_desc descriptor;
 #else

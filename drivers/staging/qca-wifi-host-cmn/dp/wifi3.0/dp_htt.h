@@ -63,8 +63,6 @@ int htt_wbm_event_record(struct htt_logger *h, uint8_t tx_status,
 
 #endif
 
-void htt_htc_pkt_pool_free(struct htt_soc *soc);
-
 #define HTT_TX_MUTEX_TYPE qdf_spinlock_t
 
 #define HTT_TX_MUTEX_INIT(_mutex)				\
@@ -137,21 +135,6 @@ void htt_htc_pkt_pool_free(struct htt_soc *soc);
 #define HTT_GET_STATS_CMN_INDEX(index) \
 	HTT_PPDU_STATS_COMMON_TLV_##index##_OFFSET
 
-#define MAX_SCHED_STARVE 100000
-#define WRAP_DROP_TSF_DELTA 10000
-#define MAX_TSF_32 0xFFFFFFFF
-
-/**
- * enum dp_full_mon_config - enum to enable/disable full monitor mode
- *
- * @DP_FULL_MON_DISABLE: Disable full monitor mode
- * @DP_FULL_MON_ENABLE: Enable full monitor mode
- */
-enum dp_full_mon_config {
-	DP_FULL_MON_DISABLE,
-	DP_FULL_MON_ENABLE,
-};
-
 struct dp_htt_htc_pkt {
 	void *soc_ctxt;
 	qdf_dma_addr_t nbuf_paddr;
@@ -194,8 +177,6 @@ struct htt_soc {
 	struct {
 		int htc_err_cnt;
 		int htc_pkt_free;
-		int skip_count;
-		int fail_count;
 		/* rtpm put skip count for ver req msg */
 		int htt_ver_req_put_skip;
 	} stats;
@@ -474,17 +455,4 @@ dp_htt_rx_flow_fst_setup(struct dp_pdev *pdev,
 QDF_STATUS
 dp_htt_rx_flow_fse_operation(struct dp_pdev *pdev,
 			     struct dp_htt_rx_flow_fst_operation *op_info);
-
-/**
- * htt_h2t_full_mon_cfg() - Send full monitor configuarion msg to FW
- *
- * @htt_soc: HTT Soc handle
- * @pdev_id: Radio id
- * @dp_full_mon_config: enabled/disable configuration
- *
- * Return: Success when HTT message is sent, error on failure
- */
-int htt_h2t_full_mon_cfg(struct htt_soc *htt_soc,
-			 uint8_t pdev_id,
-			 enum dp_full_mon_config);
 #endif /* _DP_HTT_H_ */

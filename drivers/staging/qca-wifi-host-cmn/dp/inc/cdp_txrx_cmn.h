@@ -1211,39 +1211,6 @@ cdp_soc_init(ol_txrx_soc_handle soc, u_int16_t devid,
 }
 
 /**
- * cdp_soc_init() - Initialize txrx SOC
- * @soc: ol_txrx_soc_handle handle
- * @devid: Device ID
- * @hif_handle: Opaque HIF handle
- * @psoc: Opaque Objmgr handle
- * @htc_handle: Opaque HTC handle
- * @qdf_dev: QDF device
- * @dp_ol_if_ops: Offload Operations
- *
- * Return: DP SOC handle on success, NULL on failure
- */
-static inline QDF_STATUS
-cdp_pdev_init(ol_txrx_soc_handle soc,
-	      HTC_HANDLE htc_handle, qdf_device_t qdf_dev,
-	      uint8_t pdev_id)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance:", __func__);
-		QDF_BUG(0);
-		return 0;
-	}
-
-	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->txrx_pdev_init)
-		return 0;
-
-	return soc->ops->cmn_drv_ops->txrx_pdev_init(soc,
-						     htc_handle, qdf_dev,
-						     pdev_id);
-}
-
-/**
  * cdp_soc_deinit() - Deinitialize txrx SOC
  * @soc: Opaque DP SOC handle
  *
@@ -1958,7 +1925,7 @@ cdp_soc_handle_mode_change(ol_txrx_soc_handle soc, uint8_t pdev_id,
 	}
 
 	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->handle_mode_change)
+	    !soc->ops->cmn_drv_ops->map_pdev_to_lmac)
 		return QDF_STATUS_E_FAILURE;
 
 	return soc->ops->cmn_drv_ops->handle_mode_change(soc, pdev_id,
@@ -2223,26 +2190,6 @@ cdp_peer_map_attach(ol_txrx_soc_handle soc, uint32_t max_peers,
 	return QDF_STATUS_SUCCESS;
 }
 
-/* cdp_soc_set_param() - CDP API to set soc parameters
- * @soc: opaque soc handle
- * @param: parameter type
- * @value: parameter value
- *
- *
- * Return: QDF_STATUS
- */
-static inline QDF_STATUS
-cdp_soc_set_param(ol_txrx_soc_handle soc, enum cdp_soc_param_t param,
-		  uint32_t value)
-{
-	if (soc && soc->ops && soc->ops->cmn_drv_ops &&
-	    soc->ops->cmn_drv_ops->set_soc_param)
-		return soc->ops->cmn_drv_ops->set_soc_param(soc, param,
-							value);
-
-	return QDF_STATUS_SUCCESS;
-}
-
 /* cdp_txrx_classify_and_update() - To classify the packet and update stats
  * @soc: opaque soc handle
  * @vdev: opaque dp vdev handle
@@ -2483,32 +2430,6 @@ cdp_peer_flush_rate_stats(ol_txrx_soc_handle soc, uint8_t pdev_id,
 }
 
 /**
- * cdp_peer_get_rdkstats_ctx() - get RDK stats context
- * @soc: opaque soc handle
- * @vdev_id: id of vdev handle
- * @mac: peer mac address
- */
-static inline void
-*cdp_peer_get_rdkstats_ctx(ol_txrx_soc_handle soc, uint8_t vdev_id,
-			  uint8_t *mac_addr)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance:", __func__);
-		QDF_BUG(0);
-		return NULL;
-	}
-
-	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->txrx_peer_get_rdkstats_ctx)
-		return NULL;
-
-	return soc->ops->cmn_drv_ops->txrx_peer_get_rdkstats_ctx(soc,
-								   vdev_id,
-								   mac_addr);
-}
-
-/**
  * cdp_flush_rate_stats_request() - request flush rate statistics
  * @soc: opaque soc handle
  * @pdev_id: id of pdev handle
@@ -2600,7 +2521,6 @@ cdp_tx_send_exc(ol_txrx_soc_handle soc,
  * @vdev_id: vdev id
  * @newmac: Table of the clients mac
  * @mac_cnt: No. of MACs required
- * @limit: Limit the number of clients
  *
  * return: no of clients
  */
@@ -2608,7 +2528,7 @@ static inline uint16_t
 cdp_vdev_get_peer_mac_list(ol_txrx_soc_handle soc,
 			   uint8_t vdev_id,
 			   uint8_t newmac[][QDF_MAC_ADDR_SIZE],
-			   uint16_t mac_cnt, bool limit)
+			   uint16_t mac_cnt)
 {
 	if (!soc || !soc->ops) {
 		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
@@ -2622,34 +2542,7 @@ cdp_vdev_get_peer_mac_list(ol_txrx_soc_handle soc,
 		return 0;
 
 	return soc->ops->cmn_drv_ops->get_peer_mac_list
-			(soc, vdev_id, newmac, mac_cnt, limit);
-}
-
-/*
- * cdp_soc_config_full_mon_mode () - Configure Full monitor mode
- *
- *@soc: dp soc handle
- *@val: value to be configured val should be 0 or 1
- *
- * This API is used to enable/disable support for Full monitor mode feature
- *
- * Return: QDF_STATUS_SUCCESS if value set successfully
- *         QDF_STATUS_E_INVAL false if error
- */
-static inline QDF_STATUS
-cdp_soc_config_full_mon_mode(ol_txrx_soc_handle soc, uint8_t val)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance", __func__);
-		return QDF_STATUS_E_INVAL;
-	}
-
-	if (!soc->ops->mon_ops ||
-	    !soc->ops->mon_ops->config_full_mon_mode)
-		return QDF_STATUS_E_INVAL;
-
-	return soc->ops->mon_ops->config_full_mon_mode(soc, val);
+			(soc, vdev_id, newmac, mac_cnt);
 }
 
 /**
@@ -2668,66 +2561,5 @@ cdp_rx_get_pending(ol_txrx_soc_handle soc)
 		return soc->ol_ops->dp_rx_get_pending(soc);
 	else
 		return 0;
-}
-
-#ifdef QCA_SUPPORT_WDS_EXTENDED
-static inline uint16_t
-cdp_wds_ext_get_peer_id(ol_txrx_soc_handle soc, uint8_t vdev_id, uint8_t *mac)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance", __func__);
-		QDF_BUG(0);
-		return 0;
-	}
-
-	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->get_wds_ext_peer_id)
-		return 0;
-
-	return soc->ops->cmn_drv_ops->get_wds_ext_peer_id
-			(soc, vdev_id, mac);
-}
-
-static inline QDF_STATUS
-cdp_wds_ext_set_peer_rx(ol_txrx_soc_handle soc, uint8_t vdev_id,
-			uint8_t *mac, ol_txrx_rx_fp rx,
-			ol_osif_peer_handle osif_peer)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance", __func__);
-		QDF_BUG(0);
-		return QDF_STATUS_E_FAULT;
-	}
-
-	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->set_wds_ext_peer_rx)
-		return QDF_STATUS_E_FAULT;
-
-	return soc->ops->cmn_drv_ops->set_wds_ext_peer_rx
-			(soc, vdev_id, mac, rx, osif_peer);
-}
-#endif /* QCA_SUPPORT_WDS_EXTENDED */
-
-/**
- * cdp_drain_txrx() - drain TX/RX SRNGs
- * @soc: opaque soc handle
- */
-static inline void
-cdp_drain_txrx(ol_txrx_soc_handle soc)
-{
-	if (!soc || !soc->ops) {
-		QDF_TRACE(QDF_MODULE_ID_CDP, QDF_TRACE_LEVEL_DEBUG,
-			  "%s: Invalid Instance", __func__);
-		QDF_BUG(0);
-		return;
-	}
-
-	if (!soc->ops->cmn_drv_ops ||
-	    !soc->ops->cmn_drv_ops->txrx_drain)
-		return;
-
-	return soc->ops->cmn_drv_ops->txrx_drain(soc);
 }
 #endif /* _CDP_TXRX_CMN_H_ */

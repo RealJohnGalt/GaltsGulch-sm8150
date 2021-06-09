@@ -156,7 +156,7 @@ dp_mon_ht2_rx_ring_cfg(struct dp_soc *soc,
 			hal_ring_hdl =
 				soc->rxdma_mon_status_ring[lmac_id].hal_srng;
 			hal_ring_type = RXDMA_MONITOR_STATUS;
-			ring_buf_size = RX_MON_STATUS_BUF_SIZE;
+			ring_buf_size = RX_DATA_BUFFER_SIZE;
 			break;
 
 		case DP_MON_FILTER_SRNG_TYPE_RXDMA_MON_BUF:
@@ -497,16 +497,10 @@ static void dp_mon_filter_set_status_cmn(struct dp_pdev *pdev,
 	filter->tlv_filter.fp_mgmt_filter = FILTER_MGMT_ALL;
 	filter->tlv_filter.fp_ctrl_filter = FILTER_CTRL_ALL;
 	filter->tlv_filter.fp_data_filter = FILTER_DATA_ALL;
+	filter->tlv_filter.mo_mgmt_filter = FILTER_MGMT_ALL;
+	filter->tlv_filter.mo_ctrl_filter = FILTER_CTRL_ALL;
+	filter->tlv_filter.mo_data_filter = FILTER_DATA_ALL;
 	filter->tlv_filter.offset_valid = false;
-
-	if (pdev->mon_filter_mode & MON_FILTER_OTHER) {
-		filter->tlv_filter.enable_mo = 1;
-		filter->tlv_filter.mo_mgmt_filter = FILTER_MGMT_ALL;
-		filter->tlv_filter.mo_ctrl_filter = FILTER_CTRL_ALL;
-		filter->tlv_filter.mo_data_filter = FILTER_DATA_ALL;
-	} else {
-		filter->tlv_filter.enable_mo = 0;
-	}
 }
 
 #ifdef FEATURE_PERPKT_INFO
@@ -605,7 +599,6 @@ void dp_mon_filter_setup_mcopy_mode(struct dp_pdev *pdev)
 	/* Setup the filter */
 	filter.tlv_filter.enable_mo = 1;
 	filter.tlv_filter.packet_header = 1;
-	filter.tlv_filter.mpdu_end = 1;
 	dp_mon_filter_show_filter(pdev, mode, &filter);
 
 	srng_type = DP_MON_FILTER_SRNG_TYPE_RXDMA_MONITOR_STATUS;
@@ -862,6 +855,8 @@ void dp_mon_filter_setup_mon_mode(struct dp_pdev *pdev)
 	/* Enabled the filter */
 	filter.valid = true;
 	dp_mon_filter_set_status_cmn(pdev, &filter);
+	filter.tlv_filter.enable_mo = 1;
+
 	dp_mon_filter_show_filter(pdev, mode, &filter);
 
 	/* Store the above filter */
@@ -998,32 +993,6 @@ void dp_mon_filter_reset_rx_pkt_log_lite(struct dp_pdev *pdev)
 }
 #endif /* WDI_EVENT_ENABLE */
 
-#ifdef WLAN_DP_RESET_MON_BUF_RING_FILTER
-/**
- * dp_mon_should_reset_buf_ring_filter() - Reset the monitor buf ring filter
- * @pdev: DP PDEV handle
- *
- * WIN has targets which does not support monitor mode, but still do the
- * monitor mode init/deinit, only the rxdma1_enable flag will be set to 0.
- * MCL need to do the monitor buffer ring filter reset always, but this is
- * not needed for WIN targets where rxdma1 is not enabled (the indicator
- * that monitor mode is not enabled.
- * This function is used as WAR till WIN cleans up the monitor mode
- * function for targets where monitor mode is not enabled.
- *
- * Returns: true
- */
-static inline bool dp_mon_should_reset_buf_ring_filter(struct dp_pdev *pdev)
-{
-	return (pdev->monitor_vdev) ? true : false;
-}
-#else
-static inline bool dp_mon_should_reset_buf_ring_filter(struct dp_pdev *pdev)
-{
-	return false;
-}
-#endif
-
 /**
  * dp_mon_filter_update() - Setup the monitor filter setting for a srng
  * type
@@ -1070,7 +1039,7 @@ QDF_STATUS dp_mon_filter_update(struct dp_pdev *pdev)
 	dp_mon_filter_ht2_setup(soc, pdev, mon_srng_type, &filter);
 
 	mon_mode_set = filter.valid;
-	if (dp_mon_should_reset_buf_ring_filter(pdev) || mon_mode_set) {
+	if (mon_mode_set) {
 		status = dp_mon_ht2_rx_ring_cfg(soc, pdev,
 						mon_srng_type,
 						&filter.tlv_filter);

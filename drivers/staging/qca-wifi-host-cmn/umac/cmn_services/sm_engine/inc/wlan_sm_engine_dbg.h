@@ -76,7 +76,6 @@ struct wlan_sm_history_info {
 	uint8_t event_type;
 	uint8_t initial_state;
 	uint8_t final_state;
-	uint64_t time;
 };
 
 /**

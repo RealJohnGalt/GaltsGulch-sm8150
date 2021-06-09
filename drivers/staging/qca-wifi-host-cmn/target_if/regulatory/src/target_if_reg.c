@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  *
  * Permission to use, copy, modify, and/or distribute this software for
@@ -51,15 +51,10 @@ static inline uint32_t get_chan_list_cc_event_id(void)
  */
 static bool tgt_if_regulatory_is_regdb_offloaded(struct wlan_objmgr_psoc *psoc)
 {
+	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
 	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
 
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
 	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return false;
-	}
 
 	if (!wmi_handle)
 		return false;
@@ -90,23 +85,6 @@ static bool tgt_if_regulatory_is_6ghz_supported(struct wlan_objmgr_psoc *psoc)
 }
 
 /**
- * tgt_if_regulatory_is_5dot9_ghz_supported() - Check if 5.9ghz is supported
- * @psoc: Pointer to psoc
- *
- * Return: true if regdb if offloaded, else false
- */
-static bool
-tgt_if_regulatory_is_5dot9_ghz_supported(struct wlan_objmgr_psoc *psoc)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return false;
-
-	return wmi_service_enabled(wmi_handle, wmi_service_5dot9_ghz_support);
-}
-
-/**
  * tgt_if_regulatory_is_there_serv_ready_extn() - Check for service ready
  * extension
  * @psoc: Pointer to psoc object
@@ -133,29 +111,7 @@ static bool tgt_if_regulatory_is_there_serv_ready_extn(
 struct wlan_lmac_if_reg_rx_ops *
 target_if_regulatory_get_rx_ops(struct wlan_objmgr_psoc *psoc)
 {
-	struct wlan_lmac_if_rx_ops *rx_ops;
-
-	rx_ops = wlan_psoc_get_lmac_if_rxops(psoc);
-	if (!rx_ops) {
-		target_if_err("rx_ops is NULL");
-		return NULL;
-	}
-
-	return &rx_ops->reg_rx_ops;
-}
-
-struct wlan_lmac_if_reg_tx_ops *
-target_if_regulatory_get_tx_ops(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_tx_ops *tx_ops;
-
-	tx_ops = wlan_psoc_get_lmac_if_txops(psoc);
-	if (!tx_ops) {
-		target_if_err("tx_ops is NULL");
-		return NULL;
-	}
-
-	return &tx_ops->reg_ops;
+	return &psoc->soc_cb.rx_ops.reg_rx_ops;
 }
 
 QDF_STATUS target_if_reg_set_offloaded_info(struct wlan_objmgr_psoc *psoc)
@@ -198,42 +154,6 @@ QDF_STATUS target_if_reg_set_6ghz_info(struct wlan_objmgr_psoc *psoc)
 	return QDF_STATUS_SUCCESS;
 }
 
-QDF_STATUS target_if_reg_set_5dot9_ghz_info(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
-
-	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	if (reg_rx_ops->reg_set_5dot9_ghz_supported)
-		reg_rx_ops->reg_set_5dot9_ghz_supported(
-			psoc,
-			tgt_if_regulatory_is_5dot9_ghz_supported(psoc));
-
-	return QDF_STATUS_SUCCESS;
-}
-
-bool
-target_if_reg_is_reg_cc_ext_event_host_supported(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_reg_tx_ops *reg_tx_ops;
-	bool reg_ext_cc_supp = false;
-
-	reg_tx_ops = target_if_regulatory_get_tx_ops(psoc);
-	if (!reg_tx_ops) {
-		target_if_err("reg_tx_ops is NULL");
-		return reg_ext_cc_supp;
-	}
-
-	if (reg_tx_ops->register_master_ext_handler)
-		reg_ext_cc_supp = true;
-
-	return reg_ext_cc_supp;
-}
-
 /**
  * tgt_reg_chan_list_update_handler() - Channel list update handler
  * @handle: scn handle
@@ -261,11 +181,6 @@ static int tgt_reg_chan_list_update_handler(ol_scn_t handle, uint8_t *event_buf,
 	}
 
 	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return -EINVAL;
-	}
-
 	if (!reg_rx_ops->master_list_handler) {
 		target_if_err("master_list_handler is NULL");
 		return -EINVAL;
@@ -354,141 +269,6 @@ static QDF_STATUS tgt_if_regulatory_unregister_master_list_handler(
 	return wmi_unified_unregister_event_handler(
 			wmi_handle, wmi_reg_chan_list_cc_event_id);
 }
-
-#ifdef CONFIG_BAND_6GHZ
-/**
- * tgt_reg_chan_list_ext_update_handler() - Extended channel list update handler
- * @handle: scn handle
- * @event_buf: pointer to event buffer
- * @len: buffer length
- *
- * Return: 0 on success
- */
-static int tgt_reg_chan_list_ext_update_handler(ol_scn_t handle,
-						uint8_t *event_buf,
-						uint32_t len)
-{
-	struct wlan_objmgr_psoc *psoc;
-	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
-	struct cur_regulatory_info *reg_info;
-	QDF_STATUS status;
-	struct wmi_unified *wmi_handle;
-	int ret_val = 0;
-	uint32_t i;
-
-	TARGET_IF_ENTER();
-
-	psoc = target_if_get_psoc_from_scn_hdl(handle);
-	if (!psoc) {
-		target_if_err("psoc ptr is NULL");
-		return -EINVAL;
-	}
-
-	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return -EINVAL;
-	}
-
-	if (!reg_rx_ops->master_list_ext_handler) {
-		target_if_err("master_list_ext_handler is NULL");
-		return -EINVAL;
-	}
-
-	wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-	if (!wmi_handle) {
-		target_if_err("invalid wmi handle");
-		return -EINVAL;
-	}
-
-	reg_info = qdf_mem_malloc(sizeof(*reg_info));
-	if (!reg_info)
-		return -ENOMEM;
-
-	status = wmi_extract_reg_chan_list_ext_update_event(wmi_handle,
-							    event_buf,
-							    reg_info, len);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		target_if_err("Extraction of ext channel list event failed");
-		ret_val = -EFAULT;
-		goto clean;
-	}
-
-	if (reg_info->phy_id >= PSOC_MAX_PHY_REG_CAP) {
-		target_if_err_rl("phy_id %d is out of bounds",
-				 reg_info->phy_id);
-		ret_val = -EFAULT;
-		goto clean;
-	}
-
-	reg_info->psoc = psoc;
-
-	status = reg_rx_ops->master_list_ext_handler(reg_info);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		target_if_err("Failed to process master ext channel list handler");
-		ret_val = -EFAULT;
-	}
-
-clean:
-	qdf_mem_free(reg_info->reg_rules_2g_ptr);
-	qdf_mem_free(reg_info->reg_rules_5g_ptr);
-
-	for (i = 0; i < REG_CURRENT_MAX_AP_TYPE; i++) {
-		qdf_mem_free(reg_info->reg_rules_6g_ap_ptr[i]);
-		qdf_mem_free(reg_info->
-			reg_rules_6g_client_ptr[i][REG_DEFAULT_CLIENT]);
-		qdf_mem_free(reg_info->
-			reg_rules_6g_client_ptr[i][REG_SUBORDINATE_CLIENT]);
-	}
-
-	qdf_mem_free(reg_info);
-
-	TARGET_IF_EXIT();
-
-	return ret_val;
-}
-
-/**
- * tgt_if_regulatory_register_master_list_ext_handler() - Register extended
- * master channel list event handler
- * @psoc: Pointer to psoc
- * @arg: Pointer to argument list
- *
- * Return: QDF_STATUS
- */
-static QDF_STATUS tgt_if_regulatory_register_master_list_ext_handler(
-	struct wlan_objmgr_psoc *psoc, void *arg)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return QDF_STATUS_E_FAILURE;
-
-	return wmi_unified_register_event_handler(
-			wmi_handle, wmi_reg_chan_list_cc_ext_event_id,
-			tgt_reg_chan_list_ext_update_handler, WMI_RX_WORK_CTX);
-}
-
-/**
- * tgt_if_regulatory_unregister_master_list_ext_handler() - Unregister extended
- * master channel list event handler
- * @psoc: Pointer to psoc
- * @arg: Pointer to argument list
- *
- * Return: QDF_STATUS
- */
-static QDF_STATUS tgt_if_regulatory_unregister_master_list_ext_handler(
-	struct wlan_objmgr_psoc *psoc, void *arg)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return QDF_STATUS_E_FAILURE;
-
-	return wmi_unified_unregister_event_handler(
-			wmi_handle, wmi_reg_chan_list_cc_ext_event_id);
-}
-#endif
 
 /**
  * tgt_if_regulatory_set_country_code() - Set country code
@@ -598,243 +378,6 @@ tgt_if_regulatory_send_ctl_info(struct wlan_objmgr_psoc *psoc,
 }
 #endif
 
-/**
- * tgt_if_regulatory_get_phy_id_from_pdev_id() - Get phy_id from pdev_id
- * @psoc: Pointer to psoc
- * @pdev_id: Pdev id
- * @phy_id: phy_id
- *
- * Return: QDF_STATUS
- */
-static QDF_STATUS tgt_if_regulatory_get_phy_id_from_pdev_id(
-	struct wlan_objmgr_psoc *psoc, uint8_t pdev_id, uint8_t *phy_id)
-{
-	struct target_psoc_info *tgt_if_handle = psoc->tgt_if_handle;
-	uint8_t ret;
-
-	if (pdev_id >= WLAN_UMAC_MAX_PDEVS) {
-		target_if_err("pdev_id is greater than WLAN_UMAC_MAX_PDEVS");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	/* By default pdev_id and phy_id have one to one mapping */
-	*phy_id = pdev_id;
-
-	if (!(tgt_if_handle &&
-	      tgt_if_handle->info.is_pdevid_to_phyid_map))
-		return QDF_STATUS_SUCCESS;
-
-	ret = tgt_if_handle->info.pdev_id_to_phy_id_map[pdev_id];
-
-	if (ret < PSOC_MAX_PHY_REG_CAP) {
-		*phy_id = ret;
-	} else {
-		target_if_err("phy_id is greater than PSOC_MAX_PHY_REG_CAP");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	return QDF_STATUS_SUCCESS;
-}
-
-/**
- * tgt_if_regulatory_get_pdev_id_from_phy_id() - Get pdev_id for phy_id
- * @psoc: Pointer to psoc
- * @phy_id: Phy id
- * @pdev_id: Pdev id
- *
- * Return: QDF_STATUS
- */
-static QDF_STATUS tgt_if_regulatory_get_pdev_id_from_phy_id(
-	struct wlan_objmgr_psoc *psoc, uint8_t phy_id, uint8_t *pdev_id)
-{
-	struct target_psoc_info *tgt_if_handle = psoc->tgt_if_handle;
-	uint8_t i;
-
-	if (phy_id >= PSOC_MAX_PHY_REG_CAP) {
-		target_if_err("phy_id is greater than PSOC_MAX_PHY_REG_CAP");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	/* By default pdev_id and phy_id have one to one mapping */
-	*pdev_id = phy_id;
-
-	if (!(tgt_if_handle &&
-	      tgt_if_handle->info.is_pdevid_to_phyid_map))
-		return QDF_STATUS_SUCCESS;
-
-	for (i = 0; i < WLAN_UMAC_MAX_PDEVS; i++) {
-		if (tgt_if_handle->info.pdev_id_to_phy_id_map[i] == phy_id)
-			break;
-	}
-
-	if (i < WLAN_UMAC_MAX_PDEVS) {
-		*pdev_id = i;
-	} else {
-		target_if_err("pdev_id is greater than WLAN_UMAC_MAX_PDEVS");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	return QDF_STATUS_SUCCESS;
-}
-
-#ifdef CONFIG_BAND_6GHZ
-static void target_if_register_master_ext_handler(
-				struct wlan_lmac_if_reg_tx_ops *reg_ops)
-{
-	reg_ops->register_master_ext_handler =
-		tgt_if_regulatory_register_master_list_ext_handler;
-
-	reg_ops->unregister_master_ext_handler =
-		tgt_if_regulatory_unregister_master_list_ext_handler;
-}
-#else
-static inline void
-target_if_register_master_ext_handler(struct wlan_lmac_if_reg_tx_ops *reg_ops)
-{
-}
-#endif
-
-static QDF_STATUS
-tgt_if_regulatory_set_tpc_power(struct wlan_objmgr_psoc *psoc,
-				uint8_t vdev_id,
-				struct reg_tpc_power_info *param)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return QDF_STATUS_E_FAILURE;
-
-	return wmi_unified_send_set_tpc_power_cmd(wmi_handle, vdev_id, param);
-}
-
-/**
- * tgt_if_regulatory_is_ext_tpc_supported() - Check if FW supports new
- * WMI command for TPC power
- *
- * @psoc: Pointer to psoc
- *
- * Return: true if FW supports new WMI command for TPC, else false
- */
-static bool
-tgt_if_regulatory_is_ext_tpc_supported(struct wlan_objmgr_psoc *psoc)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return false;
-
-	return wmi_service_enabled(wmi_handle,
-				   wmi_service_ext_tpc_reg_support);
-}
-
-QDF_STATUS target_if_regulatory_set_ext_tpc(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
-
-	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	if (reg_rx_ops->reg_set_ext_tpc_supported)
-		reg_rx_ops->reg_set_ext_tpc_supported(
-			psoc,
-			tgt_if_regulatory_is_ext_tpc_supported(psoc));
-
-	return QDF_STATUS_SUCCESS;
-}
-
-#if defined(CONFIG_BAND_6GHZ) && defined(CONFIG_REG_CLIENT)
-/**
- * tgt_if_regulatory_is_lower_6g_edge_ch_supp() - Check if lower 6ghz
- * edge channel (5935MHz) is supported
- * @psoc: Pointer to psoc
- *
- * Return: true if channel is supported, else false
- */
-static bool
-tgt_if_regulatory_is_lower_6g_edge_ch_supp(struct wlan_objmgr_psoc *psoc)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return false;
-
-	return wmi_service_enabled(wmi_handle,
-				   wmi_service_lower_6g_edge_ch_supp);
-}
-
-/**
- * tgt_if_regulatory_is_upper_6g_edge_ch_disabled() - Check if upper
- * 6ghz edge channel (7115MHz) is disabled
- * @psoc: Pointer to psoc
- *
- * Return: true if channel is disabled, else false
- */
-static bool
-tgt_if_regulatory_is_upper_6g_edge_ch_disabled(struct wlan_objmgr_psoc *psoc)
-{
-	wmi_unified_t wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle)
-		return false;
-
-	return wmi_service_enabled(wmi_handle,
-				   wmi_service_disable_upper_6g_edge_ch_supp);
-}
-
-QDF_STATUS
-target_if_reg_set_lower_6g_edge_ch_info(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
-
-	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	if (reg_rx_ops->reg_set_lower_6g_edge_ch_supp)
-		reg_rx_ops->reg_set_lower_6g_edge_ch_supp(
-			psoc,
-			tgt_if_regulatory_is_lower_6g_edge_ch_supp(psoc));
-
-	return QDF_STATUS_SUCCESS;
-}
-
-QDF_STATUS
-target_if_reg_set_disable_upper_6g_edge_ch_info(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_lmac_if_reg_rx_ops *reg_rx_ops;
-
-	reg_rx_ops = target_if_regulatory_get_rx_ops(psoc);
-	if (!reg_rx_ops) {
-		target_if_err("reg_rx_ops is NULL");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	if (reg_rx_ops->reg_set_disable_upper_6g_edge_ch_supp)
-		reg_rx_ops->reg_set_disable_upper_6g_edge_ch_supp(
-			psoc,
-			tgt_if_regulatory_is_upper_6g_edge_ch_disabled(psoc));
-
-	return QDF_STATUS_SUCCESS;
-}
-#else
-static inline bool
-tgt_if_regulatory_is_lower_6g_edge_ch_supp(struct wlan_objmgr_psoc *psoc)
-{
-	return false;
-}
-
-static inline bool
-tgt_if_regulatory_is_upper_6g_edge_ch_disabled(struct wlan_objmgr_psoc *psoc)
-{
-	return false;
-}
-#endif
-
 QDF_STATUS target_if_register_regulatory_tx_ops(
 		struct wlan_lmac_if_tx_ops *tx_ops)
 {
@@ -845,8 +388,6 @@ QDF_STATUS target_if_register_regulatory_tx_ops(
 
 	reg_ops->unregister_master_handler =
 		tgt_if_regulatory_unregister_master_list_handler;
-
-	target_if_register_master_ext_handler(reg_ops);
 
 	reg_ops->set_country_code = tgt_if_regulatory_set_country_code;
 
@@ -877,14 +418,6 @@ QDF_STATUS target_if_register_regulatory_tx_ops(
 		tgt_if_regulatory_unregister_ch_avoid_event_handler;
 
 	reg_ops->send_ctl_info = tgt_if_regulatory_send_ctl_info;
-
-	reg_ops->get_phy_id_from_pdev_id =
-			tgt_if_regulatory_get_phy_id_from_pdev_id;
-
-	reg_ops->get_pdev_id_from_phy_id =
-			tgt_if_regulatory_get_pdev_id_from_phy_id;
-
-	reg_ops->set_tpc_power = tgt_if_regulatory_set_tpc_power;
 
 	return QDF_STATUS_SUCCESS;
 }

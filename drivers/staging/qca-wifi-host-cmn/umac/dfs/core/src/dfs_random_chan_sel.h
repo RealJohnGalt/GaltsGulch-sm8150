@@ -16,9 +16,6 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <wlan_dfs_public_struct.h>
-#include <reg_services_public_struct.h>
-
 /* dfs regions definitions */
 /* un-initialized region */
 #define DFS_UNINIT_REGION_VAL   0
@@ -87,13 +84,8 @@
 /* Frequency difference between 80+80 MHz */
 #define DFS_80P80M_FREQ_DIFF                    40
 
-#ifdef CONFIG_BAND_6GHZ
-/* Number of 80MHz channels in 5GHz and 6GHz band */
-#define DFS_MAX_80MHZ_BANDS                     (6 + 14)
-#else
 /* Number of 80MHz channels in 5GHz band */
 #define DFS_MAX_80MHZ_BANDS                     6
-#endif
 
 /* Start channel and center channel diff in 80Mhz */
 #define DFS_80MHZ_START_CENTER_CH_DIFF          6
@@ -297,7 +289,8 @@ uint16_t dfs_prepare_random_channel_for_freq(struct wlan_dfs *dfs,
 					     struct dfs_channel *ch_list,
 					     uint32_t chan_count,
 					     uint32_t flags,
-					     struct ch_params *chan_params,
+					     uint8_t *chan_wd,
+					     struct dfs_channel *cur_chan,
 					     uint8_t dfs_region,
 					     struct dfs_acs_info *acs_info);
 #endif

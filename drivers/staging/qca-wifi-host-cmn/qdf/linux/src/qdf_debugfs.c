@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -176,7 +176,6 @@ void qdf_debugfs_hexdump(qdf_debugfs_file_t file, const uint8_t *buf,
 		     false);
 }
 
-qdf_export_symbol(qdf_debugfs_hexdump);
 #else
 
 void qdf_debugfs_hexdump(qdf_debugfs_file_t file, const uint8_t *buf,
@@ -204,15 +203,12 @@ void qdf_debugfs_hexdump(qdf_debugfs_file_t file, const uint8_t *buf,
 	}
 }
 
-qdf_export_symbol(qdf_debugfs_hexdump);
 #endif
 
 bool qdf_debugfs_overflow(qdf_debugfs_file_t file)
 {
 	return seq_has_overflowed(file);
 }
-
-qdf_export_symbol(qdf_debugfs_overflow);
 
 void qdf_debugfs_write(qdf_debugfs_file_t file, const uint8_t *buf,
 		       qdf_size_t len)
@@ -335,88 +331,84 @@ qdf_dentry_t qdf_debugfs_create_file(const char *name, uint16_t mode,
 }
 qdf_export_symbol(qdf_debugfs_create_file);
 
-void qdf_debugfs_create_u8(const char *name, uint16_t mode,
-			   qdf_dentry_t parent, u8 *value)
+qdf_dentry_t qdf_debugfs_create_u8(const char *name, uint16_t mode,
+				   qdf_dentry_t parent, u8 *value)
 {
 	umode_t filemode;
 
 	if (!name)
-		return;
+		return NULL;
 
 	if (!parent)
 		parent = qdf_debugfs_get_root();
 
 	filemode = qdf_debugfs_get_filemode(mode);
-	debugfs_create_u8(name, filemode, parent, value);
+	return debugfs_create_u8(name, filemode, parent, value);
 }
 
-void qdf_debugfs_create_u16(const char *name, uint16_t mode,
-			    qdf_dentry_t parent, u16 *value)
+qdf_dentry_t qdf_debugfs_create_u16(const char *name, uint16_t mode,
+				    qdf_dentry_t parent, u16 *value)
 {
 	umode_t filemode;
 
 	if (!name)
-		return;
+		return NULL;
 
 	if (!parent)
 		parent = qdf_debugfs_get_root();
 
 	filemode = qdf_debugfs_get_filemode(mode);
-	debugfs_create_u16(name, filemode, parent, value);
+	return debugfs_create_u16(name, filemode, parent, value);
 }
-
 qdf_export_symbol(qdf_debugfs_create_u16);
 
-void qdf_debugfs_create_u32(const char *name,
-			    uint16_t mode,
-			    qdf_dentry_t parent, u32 *value)
+qdf_dentry_t qdf_debugfs_create_u32(const char *name,
+				    uint16_t mode,
+				    qdf_dentry_t parent, u32 *value)
 {
 	umode_t filemode;
 
 	if (!name)
-		return;
+		return NULL;
 
 	if (!parent)
 		parent = qdf_debugfs_get_root();
 
 	filemode = qdf_debugfs_get_filemode(mode);
-	debugfs_create_u32(name, filemode, parent, value);
+	return debugfs_create_u32(name, filemode, parent, value);
 }
-
 qdf_export_symbol(qdf_debugfs_create_u32);
 
-void qdf_debugfs_create_u64(const char *name, uint16_t mode,
-			    qdf_dentry_t parent, u64 *value)
+qdf_dentry_t qdf_debugfs_create_u64(const char *name, uint16_t mode,
+				    qdf_dentry_t parent, u64 *value)
 {
 	umode_t filemode;
 
 	if (!name)
-		return;
+		return NULL;
 
 	if (!parent)
 		parent = qdf_debugfs_get_root();
 
 	filemode = qdf_debugfs_get_filemode(mode);
-	debugfs_create_u64(name, filemode, parent, value);
+	return debugfs_create_u64(name, filemode, parent, value);
 }
-
 qdf_export_symbol(qdf_debugfs_create_u64);
 
-void qdf_debugfs_create_atomic(const char *name, uint16_t mode,
-			       qdf_dentry_t parent, qdf_atomic_t *value)
+qdf_dentry_t qdf_debugfs_create_atomic(const char *name, uint16_t mode,
+				       qdf_dentry_t parent, qdf_atomic_t *value)
 {
 	umode_t filemode;
 
 	if (!name)
-		return;
+		return NULL;
 
 	if (!parent)
 		parent = qdf_debugfs_get_root();
 
 	filemode = qdf_debugfs_get_filemode(mode);
-	debugfs_create_atomic_t(name, filemode, parent, value);
+	return debugfs_create_atomic_t(name, filemode, parent, value);
 }
-
 qdf_export_symbol(qdf_debugfs_create_atomic);
 
 static int qdf_debugfs_string_show(struct seq_file *seq, void *pos)

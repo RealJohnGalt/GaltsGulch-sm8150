@@ -101,7 +101,7 @@ void hal_tx_comp_get_status_generic(void *desc,
  * Return: void
  */
 static inline void hal_tx_desc_set_buf_addr_generic(void *desc,
-		dma_addr_t paddr, uint8_t rbm_id,
+		dma_addr_t paddr, uint8_t pool_id,
 		uint32_t desc_id, uint8_t type)
 {
 	/* Set buffer_addr_info.buffer_addr_31_0 */
@@ -114,11 +114,11 @@ static inline void hal_tx_desc_set_buf_addr_generic(void *desc,
 		HAL_TX_SM(UNIFIED_BUFFER_ADDR_INFO_1, BUFFER_ADDR_39_32,
 		       (((uint64_t) paddr) >> 32));
 
-	/* Set buffer_addr_info.return_buffer_manager = rbm id */
+	/* Set buffer_addr_info.return_buffer_manager = pool id */
 	HAL_SET_FLD(desc, UNIFIED_TCL_DATA_CMD_1,
 			 BUFFER_ADDR_INFO_BUF_ADDR_INFO) |=
 		HAL_TX_SM(UNIFIED_BUFFER_ADDR_INFO_1,
-		       RETURN_BUFFER_MANAGER, rbm_id);
+		       RETURN_BUFFER_MANAGER, (pool_id + HAL_WBM_SW0_BM_ID));
 
 	/* Set buffer_addr_info.sw_buffer_cookie = desc_id */
 	HAL_SET_FLD(desc, UNIFIED_TCL_DATA_CMD_1,
@@ -270,19 +270,11 @@ hal_rx_populate_byte_count(void *rx_tlv, void *ppduinfo,
 #endif
 
 static inline void
-hal_rx_populate_mu_user_info(void *rx_tlv, void *ppduinfo, uint32_t user_id,
+hal_rx_populate_mu_user_info(void *rx_tlv, void *ppduinfo,
 			     struct mon_rx_user_status *mon_rx_user_status)
 {
-	struct mon_rx_info *mon_rx_info;
-	struct mon_rx_user_info *mon_rx_user_info;
 	struct hal_rx_ppdu_info *ppdu_info =
 			(struct hal_rx_ppdu_info *)ppduinfo;
-
-	mon_rx_info = &ppdu_info->rx_info;
-	mon_rx_user_info = &ppdu_info->rx_user_info[user_id];
-	mon_rx_user_info->qos_control_info_valid =
-		mon_rx_info->qos_control_info_valid;
-	mon_rx_user_info->qos_control =  mon_rx_info->qos_control;
 
 	mon_rx_user_status->ast_index = ppdu_info->rx_status.ast_index;
 	mon_rx_user_status->tid = ppdu_info->rx_status.tid;
@@ -317,6 +309,30 @@ hal_rx_populate_mu_user_info(void *rx_tlv, void *ppduinfo, uint32_t user_id,
 
 	hal_rx_populate_byte_count(rx_tlv, ppdu_info, mon_rx_user_status);
 }
+
+#ifdef WLAN_TX_PKT_CAPTURE_ENH
+static inline void
+hal_rx_populate_tx_capture_user_info(void *ppduinfo,
+				     uint32_t user_id)
+{
+	struct hal_rx_ppdu_info *ppdu_info;
+	struct mon_rx_info *mon_rx_info;
+	struct mon_rx_user_info *mon_rx_user_info;
+
+	ppdu_info = (struct hal_rx_ppdu_info *)ppduinfo;
+	mon_rx_info = &ppdu_info->rx_info;
+	mon_rx_user_info = &ppdu_info->rx_user_info[user_id];
+	mon_rx_user_info->qos_control_info_valid =
+		mon_rx_info->qos_control_info_valid;
+	mon_rx_user_info->qos_control =  mon_rx_info->qos_control;
+}
+#else
+static inline void
+hal_rx_populate_tx_capture_user_info(void *ppduinfo,
+				     uint32_t user_id)
+{
+}
+#endif
 
 #define HAL_RX_UPDATE_RSSI_PER_CHAIN_BW(chain, word_1, word_2, \
 					ppdu_info, rssi_info_tlv) \
@@ -385,10 +401,8 @@ static inline void
 hal_get_mac_addr1(uint8_t *rx_mpdu_start,
 		  struct hal_rx_ppdu_info *ppdu_info)
 {
-	if ((ppdu_info->sw_frame_group_id
-	     == HAL_MPDU_SW_FRAME_GROUP_MGMT_PROBE_REQ) ||
-	    (ppdu_info->sw_frame_group_id ==
-	     HAL_MPDU_SW_FRAME_GROUP_CTRL_RTS)) {
+	if (ppdu_info->sw_frame_group_id
+	    == HAL_MPDU_SW_FRAME_GROUP_MGMT_PROBE_REQ) {
 		ppdu_info->rx_info.mac_addr1_valid =
 				HAL_RX_GET_MAC_ADDR1_VALID(rx_mpdu_start);
 
@@ -396,13 +410,6 @@ hal_get_mac_addr1(uint8_t *rx_mpdu_start,
 			HAL_RX_GET(rx_mpdu_start,
 				   RX_MPDU_INFO_15,
 				   MAC_ADDR_AD1_31_0);
-		if (ppdu_info->sw_frame_group_id ==
-		    HAL_MPDU_SW_FRAME_GROUP_CTRL_RTS) {
-			*(uint32_t *)&ppdu_info->rx_info.mac_addr1[4] =
-				HAL_RX_GET(rx_mpdu_start,
-					   RX_MPDU_INFO_16,
-					   MAC_ADDR_AD1_47_32);
-		}
 	}
 }
 #else
@@ -418,102 +425,6 @@ hal_get_mac_addr1(uint8_t *rx_mpdu_start,
 {
 }
 #endif
-
-/**
- * hal_get_radiotap_he_gi_ltf() - Convert HE ltf and GI value
- * from stats enum to radiotap enum
- * @he_gi: HE GI value used in stats
- * @he_ltf: HE LTF value used in stats
- *
- * Return: void
- */
-static inline void hal_get_radiotap_he_gi_ltf(uint16_t *he_gi, uint16_t *he_ltf)
-{
-	switch (*he_gi) {
-	case HE_GI_0_8:
-		*he_gi = HE_GI_RADIOTAP_0_8;
-		break;
-	case HE_GI_1_6:
-		*he_gi = HE_GI_RADIOTAP_1_6;
-		break;
-	case HE_GI_3_2:
-		*he_gi = HE_GI_RADIOTAP_3_2;
-		break;
-	default:
-		*he_gi = HE_GI_RADIOTAP_RESERVED;
-	}
-
-	switch (*he_ltf) {
-	case HE_LTF_1_X:
-		*he_ltf = HE_LTF_RADIOTAP_1_X;
-		break;
-	case HE_LTF_2_X:
-		*he_ltf = HE_LTF_RADIOTAP_2_X;
-		break;
-	case HE_LTF_4_X:
-		*he_ltf = HE_LTF_RADIOTAP_4_X;
-		break;
-	default:
-		*he_ltf = HE_LTF_RADIOTAP_UNKNOWN;
-	}
-}
-
-/* channel number to freq conversion */
-#define CHANNEL_NUM_14 14
-#define CHANNEL_NUM_15 15
-#define CHANNEL_NUM_27 27
-#define CHANNEL_NUM_35 35
-#define CHANNEL_NUM_182 182
-#define CHANNEL_NUM_197 197
-#define CHANNEL_FREQ_2484 2484
-#define CHANNEL_FREQ_2407 2407
-#define CHANNEL_FREQ_2512 2512
-#define CHANNEL_FREQ_5000 5000
-#define CHANNEL_FREQ_5950 5950
-#define CHANNEL_FREQ_4000 4000
-#define CHANNEL_FREQ_5150 5150
-#define CHANNEL_FREQ_5920 5920
-#define CHANNEL_FREQ_5935 5935
-#define FREQ_MULTIPLIER_CONST_5MHZ 5
-#define FREQ_MULTIPLIER_CONST_20MHZ 20
-/**
- * hal_rx_radiotap_num_to_freq() - Get frequency from chan number
- * @chan_num - Input channel number
- * @center_freq - Input Channel Center frequency
- *
- * Return - Channel frequency in Mhz
- */
-static uint16_t
-hal_rx_radiotap_num_to_freq(uint16_t chan_num, qdf_freq_t center_freq)
-{
-	if (center_freq > CHANNEL_FREQ_5920 && center_freq < CHANNEL_FREQ_5950)
-		return CHANNEL_FREQ_5935;
-
-	if (center_freq < CHANNEL_FREQ_5950) {
-		if (chan_num == CHANNEL_NUM_14)
-			return CHANNEL_FREQ_2484;
-		if (chan_num < CHANNEL_NUM_14)
-			return CHANNEL_FREQ_2407 +
-				(chan_num * FREQ_MULTIPLIER_CONST_5MHZ);
-
-		if (chan_num < CHANNEL_NUM_27)
-			return CHANNEL_FREQ_2512 +
-				((chan_num - CHANNEL_NUM_15) *
-					FREQ_MULTIPLIER_CONST_20MHZ);
-
-		if (chan_num > CHANNEL_NUM_182 &&
-		    chan_num < CHANNEL_NUM_197)
-			return ((chan_num * FREQ_MULTIPLIER_CONST_5MHZ) +
-				CHANNEL_FREQ_4000);
-
-		return CHANNEL_FREQ_5000 +
-			(chan_num * FREQ_MULTIPLIER_CONST_5MHZ);
-	} else {
-		return CHANNEL_FREQ_5950 +
-			(chan_num * FREQ_MULTIPLIER_CONST_5MHZ);
-	}
-}
-
 /**
  * hal_rx_status_get_tlv_info() - process receive info TLV
  * @rx_tlv_hdr: pointer to TLV header
@@ -552,20 +463,11 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 
 	case WIFIRX_PPDU_START_E:
 	{
-		if (qdf_unlikely(ppdu_info->com_info.last_ppdu_id ==
-		    HAL_RX_GET(rx_tlv, RX_PPDU_START_0, PHY_PPDU_ID)))
-			hal_err("Matching ppdu_id(%u) detected",
-				 ppdu_info->com_info.last_ppdu_id);
+		struct hal_rx_ppdu_common_info *com_info = &ppdu_info->com_info;
 
-		/* Reset ppdu_info before processing the ppdu */
-		qdf_mem_zero(ppdu_info,
-			     sizeof(struct hal_rx_ppdu_info));
-
-		ppdu_info->com_info.last_ppdu_id =
-			ppdu_info->com_info.ppdu_id =
-				HAL_RX_GET(rx_tlv, RX_PPDU_START_0,
-					PHY_PPDU_ID);
-
+		ppdu_info->com_info.ppdu_id =
+			HAL_RX_GET(rx_tlv, RX_PPDU_START_0,
+				PHY_PPDU_ID);
 		/* channel number is set in PHY meta data */
 		ppdu_info->rx_status.chan_num =
 			(HAL_RX_GET(rx_tlv, RX_PPDU_START_1,
@@ -573,13 +475,6 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 		ppdu_info->rx_status.chan_freq =
 			(HAL_RX_GET(rx_tlv, RX_PPDU_START_1,
 				SW_PHY_META_DATA) & 0xFFFF0000)>>16;
-		if (ppdu_info->rx_status.chan_num &&
-		    ppdu_info->rx_status.chan_freq) {
-			ppdu_info->rx_status.chan_freq =
-				hal_rx_radiotap_num_to_freq(
-				ppdu_info->rx_status.chan_num,
-				 ppdu_info->rx_status.chan_freq);
-		}
 		ppdu_info->com_info.ppdu_timestamp =
 			HAL_RX_GET(rx_tlv, RX_PPDU_START_2,
 				PPDU_START_TIMESTAMP);
@@ -587,6 +482,20 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 			ppdu_info->com_info.ppdu_timestamp;
 		ppdu_info->rx_state = HAL_RX_MON_PPDU_START;
 
+		/* If last ppdu_id doesn't match new ppdu_id,
+		 * 1. reset mpdu_cnt
+		 * 2. update last_ppdu_id with new
+		 * 3. reset mpdu fcs bitmap
+		 */
+		if (com_info->ppdu_id != com_info->last_ppdu_id) {
+			com_info->mpdu_cnt = 0;
+			com_info->last_ppdu_id =
+				com_info->ppdu_id;
+			com_info->num_users = 0;
+			qdf_mem_zero(&com_info->mpdu_fcs_ok_bitmap,
+				     HAL_RX_NUM_WORDS_PER_PPDU_BITMAP *
+				     sizeof(com_info->mpdu_fcs_ok_bitmap[0]));
+		}
 		break;
 	}
 
@@ -724,8 +633,10 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 			ppdu_info->com_info.num_users++;
 
 			hal_rx_populate_mu_user_info(rx_tlv, ppdu_info,
-						     user_id,
 						     mon_rx_user_status);
+
+			hal_rx_populate_tx_capture_user_info(ppdu_info,
+							     user_id);
 
 		}
 		break;
@@ -901,9 +812,7 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 		case TARGET_TYPE_QCA8074:
 		case TARGET_TYPE_QCA8074V2:
 		case TARGET_TYPE_QCA6018:
-		case TARGET_TYPE_QCA5018:
 		case TARGET_TYPE_QCN9000:
-		case TARGET_TYPE_QCN9100:
 #ifdef QCA_WIFI_QCA6390
 		case TARGET_TYPE_QCA6390:
 #endif
@@ -1080,11 +989,10 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 				break;
 		}
 		ppdu_info->rx_status.sgi = he_gi;
-		ppdu_info->rx_status.ltf_size = he_ltf;
-		hal_get_radiotap_he_gi_ltf(&he_gi, &he_ltf);
 		value = he_gi << QDF_MON_STATUS_GI_SHIFT;
 		ppdu_info->rx_status.he_data5 |= value;
 		value = he_ltf << QDF_MON_STATUS_HE_LTF_SIZE_SHIFT;
+		ppdu_info->rx_status.ltf_size = he_ltf;
 		ppdu_info->rx_status.he_data5 |= value;
 
 		value = HAL_RX_GET(he_sig_a_su_info, HE_SIG_A_SU_INFO_0, NSTS);
@@ -1207,8 +1115,6 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 			break;
 		}
 		ppdu_info->rx_status.sgi = he_gi;
-		ppdu_info->rx_status.ltf_size = he_ltf;
-		hal_get_radiotap_he_gi_ltf(&he_gi, &he_ltf);
 		value = he_gi << QDF_MON_STATUS_GI_SHIFT;
 		ppdu_info->rx_status.he_data5 |= value;
 
@@ -1505,20 +1411,19 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 	case WIFIRX_HEADER_E:
 	{
 		struct hal_rx_ppdu_common_info *com_info = &ppdu_info->com_info;
+		uint16_t mpdu_cnt = com_info->mpdu_cnt;
 
-		if (ppdu_info->fcs_ok_cnt >=
-		    HAL_RX_MAX_MPDU_H_PER_STATUS_BUFFER) {
-			hal_err("Number of MPDUs(%d) per status buff exceeded",
-				ppdu_info->fcs_ok_cnt);
+		if (mpdu_cnt >= HAL_RX_MAX_MPDU) {
+			hal_alert("Number of MPDUs per PPDU exceeded");
 			break;
 		}
-
 		/* Update first_msdu_payload for every mpdu and increment
 		 * com_info->mpdu_cnt for every WIFIRX_HEADER_E TLV
 		 */
-		ppdu_info->ppdu_msdu_info[ppdu_info->fcs_ok_cnt].first_msdu_payload =
+		ppdu_info->ppdu_msdu_info[mpdu_cnt].first_msdu_payload =
 			rx_tlv;
-		ppdu_info->ppdu_msdu_info[ppdu_info->fcs_ok_cnt].payload_len = tlv_len;
+		ppdu_info->ppdu_msdu_info[mpdu_cnt].payload_len = tlv_len;
+		ppdu_info->ppdu_msdu_info[mpdu_cnt].nbuf = nbuf;
 		ppdu_info->msdu_info.first_msdu_payload = rx_tlv;
 		ppdu_info->msdu_info.payload_len = tlv_len;
 		ppdu_info->user_id = user_id;
@@ -1532,8 +1437,11 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 	}
 	case WIFIRX_MPDU_START_E:
 	{
-		uint8_t *rx_mpdu_start = (uint8_t *)rx_tlv;
-		uint32_t ppdu_id = HAL_RX_GET_PPDU_ID(rx_mpdu_start);
+		uint8_t *rx_mpdu_start =
+			(uint8_t *)rx_tlv + HAL_RX_OFFSET(UNIFIED_RX_MPDU_START_0,
+					RX_MPDU_INFO_RX_MPDU_INFO_DETAILS);
+		uint32_t ppdu_id =
+				HAL_RX_GET_PPDU_ID(rx_mpdu_start);
 		uint8_t filter_category = 0;
 
 		ppdu_info->nac_info.fc_valid =
@@ -1582,7 +1490,7 @@ hal_rx_status_get_tlv_info_generic(void *rx_tlv_hdr, void *ppduinfo,
 		} else {
 			ppdu_info->rx_status.ppdu_len +=
 				HAL_RX_GET(rx_mpdu_start, RX_MPDU_INFO_13,
-					   MPDU_LENGTH);
+				MPDU_LENGTH);
 		}
 
 		filter_category =
@@ -1767,29 +1675,6 @@ void hal_get_hw_hptp_generic(struct hal_soc *hal_soc,
 	}
 }
 
-#if defined(WBM_IDLE_LSB_WRITE_CONFIRM_WAR)
-/**
- * hal_wbm_idle_lsb_write_confirm() - Check and update WBM_IDLE_LINK ring LSB
- * @srng: srng handle
- *
- * Return: None
- */
-static void hal_wbm_idle_lsb_write_confirm(struct hal_srng *srng)
-{
-	if (srng->ring_id == HAL_SRNG_WBM_IDLE_LINK) {
-		while (SRNG_SRC_REG_READ(srng, BASE_LSB) !=
-		       ((unsigned int)srng->ring_base_paddr & 0xffffffff))
-				SRNG_SRC_REG_WRITE(srng, BASE_LSB,
-						   srng->ring_base_paddr &
-						   0xffffffff);
-	}
-}
-#else
-static void hal_wbm_idle_lsb_write_confirm(struct hal_srng *srng)
-{
-}
-#endif
-
 /**
  * hal_srng_src_hw_init - Private function to initialize SRNG
  * source ring HW
@@ -1817,8 +1702,6 @@ void hal_srng_src_hw_init_generic(struct hal_soc *hal,
 	}
 
 	SRNG_SRC_REG_WRITE(srng, BASE_LSB, srng->ring_base_paddr & 0xffffffff);
-	hal_wbm_idle_lsb_write_confirm(srng);
-
 	reg_val = SRNG_SM(SRNG_SRC_FLD(BASE_MSB, RING_BASE_ADDR_MSB),
 		((uint64_t)(srng->ring_base_paddr) >> 32)) |
 		SRNG_SM(SRNG_SRC_FLD(BASE_MSB, RING_SIZE),
@@ -2455,64 +2338,4 @@ hal_rx_msdu_packet_metadata_get_generic(uint8_t *buf,
 	msdu_metadata->sa_sw_peer_id =
 		HAL_RX_MSDU_END_SA_SW_PEER_ID_GET(msdu_end);
 }
-
-/**
- * hal_rx_msdu_end_offset_get_generic(): API to get the
- * msdu_end structure offset rx_pkt_tlv structure
- *
- * NOTE: API returns offset of msdu_end TLV from structure
- * rx_pkt_tlvs
- */
-static uint32_t hal_rx_msdu_end_offset_get_generic(void)
-{
-	return RX_PKT_TLV_OFFSET(msdu_end_tlv);
-}
-
-/**
- * hal_rx_attn_offset_get_generic(): API to get the
- * msdu_end structure offset rx_pkt_tlv structure
- *
- * NOTE: API returns offset of attn TLV from structure
- * rx_pkt_tlvs
- */
-static uint32_t hal_rx_attn_offset_get_generic(void)
-{
-	return RX_PKT_TLV_OFFSET(attn_tlv);
-}
-
-/**
- * hal_rx_msdu_start_offset_get_generic(): API to get the
- * msdu_start structure offset rx_pkt_tlv structure
- *
- * NOTE: API returns offset of attn TLV from structure
- * rx_pkt_tlvs
- */
-static uint32_t hal_rx_msdu_start_offset_get_generic(void)
-{
-	return RX_PKT_TLV_OFFSET(msdu_start_tlv);
-}
-
-/**
- * hal_rx_mpdu_start_offset_get_generic(): API to get the
- * mpdu_start structure offset rx_pkt_tlv structure
- *
- * NOTE: API returns offset of attn TLV from structure
- * rx_pkt_tlvs
- */
-static uint32_t	hal_rx_mpdu_start_offset_get_generic(void)
-{
-	return RX_PKT_TLV_OFFSET(mpdu_start_tlv);
-}
-
-/**
- * hal_rx_mpdu_end_offset_get_generic(): API to get the
- * mpdu_end structure offset rx_pkt_tlv structure
- *
- * NOTE: API returns offset of attn TLV from structure
- * rx_pkt_tlvs
- */
-static uint32_t	hal_rx_mpdu_end_offset_get_generic(void)
-{
-	return RX_PKT_TLV_OFFSET(mpdu_end_tlv);
-}
-#endif /* HAL_GENERIC_API_H_ */
+#endif /* _HAL_GENERIC_API_H_ */

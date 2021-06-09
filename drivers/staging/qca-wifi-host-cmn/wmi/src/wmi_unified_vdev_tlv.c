@@ -33,7 +33,7 @@ send_vdev_config_ratemask_cmd_tlv(struct wmi_unified *wmi_handle,
 
 	buf = wmi_buf_alloc(wmi_handle, len);
 	if (!buf) {
-		wmi_err("wmi_buf_alloc failed");
+		WMI_LOGE("%s:wmi_buf_alloc failed", __func__);
 		return QDF_STATUS_E_FAILURE;
 	}
 	cmd = (wmi_vdev_config_ratemask_cmd_fixed_param *)wmi_buf_data(buf);
@@ -46,12 +46,11 @@ send_vdev_config_ratemask_cmd_tlv(struct wmi_unified *wmi_handle,
 	cmd->mask_lower32 = param->lower32;
 	cmd->mask_higher32 = param->higher32;
 	cmd->mask_lower32_2 = param->lower32_2;
-	cmd->mask_higher32_2 = param->higher32_2;
 
 	wmi_mtrace(WMI_VDEV_RATEMASK_CMDID, cmd->vdev_id, 0);
 	if (wmi_unified_cmd_send(wmi_handle, buf, len,
 				 WMI_VDEV_RATEMASK_CMDID)) {
-		wmi_err("Setting vdev ratemask failed");
+		WMI_LOGE("Seting vdev ratemask failed");
 		wmi_buf_free(buf);
 		return QDF_STATUS_E_FAILURE;
 	}
@@ -71,7 +70,7 @@ send_beacon_send_cmd_tlv(struct wmi_unified *wmi_handle,
 
 	wmi_buf = wmi_buf_alloc(wmi_handle, sizeof(*cmd));
 	if (!wmi_buf) {
-		wmi_err("wmi_buf_alloc failed");
+		WMI_LOGE("%s : wmi_buf_alloc failed", __func__);
 		return QDF_STATUS_E_NOMEM;
 	}
 	if (param->is_dtim_count_zero) {
@@ -102,7 +101,7 @@ send_beacon_send_cmd_tlv(struct wmi_unified *wmi_handle,
 	ret = wmi_unified_cmd_send(wmi_handle, wmi_buf, sizeof(*cmd),
 				   WMI_PDEV_SEND_BCN_CMDID);
 	if (ret != QDF_STATUS_SUCCESS) {
-		wmi_err("Failed to send bcn: %d", ret);
+		WMI_LOGE("%s: Failed to send bcn: %d", __func__, ret);
 		wmi_buf_free(wmi_buf);
 	}
 
@@ -119,7 +118,7 @@ extract_tbttoffset_num_vdevs_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
 
 	param_buf = (WMI_TBTTOFFSET_UPDATE_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid tbtt update ext event buffer");
+		WMI_LOGE("%s: Invalid tbtt update ext event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 	tbtt_offset_event = param_buf->fixed_param;
@@ -140,7 +139,7 @@ send_vdev_set_neighbour_rx_cmd_tlv(struct wmi_unified *wmi_handle,
 
 	buf = wmi_buf_alloc(wmi_handle, len);
 	if (!buf) {
-		wmi_err("wmi_buf_alloc failed");
+		WMI_LOGE("%s:wmi_buf_alloc failed", __func__);
 		return QDF_STATUS_E_FAILURE;
 	}
 	cmd = (wmi_vdev_filter_nrp_config_cmd_fixed_param *)wmi_buf_data(buf);
@@ -158,7 +157,7 @@ send_vdev_set_neighbour_rx_cmd_tlv(struct wmi_unified *wmi_handle,
 	wmi_mtrace(WMI_VDEV_FILTER_NEIGHBOR_RX_PACKETS_CMDID, cmd->vdev_id, 0);
 	if (wmi_unified_cmd_send(wmi_handle, buf, len,
 				 WMI_VDEV_FILTER_NEIGHBOR_RX_PACKETS_CMDID)) {
-		wmi_err("Failed to set neighbour rx param");
+		WMI_LOGE("Failed to set neighbour rx param");
 		wmi_buf_free(buf);
 		return QDF_STATUS_E_FAILURE;
 	}
@@ -168,20 +167,20 @@ send_vdev_set_neighbour_rx_cmd_tlv(struct wmi_unified *wmi_handle,
 
 static QDF_STATUS
 extract_vdev_start_resp_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
-			    struct vdev_start_response *vdev_rsp)
+			    wmi_host_vdev_start_resp *vdev_rsp)
 {
 	WMI_VDEV_START_RESP_EVENTID_param_tlvs *param_buf;
 	wmi_vdev_start_response_event_fixed_param *ev;
 
 	param_buf = (WMI_VDEV_START_RESP_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid start response event buffer");
+		WMI_LOGE("%s: Invalid start response event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 
 	ev = param_buf->fixed_param;
 	if (!ev) {
-		wmi_err("Invalid start response event buffer");
+		WMI_LOGE("%s: Invalid start response event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -197,7 +196,7 @@ extract_vdev_start_resp_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
 		vdev_rsp->resp_type = WMI_HOST_VDEV_RESTART_RESP_EVENT;
 		break;
 	default:
-		wmi_err("Invalid start response event buffer");
+		WMI_LOGE("Invalid start response event buffer");
 		break;
 	};
 	vdev_rsp->status = ev->status;
@@ -213,20 +212,20 @@ extract_vdev_start_resp_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
 
 static QDF_STATUS
 extract_vdev_delete_resp_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
-			     struct vdev_delete_response *delete_rsp)
+			     struct wmi_host_vdev_delete_resp *delete_rsp)
 {
 	WMI_VDEV_DELETE_RESP_EVENTID_param_tlvs *param_buf;
 	wmi_vdev_delete_resp_event_fixed_param *ev;
 
 	param_buf = (WMI_VDEV_DELETE_RESP_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid vdev delete response event buffer");
+		WMI_LOGE("Invalid vdev delete response event buffer");
 		return QDF_STATUS_E_INVAL;
 	}
 
 	ev = param_buf->fixed_param;
 	if (!ev) {
-		wmi_err("Invalid vdev delete response event");
+		WMI_LOGE("Invalid vdev delete response event");
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -239,7 +238,7 @@ extract_vdev_delete_resp_tlv(struct wmi_unified *wmi_handle, void *evt_buf,
 static QDF_STATUS extract_vdev_peer_delete_all_response_event_tlv(
 		wmi_unified_t wmi_hdl,
 		void *evt_buf,
-		struct peer_delete_all_response *param)
+		struct wmi_host_vdev_peer_delete_all_response_event *param)
 {
 	WMI_VDEV_DELETE_ALL_PEER_RESP_EVENTID_param_tlvs *param_buf;
 	wmi_vdev_delete_all_peer_resp_event_fixed_param *ev;
@@ -249,7 +248,7 @@ static QDF_STATUS extract_vdev_peer_delete_all_response_event_tlv(
 	ev = (wmi_vdev_delete_all_peer_resp_event_fixed_param *)
 							param_buf->fixed_param;
 	if (!ev) {
-		wmi_err("Invalid peer_delete all response");
+		WMI_LOGE("%s: Invalid peer_delete all response", __func__);
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -268,7 +267,7 @@ extract_vdev_stopped_param_tlv(struct wmi_unified *wmi_handle,
 
 	param_buf = (WMI_VDEV_STOPPED_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid event buffer");
+		WMI_LOGE("Invalid event buffer");
 		return QDF_STATUS_E_INVAL;
 	}
 	resp_event = param_buf->fixed_param;
@@ -287,7 +286,7 @@ static QDF_STATUS extract_ext_tbttoffset_num_vdevs_tlv(
 
 	param_buf = (WMI_TBTTOFFSET_EXT_UPDATE_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid tbtt update ext event buffer");
+		WMI_LOGE("%s Invalid tbtt update ext event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 	tbtt_offset_ext_event = param_buf->fixed_param;
@@ -308,7 +307,7 @@ static QDF_STATUS extract_tbttoffset_update_params_tlv(
 
 	param_buf = (WMI_TBTTOFFSET_UPDATE_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid tbtt update event buffer");
+		WMI_LOGE("%s: Invalid tbtt update event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -339,7 +338,7 @@ static QDF_STATUS extract_ext_tbttoffset_update_params_tlv(
 
 	param_buf = (WMI_TBTTOFFSET_EXT_UPDATE_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid tbtt update event buffer");
+		WMI_LOGE("%s: Invalid tbtt update event buffer", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 	tbtt_offset_info = &param_buf->tbtt_offset_info[idx];
@@ -352,44 +351,12 @@ static QDF_STATUS extract_ext_tbttoffset_update_params_tlv(
 	return QDF_STATUS_SUCCESS;
 }
 
-static QDF_STATUS extract_muedca_params_tlv(wmi_unified_t wmi_hdl,
-					    void *evt_buf,
-					    struct muedca_params *muedca_param_list)
-{
-	WMI_MUEDCA_PARAMS_CONFIG_EVENTID_param_tlvs *param_buf;
-	wmi_muedca_params_config_event_fixed_param *muedca_param;
-	int i;
-
-	param_buf = (WMI_MUEDCA_PARAMS_CONFIG_EVENTID_param_tlvs *)evt_buf;
-	if (!param_buf) {
-		wmi_err("Invalid muedca evt buffer");
-		return QDF_STATUS_E_INVAL;
-	}
-	muedca_param = param_buf->fixed_param;
-
-	muedca_param_list->pdev_id = wmi_hdl->ops->
-		convert_target_pdev_id_to_host(wmi_hdl,
-					       muedca_param->pdev_id);
-	for (i = 0; i < WMI_AC_MAX; i++) {
-		muedca_param_list->muedca_aifsn[i] = muedca_param->aifsn[i] &
-						      WMI_MUEDCA_PARAM_MASK;
-		muedca_param_list->muedca_ecwmin[i] = muedca_param->ecwmin[i] &
-						      WMI_MUEDCA_PARAM_MASK;
-		muedca_param_list->muedca_ecwmax[i] = muedca_param->ecwmax[i] &
-						      WMI_MUEDCA_PARAM_MASK;
-		muedca_param_list->muedca_timer[i] = muedca_param->muedca_expiration_time[i] &
-						      WMI_MUEDCA_PARAM_MASK;
-	}
-
-	return QDF_STATUS_SUCCESS;
-}
-
 void wmi_vdev_attach_tlv(struct wmi_unified *wmi_handle)
 {
 	struct wmi_ops *wmi_ops;
 
 	if (!wmi_handle) {
-		wmi_err("null wmi handle");
+		WMI_LOGP("%s: null wmi handle", __func__);
 		return;
 	}
 
@@ -407,8 +374,6 @@ void wmi_vdev_attach_tlv(struct wmi_unified *wmi_handle)
 				extract_ext_tbttoffset_update_params_tlv;
 	wmi_ops->extract_ext_tbttoffset_num_vdevs =
 				extract_ext_tbttoffset_num_vdevs_tlv;
-	wmi_ops->extract_muedca_params_handler =
-				extract_muedca_params_tlv;
 	wmi_ops->send_vdev_set_neighbour_rx_cmd =
 				send_vdev_set_neighbour_rx_cmd_tlv;
 	wmi_ops->send_beacon_send_cmd = send_beacon_send_cmd_tlv;

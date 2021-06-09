@@ -171,17 +171,15 @@ ucfg_scan_get_pno_match(struct wlan_objmgr_vdev *vdev)
 QDF_STATUS ucfg_scm_scan_free_scan_request_mem(struct scan_start_request *req);
 
 /**
- * ucfg_scan_start() - ucfg Public API to start a scan
+ * ucfg_scan_start() - Public API to start a scan
  * @req: start scan req params
  *
- * The ucfg public API to start a scan. Post a msg to target_if queue
+ * The Public API to start a scan. Post a msg to target_if queue
  *
- * Return: QDF_STATUS
+ * Return: 0 for success or error code.
  */
-static inline QDF_STATUS ucfg_scan_start(struct scan_start_request *req)
-{
-	return wlan_scan_start(req);
-}
+QDF_STATUS
+ucfg_scan_start(struct scan_start_request *req);
 
 /**
  * ucfg_scan_set_psoc_enable() - Public API to enable scans for psoc
@@ -311,19 +309,16 @@ ucfg_scan_config_hidden_ssid_for_bssid(struct wlan_objmgr_pdev *pdev,
 	return QDF_STATUS_SUCCESS;
 }
 #endif /* WLAN_DFS_CHAN_HIDDEN_SSID */
-
 /**
- * ucfg_scan_cancel() - ucfg Public API to cancel the scan
+ * ucfg_scan_cancel() - Public API to stop a scan
  * @req: stop scan request params
  *
- * The ucfg public API to stop a scan. Post a msg to target_if queue
+ * The Public API to stop a scan. Post a msg to target_if queue
  *
- * Return: QDF_STATUS.
+ * Return: 0 for success or error code.
  */
-static inline QDF_STATUS ucfg_scan_cancel(struct scan_cancel_request *req)
-{
-	return wlan_scan_cancel(req);
-}
+QDF_STATUS
+ucfg_scan_cancel(struct scan_cancel_request *req);
 
 /**
  * ucfg_scan_cancel_sync() - Public API to stop a scan and wait
@@ -742,65 +737,6 @@ void ucfg_scan_cfg_get_active_2g_dwelltime(struct wlan_objmgr_psoc *psoc,
 {
 	return wlan_scan_cfg_get_active_2g_dwelltime(psoc, dwell_time);
 }
-
-#ifdef CONFIG_BAND_6GHZ
-/**
- * ucfg_scan_cfg_set_active_6g_dwelltime() - API to set scan active 6g dwelltime
- * @psoc: pointer to psoc object
- * @dwell_time: scan active dwell time
- *
- * Return: QDF_STATUS
- */
-static inline
-QDF_STATUS ucfg_scan_cfg_set_active_6g_dwelltime(struct wlan_objmgr_psoc *psoc,
-						 uint32_t dwell_time)
-{
-	return wlan_scan_cfg_set_active_6g_dwelltime(psoc, dwell_time);
-}
-
-/**
- * ucfg_scan_cfg_get_passive_6g_dwelltime() - API to get passive 6g dwelltime
- * @psoc: pointer to psoc object
- * @dwell_time: scan passive 6g dwelltime
- *
- * Return: QDF_STATUS
- */
-static inline
-QDF_STATUS ucfg_scan_cfg_get_passive_6g_dwelltime(struct wlan_objmgr_psoc *psoc,
-						  uint32_t *dwell_time)
-{
-	return wlan_scan_cfg_get_passive_6g_dwelltime(psoc, dwell_time);
-}
-
-/**
- * ucfg_scan_cfg_set_passive_6g_dwelltime() - API to set scan passive 6g
- *                                            dwelltime
- * @psoc: pointer to psoc object
- * @dwell_time: scan passive dwell time
- *
- * Return: QDF_STATUS
- */
-static inline
-QDF_STATUS ucfg_scan_cfg_set_passive_6g_dwelltime(struct wlan_objmgr_psoc *psoc,
-						  uint32_t dwell_time)
-{
-	return wlan_scan_cfg_set_passive_6g_dwelltime(psoc, dwell_time);
-}
-
-/**
- * ucfg_scan_cfg_get_active_6g_dwelltime() - API to get active 6g dwelltime
- * @psoc: pointer to psoc object
- * @dwell_time: scan active 6g dwelltime
- *
- * Return: QDF_STATUS
- */
-static inline
-QDF_STATUS ucfg_scan_cfg_get_active_6g_dwelltime(struct wlan_objmgr_psoc *psoc,
-						 uint32_t *dwell_time)
-{
-	return wlan_scan_cfg_get_active_6g_dwelltime(psoc, dwell_time);
-}
-#endif
 
 /**
  * ucfg_scan_cfg_get_conc_active_dwelltime() - Get concurrent active dwelltime

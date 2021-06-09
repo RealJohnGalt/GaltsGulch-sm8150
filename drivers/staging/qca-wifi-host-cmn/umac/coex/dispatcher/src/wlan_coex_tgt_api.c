@@ -26,15 +26,7 @@
 static inline struct wlan_lmac_if_coex_tx_ops *
 wlan_psoc_get_coex_txops(struct wlan_objmgr_psoc *psoc)
 {
-	struct wlan_lmac_if_tx_ops *tx_ops;
-
-	tx_ops = wlan_psoc_get_lmac_if_txops(psoc);
-	if (!tx_ops) {
-		coex_err("tx_ops is NULL");
-		return NULL;
-	}
-
-	return &tx_ops->coex_ops;
+	return &psoc->soc_cb.tx_ops.coex_ops;
 }
 
 static inline struct wlan_lmac_if_coex_tx_ops *
@@ -77,7 +69,8 @@ tgt_send_coex_config(struct wlan_objmgr_vdev *vdev,
 	}
 
 	coex_ops = wlan_psoc_get_coex_txops(psoc);
-	if (coex_ops && coex_ops->coex_config_send)
+	QDF_ASSERT(coex_ops->coex_config_send);
+	if (coex_ops->coex_config_send)
 		return coex_ops->coex_config_send(pdev, param);
 
 	return QDF_STATUS_SUCCESS;

@@ -114,15 +114,7 @@ static inline bool target_if_vdev_mgr_is_panic_on_bug(void)
 static inline struct wlan_lmac_if_mlme_rx_ops *
 target_if_vdev_mgr_get_rx_ops(struct wlan_objmgr_psoc *psoc)
 {
-	struct wlan_lmac_if_rx_ops *rx_ops;
-
-	rx_ops = wlan_psoc_get_lmac_if_rxops(psoc);
-	if (!rx_ops) {
-		qdf_err("rx_ops is NULL");
-		return NULL;
-	}
-
-	return &rx_ops->mops;
+	return &psoc->soc_cb.rx_ops.mops;
 }
 
 /**
@@ -158,10 +150,11 @@ QDF_STATUS target_if_vdev_mgr_wmi_event_unregister(
 
 /**
  * target_if_vdev_mgr_rsp_timer_cb() - function to handle vdev related timeouts
- * @arg: pointer to argument
+ * @vdev_rsp: pointer to vdev response timer
  *
- * Return: none
+ * Return: QDF_STATUS_SUCCESS on success, QDF_STATUS_E_FAILURE on error
  */
-void target_if_vdev_mgr_rsp_timer_cb(void *arg);
+QDF_STATUS
+target_if_vdev_mgr_rsp_timer_cb(struct vdev_response_timer *vdev_rsp);
 
 #endif /* __TARGET_IF_VDEV_MGR_RX_OPS_H__ */

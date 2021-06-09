@@ -33,10 +33,8 @@ extern struct dfs_to_mlme global_dfs_to_mlme;
  * @pdev: Pointer to DFS pdev object.
  * @wait_for_csa: Wait for CSA from RootAP.
  */
-#if defined(QCA_DFS_RCSA_SUPPORT)
 void dfs_mlme_start_rcsa(struct wlan_objmgr_pdev *pdev,
 		bool *wait_for_csa);
-#endif
 
 /**
  * dfs_mlme_mark_dfs() - Mark the channel in the channel list.
@@ -46,12 +44,29 @@ void dfs_mlme_start_rcsa(struct wlan_objmgr_pdev *pdev,
  * @vhtop_ch_freq_seg2: VHT80 Cfreq2.
  * @flags: channel flags.
  */
+#ifdef CONFIG_CHAN_NUM_API
 void dfs_mlme_mark_dfs(struct wlan_objmgr_pdev *pdev,
 			uint8_t ieee,
 			uint16_t freq,
-			uint16_t vhtop_ch_freq_seg2,
+			uint8_t vhtop_ch_freq_seg2,
 			uint64_t flags);
+#endif
 
+/**
+ * dfs_mlme_mark_dfs_for_freq() - Mark the channel in the channel list.
+ * @pdev: Pointer to DFS pdev object.
+ * @ieee: Channel number.
+ * @freq: Channel frequency.
+ * @vhtop_ch_freq_seg2_mhz: VHT80 Cfreq2 in Mhz.
+ * @flags: channel flags.
+ */
+#ifdef CONFIG_CHAN_FREQ_API
+void dfs_mlme_mark_dfs_for_freq(struct wlan_objmgr_pdev *pdev,
+				uint8_t ieee,
+				uint16_t freq,
+				uint16_t vhtop_ch_freq_mhz_seg2,
+				uint64_t flags);
+#endif
 /**
  * dfs_mlme_start_csa() - Sends CSA in ieeeChan
  * @pdev: Pointer to DFS pdev object.
@@ -425,15 +440,6 @@ void dfs_mlme_handle_dfs_scan_violation(struct wlan_objmgr_pdev *pdev)
  * Return: true if pdev opmode is STA, else false.
  */
 bool dfs_mlme_is_opmode_sta(struct wlan_objmgr_pdev *pdev);
-
-/**
- * dfs_mlme_is_inter_band_chan_switch_allowed() - Check if inter-band channel
- * switch is allowed.
- * @pdev: Pointer to DFS pdev object.
- *
- * Return: true if inter-band channel switch is allowed.
- */
-bool dfs_mlme_is_inter_band_chan_switch_allowed(struct wlan_objmgr_pdev *pdev);
 
 /**
  * dfs_mlme_acquire_radar_mode_switch_lock() - Acquire lock for radar processing

@@ -39,7 +39,6 @@
 #include "../dfs_process_radar_found_ind.h"
 #include "../dfs_partial_offload_radar.h"
 #endif
-#include <qdf_types.h>
 
 void dfs_set_update_nol_flag(struct wlan_dfs *dfs, bool val)
 {
@@ -283,119 +282,6 @@ static void dfs_nol_delete(struct wlan_dfs *dfs,
 	}
 }
 
-#ifdef QCA_SUPPORT_DFS_CHAN_POSTNOL
-/**
- * dfs_switch_to_postnol_chan_if_nol_expired() - Find if NOL is expired
- * in the postNOL channel configured. If true, trigger channel change.
- * @dfs: Pointer to DFS of wlan_dfs structure.
- *
- * Return: True, if channel change is triggered, else false.
- */
-static bool
-dfs_switch_to_postnol_chan_if_nol_expired(struct wlan_dfs *dfs)
-{
-	struct dfs_channel chan;
-	struct dfs_channel *curchan = dfs->dfs_curchan;
-	bool is_curchan_11ac = false, is_curchan_11axa = false;
-	enum wlan_phymode postnol_phymode;
-
-	if (!dfs->dfs_chan_postnol_freq)
-		return false;
-
-	if (WLAN_IS_CHAN_11AC_VHT20(curchan) ||
-	    WLAN_IS_CHAN_11AC_VHT40(curchan) ||
-	    WLAN_IS_CHAN_11AC_VHT80(curchan) ||
-	    WLAN_IS_CHAN_11AC_VHT160(curchan) ||
-	    WLAN_IS_CHAN_11AC_VHT80_80(curchan))
-		is_curchan_11ac = true;
-	else if (WLAN_IS_CHAN_11AXA_HE20(curchan) ||
-		 WLAN_IS_CHAN_11AXA_HE40PLUS(curchan) ||
-		 WLAN_IS_CHAN_11AXA_HE40MINUS(curchan) ||
-		 WLAN_IS_CHAN_11AXA_HE80(curchan) ||
-		 WLAN_IS_CHAN_11AXA_HE160(curchan) ||
-		 WLAN_IS_CHAN_11AXA_HE80_80(curchan))
-		is_curchan_11axa = true;
-
-	switch (dfs->dfs_chan_postnol_mode) {
-	case CH_WIDTH_20MHZ:
-		if (is_curchan_11ac)
-			postnol_phymode = WLAN_PHYMODE_11AC_VHT20;
-		else if (is_curchan_11axa)
-			postnol_phymode = WLAN_PHYMODE_11AXA_HE20;
-		else
-			return false;
-		break;
-	case CH_WIDTH_40MHZ:
-		if (is_curchan_11ac)
-			postnol_phymode = WLAN_PHYMODE_11AC_VHT40;
-		else if (is_curchan_11axa)
-			postnol_phymode = WLAN_PHYMODE_11AXA_HE40;
-		else
-			return false;
-		break;
-	case CH_WIDTH_80MHZ:
-		if (is_curchan_11ac)
-			postnol_phymode = WLAN_PHYMODE_11AC_VHT80;
-		else if (is_curchan_11axa)
-			postnol_phymode = WLAN_PHYMODE_11AXA_HE80;
-		else
-			return false;
-		break;
-	case CH_WIDTH_160MHZ:
-		if (is_curchan_11ac)
-			postnol_phymode = WLAN_PHYMODE_11AC_VHT160;
-		else if (is_curchan_11axa)
-			postnol_phymode = WLAN_PHYMODE_11AXA_HE160;
-		else
-			return false;
-		break;
-	default:
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			"Invalid postNOL mode set. Cannot switch to the chan");
-		return false;
-	}
-
-	qdf_mem_zero(&chan, sizeof(struct dfs_channel));
-	if (QDF_STATUS_SUCCESS !=
-		dfs_mlme_find_dot11_chan_for_freq(
-			dfs->dfs_pdev_obj,
-			dfs->dfs_chan_postnol_freq,
-			dfs->dfs_chan_postnol_cfreq2,
-			postnol_phymode,
-			&chan.dfs_ch_freq,
-			&chan.dfs_ch_flags,
-			&chan.dfs_ch_flagext,
-			&chan.dfs_ch_ieee,
-			&chan.dfs_ch_vhtop_ch_freq_seg1,
-			&chan.dfs_ch_vhtop_ch_freq_seg2,
-			&chan.dfs_ch_mhz_freq_seg1,
-			&chan.dfs_ch_mhz_freq_seg2)) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			"Channel %d not found for mode %d and cfreq2 %d",
-			dfs->dfs_chan_postnol_freq,
-			postnol_phymode,
-			dfs->dfs_chan_postnol_cfreq2);
-		return false;
-	}
-	if (WLAN_IS_CHAN_RADAR(&chan))
-		return false;
-
-	if (global_dfs_to_mlme.mlme_postnol_chan_switch)
-		global_dfs_to_mlme.mlme_postnol_chan_switch(
-				dfs->dfs_pdev_obj,
-				dfs->dfs_chan_postnol_freq,
-				dfs->dfs_chan_postnol_cfreq2,
-				postnol_phymode);
-	return true;
-}
-#else
-static inline bool
-dfs_switch_to_postnol_chan_if_nol_expired(struct wlan_dfs *dfs)
-{
-	return false;
-}
-#endif
-
 /**
  * dfs_remove_from_nol() - Remove the freq from NOL list.
  *
@@ -429,26 +315,9 @@ static os_timer_func(dfs_remove_from_nol)
 	dfs_debug(dfs, WLAN_DEBUG_DFS_NOL,
 		  "remove channel %d from nol", chan);
 	utils_dfs_unmark_precac_nol_for_freq(dfs->dfs_pdev_obj, delfreq);
-
 	utils_dfs_reg_update_nol_chan_for_freq(dfs->dfs_pdev_obj,
 					     &delfreq, 1, DFS_NOL_RESET);
 	utils_dfs_save_nol(dfs->dfs_pdev_obj);
-
-	/*
-	 * Check if a channel is configured by the user to which we have to
-	 * switch after it's NOL expiry. If that is the case, change
-	 * channel immediately.
-	 *
-	 * If a channel switch is required (indicated by the return value of
-	 * dfs_switch_to_postnol_chan_if_nol_expired), return from this function
-	 * without posting Start event to Agile SM. That will be taken care
-	 * of, after VAP start.
-	 */
-	if (dfs_switch_to_postnol_chan_if_nol_expired(dfs))
-		return;
-
-	utils_dfs_agile_sm_deliver_evt(dfs->dfs_pdev_obj,
-				       DFS_AGILE_SM_EV_AGILE_START);
 }
 #else
 #ifdef CONFIG_CHAN_NUM_API
@@ -500,16 +369,16 @@ void dfs_print_nol(struct wlan_dfs *dfs)
 	nol = dfs->dfs_nol;
 	dfs_debug(dfs, WLAN_DEBUG_DFS_NOL, "NOL");
 	while (nol) {
-		diff_ms = qdf_do_div(qdf_get_monotonic_boottime() -
-				     nol->nol_start_us, 1000);
+		diff_ms = qdf_system_ticks_to_msecs(qdf_system_ticks() -
+				nol->nol_start_ticks);
 		diff_ms = (nol->nol_timeout_ms - diff_ms);
 		remaining_sec = diff_ms / 1000; /* Convert to seconds */
 		dfs_info(NULL, WLAN_DEBUG_DFS_ALWAYS,
-			"nol:%d channel=%d MHz width=%d MHz time left=%u seconds nol start_us=%llu",
+			"nol:%d channel=%d MHz width=%d MHz time left=%u seconds nol starttick=%llu",
 			i++, nol->nol_freq,
 			nol->nol_chwidth,
 			remaining_sec,
-			nol->nol_start_us);
+			(uint64_t)nol->nol_start_ticks);
 		nol = nol->nol_next;
 	}
 }
@@ -564,7 +433,7 @@ void dfs_get_nol(struct wlan_dfs *dfs,
 	while (nol) {
 		dfs_nol[*nchan].nol_freq = nol->nol_freq;
 		dfs_nol[*nchan].nol_chwidth = nol->nol_chwidth;
-		dfs_nol[*nchan].nol_start_us = nol->nol_start_us;
+		dfs_nol[*nchan].nol_start_ticks = nol->nol_start_ticks;
 		dfs_nol[*nchan].nol_timeout_ms = nol->nol_timeout_ms;
 		++(*nchan);
 		nol = nol->nol_next;
@@ -587,8 +456,9 @@ void dfs_set_nol(struct wlan_dfs *dfs,
 	}
 
 	for (i = 0; i < nchan; i++) {
-		nol_time_lft_ms = qdf_do_div(qdf_get_monotonic_boottime() -
-					     dfs_nol[i].nol_start_us, 1000);
+		nol_time_lft_ms =
+			qdf_system_ticks_to_msecs(qdf_system_ticks() -
+				dfs_nol[i].nol_start_ticks);
 
 		if (nol_time_lft_ms < dfs_nol[i].nol_timeout_ms) {
 			chan.dfs_ch_freq = dfs_nol[i].nol_freq;
@@ -625,8 +495,9 @@ void dfs_set_nol(struct wlan_dfs *dfs,
 	}
 
 	for (i = 0; i < nchan; i++) {
-		nol_time_left_ms = qdf_do_div(qdf_get_monotonic_boottime() -
-					      dfs_nol[i].nol_start_us, 1000);
+		nol_time_left_ms =
+			qdf_system_ticks_to_msecs(qdf_system_ticks() -
+				dfs_nol[i].nol_start_ticks);
 
 		if (nol_time_left_ms < dfs_nol[i].nol_timeout_ms) {
 			chan.dfs_ch_freq = dfs_nol[i].nol_freq;
@@ -668,7 +539,7 @@ void dfs_nol_addchan(struct wlan_dfs *dfs,
 	while (nol) {
 		if ((nol->nol_freq == freq) &&
 				(nol->nol_chwidth == ch_width)) {
-			nol->nol_start_us = qdf_get_monotonic_boottime();
+			nol->nol_start_ticks = qdf_system_ticks();
 			nol->nol_timeout_ms = dfs_nol_timeout * TIME_IN_MS;
 
 			dfs_debug(dfs, WLAN_DEBUG_DFS_NOL,
@@ -693,7 +564,7 @@ void dfs_nol_addchan(struct wlan_dfs *dfs,
 	elem->nol_dfs = dfs;
 	elem->nol_freq = freq;
 	elem->nol_chwidth = ch_width;
-	elem->nol_start_us = qdf_get_monotonic_boottime();
+	elem->nol_start_ticks = qdf_system_ticks();
 	elem->nol_timeout_ms = dfs_nol_timeout*TIME_IN_MS;
 	elem->nol_next = NULL;
 	if (prev) {
@@ -892,16 +763,12 @@ void dfs_getnol(struct wlan_dfs *dfs, void *dfs_nolinfo)
 	DFS_GET_NOL_LOCKED(dfs, nolinfo->dfs_nol, &(nolinfo->dfs_ch_nchans));
 }
 
-#if !defined(QCA_MCL_DFS_SUPPORT)
 #ifdef CONFIG_CHAN_FREQ_API
 void dfs_clear_nolhistory(struct wlan_dfs *dfs)
 {
 	struct dfs_channel *chan_list;
-	int nchans;
+	int nchans = 0;
 	bool sta_opmode;
-	int i;
-	qdf_freq_t *nol_freq_list = NULL;
-	int num_nol_history_chans;
 
 	if (!dfs->dfs_is_stadfs_enabled)
 		return;
@@ -912,57 +779,31 @@ void dfs_clear_nolhistory(struct wlan_dfs *dfs)
 
 	nchans = dfs_get_num_chans();
 
-	if (!nchans) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "zero chans");
-		return;
-	}
-
 	chan_list = qdf_mem_malloc(nchans * sizeof(*chan_list));
 	if (!chan_list)
 		return;
 
 	utils_dfs_get_nol_history_chan_list(dfs->dfs_pdev_obj,
-					    (void *)chan_list,
-					    &num_nol_history_chans);
-
-	if (!num_nol_history_chans) {
+					    (void *)chan_list, &nchans);
+	if (!nchans) {
 		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "zero chans");
 		qdf_mem_free(chan_list);
 		return;
 	}
 
-	if (num_nol_history_chans > nchans)
-		num_nol_history_chans = nchans;
-
-	nol_freq_list =
-		qdf_mem_malloc(num_nol_history_chans * sizeof(qdf_freq_t));
-
-	if (!nol_freq_list) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "Unable to alloc memory for freq list");
-		qdf_mem_free(chan_list);
-		return;
-	}
-
-	for (i = 0; i < num_nol_history_chans; i++)
-		nol_freq_list[i] = chan_list[i].dfs_ch_freq;
-
 	utils_dfs_reg_update_nol_history_chan_for_freq(dfs->dfs_pdev_obj,
-						       nol_freq_list,
-						       num_nol_history_chans,
-						       DFS_NOL_HISTORY_RESET);
+						     (void *)chan_list, nchans,
+						     DFS_NOL_HISTORY_RESET);
+
 	qdf_mem_free(chan_list);
-	qdf_mem_free(nol_freq_list);
 }
 #else
 #ifdef CONFIG_CHAN_NUM_API
 void dfs_clear_nolhistory(struct wlan_dfs *dfs)
 {
 	struct dfs_channel *chan_list;
-	int nchans;
+	int nchans = 0;
 	bool sta_opmode;
-	int i;
-	uint8_t *nol_chan_ieee_list = NULL;
-	int num_nol_history_chans;
 
 	if (!dfs->dfs_is_stadfs_enabled)
 		return;
@@ -973,49 +814,24 @@ void dfs_clear_nolhistory(struct wlan_dfs *dfs)
 
 	nchans = dfs_get_num_chans();
 
-	if (!nchans) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "zero chans");
-		return;
-	}
-
 	chan_list = qdf_mem_malloc(nchans * sizeof(*chan_list));
 	if (!chan_list)
 		return;
 
 	utils_dfs_get_nol_history_chan_list(dfs->dfs_pdev_obj,
-					    (void *)chan_list,
-					    &num_nol_history_chans);
-
-	if (!num_nol_history_chans) {
+					    (void *)chan_list, &nchans);
+	if (!nchans) {
 		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "zero chans");
 		qdf_mem_free(chan_list);
 		return;
 	}
 
-	if (num_nol_history_chans > nchans)
-		num_nol_history_chans = nchans;
-
-	nol_chan_ieee_list =
-		qdf_mem_malloc(num_nol_history_chans * sizeof(uint8_t));
-
-	if (!nol_chan_ieee_list) {
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS, "Unable to alloc memory for ieee list");
-		qdf_mem_free(chan_list);
-		return;
-	}
-
-	for (i = 0; i < num_nol_history_chans; i++)
-		nol_chan_ieee_list[i] = chan_list[i].dfs_ch_ieee;
-
 	utils_dfs_reg_update_nol_history_ch(dfs->dfs_pdev_obj,
-					    nol_chan_ieee_list,
-					    num_nol_history_chans,
+					    (void *)chan_list, nchans,
 					    DFS_NOL_HISTORY_RESET);
 
 	qdf_mem_free(chan_list);
-	qdf_mem_free(nol_chan_ieee_list);
 }
-#endif
 #endif
 #endif
 
@@ -1113,11 +929,14 @@ void dfs_deinit_tmp_psoc_nol(struct wlan_dfs *dfs)
 }
 
 void dfs_save_dfs_nol_in_psoc(struct wlan_dfs *dfs,
-			      uint8_t pdev_id)
+			      uint8_t pdev_id,
+			      uint16_t low_5ghz_freq,
+			      uint16_t high_5ghz_freq)
 {
 	struct dfs_soc_priv_obj *dfs_soc_obj = dfs->dfs_soc_obj;
 	struct dfsreq_nolinfo tmp_nolinfo, *nolinfo;
 	uint32_t i, num_chans = 0;
+	uint16_t tmp_freq;
 
 	if (!dfs->dfs_nol_count)
 		return;
@@ -1132,30 +951,32 @@ void dfs_save_dfs_nol_in_psoc(struct wlan_dfs *dfs,
 	/* nolinfo might already have some data. Do not overwrite it */
 	num_chans = nolinfo->dfs_ch_nchans;
 	for (i = 0; i < tmp_nolinfo.dfs_ch_nchans; i++) {
-		/* Figure out the completed duration of each NOL. */
-		uint32_t nol_completed_ms = qdf_do_div(
-			qdf_get_monotonic_boottime() -
-			tmp_nolinfo.dfs_nol[i].nol_start_us, 1000);
+		tmp_freq = tmp_nolinfo.dfs_nol[i].nol_freq;
 
-		nolinfo->dfs_nol[num_chans] = tmp_nolinfo.dfs_nol[i];
-		/* Remember the remaining NOL time in the timeout
-		 * variable.
-		 */
-		nolinfo->dfs_nol[num_chans++].nol_timeout_ms -=
-			nol_completed_ms;
+		/* Add to nolinfo only if within the pdev's frequency range. */
+		if ((low_5ghz_freq < tmp_freq) && (high_5ghz_freq > tmp_freq)) {
+			/* Figure out the completed duration of each NOL. */
+			uint32_t nol_completed_ms =
+				qdf_system_ticks_to_msecs(qdf_system_ticks() -
+				tmp_nolinfo.dfs_nol[i].nol_start_ticks);
+
+			nolinfo->dfs_nol[num_chans] = tmp_nolinfo.dfs_nol[i];
+			/* Remember the remaining NOL time in the timeout
+			 * variable.
+			 */
+			nolinfo->dfs_nol[num_chans++].nol_timeout_ms -=
+				nol_completed_ms;
+		}
 	}
 
 	nolinfo->dfs_ch_nchans = num_chans;
 }
 
-void dfs_reinit_nol_from_psoc_copy(struct wlan_dfs *dfs,
-				   uint8_t pdev_id,
-				   uint16_t low_5ghz_freq,
-				   uint16_t high_5ghz_freq)
+void dfs_reinit_nol_from_psoc_copy(struct wlan_dfs *dfs, uint8_t pdev_id)
 {
 	struct dfs_soc_priv_obj *dfs_soc_obj = dfs->dfs_soc_obj;
-	struct dfsreq_nolinfo *nol, req_nol;
-	uint8_t i, j = 0;
+	struct dfsreq_nolinfo *nol;
+	uint8_t i;
 
 	if (!dfs_soc_obj->dfs_psoc_nolinfo)
 		return;
@@ -1165,23 +986,14 @@ void dfs_reinit_nol_from_psoc_copy(struct wlan_dfs *dfs,
 
 	nol = &dfs_soc_obj->dfs_psoc_nolinfo[pdev_id];
 
-	for (i = 0; i < nol->dfs_ch_nchans; i++) {
-		uint16_t tmp_freq = nol->dfs_nol[i].nol_freq;
-
-		/* Add to nol only if within the tgt pdev's frequency range. */
-		if ((low_5ghz_freq < tmp_freq) && (high_5ghz_freq > tmp_freq)) {
-			/* The NOL timeout value in each entry points to the
-			 * remaining time of the NOL. This is to indicate that
-			 * the NOL entries are paused and are not left to
-			 * continue.
-			 * While adding these NOL, update the start ticks to
-			 * current time to avoid losing entries which might
-			 * have timed out during the pause and resume mechanism.
-			 */
-			nol->dfs_nol[i].nol_start_us =
-				qdf_get_monotonic_boottime();
-			req_nol.dfs_nol[j++] = nol->dfs_nol[i];
-		}
-	}
-	dfs_set_nol(dfs, req_nol.dfs_nol, j);
+	/* The NOL timeout value in each entry points to the remaining time
+	 * of the NOL. This is to indicate that the NOL entries are paused
+	 * and are not left to continue.
+	 * While adding these NOL, update the start ticks to current time
+	 * to avoid losing entries which might have timed out during
+	 * the pause and resume mechanism.
+	 */
+	for (i = 0; i < nol->dfs_ch_nchans; i++)
+		nol->dfs_nol[i].nol_start_ticks = qdf_system_ticks();
+	dfs_set_nol(dfs, nol->dfs_nol, nol->dfs_ch_nchans);
 }

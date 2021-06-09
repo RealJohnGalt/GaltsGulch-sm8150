@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -104,7 +104,7 @@ struct hif_sdio_device *hif_dev_create(struct hif_sdio_dev *hif_device,
 				      HIF_DEVICE_SET_HTC_CONTEXT,
 				      (void *)pdev, sizeof(pdev));
 	if (status != QDF_STATUS_SUCCESS)
-		hif_err("set context failed");
+		HIF_ERROR("%s: set context failed", __func__);
 
 	A_MEMCPY(&pdev->hif_callbacks, callbacks, sizeof(*callbacks));
 
@@ -127,7 +127,7 @@ void hif_dev_destroy(struct hif_sdio_device *pdev)
 				      HIF_DEVICE_SET_HTC_CONTEXT,
 				      (void *)NULL, 0);
 	if (status != QDF_STATUS_SUCCESS)
-		hif_err("set context failed");
+		HIF_ERROR("%s: set context failed", __func__);
 
 	qdf_mem_free(pdev);
 }
@@ -149,7 +149,7 @@ struct hif_sdio_device *hif_dev_from_hif(struct hif_sdio_dev *hif_device)
 				      (void **)&pdev,
 				      sizeof(struct hif_sdio_device));
 	if (status != QDF_STATUS_SUCCESS)
-		hif_err("set context failed");
+		HIF_ERROR("%s: set context failed", __func__);
 
 	return pdev;
 }
@@ -226,7 +226,7 @@ QDF_STATUS hif_dev_setup(struct hif_sdio_device *pdev)
 	status = hif_dev_setup_device(pdev);
 
 	if (status != QDF_STATUS_SUCCESS) {
-		hif_err("device specific setup failed");
+		HIF_ERROR("%s: device specific setup failed", __func__);
 		return QDF_STATUS_E_INVAL;
 	}
 

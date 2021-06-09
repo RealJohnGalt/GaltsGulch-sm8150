@@ -112,7 +112,6 @@ void hif_record_ce_srng_desc_event(struct hif_softc *scn, int ce_id,
 
 	event->type = type;
 	event->time = qdf_get_log_timestamp();
-	event->cpu_id = qdf_get_cpu();
 
 	if (descriptor)
 		qdf_mem_copy(&event->descriptor, descriptor,
@@ -133,7 +132,7 @@ void hif_record_ce_srng_desc_event(struct hif_softc *scn, int ce_id,
 }
 #endif /* HIF_CONFIG_SLUB_DEBUG_ON || HIF_CE_DEBUG_DATA_BUF */
 
-static QDF_STATUS
+static int
 ce_send_nolock_srng(struct CE_handle *copyeng,
 			   void *per_transfer_context,
 			   qdf_dma_addr_t buffer,
@@ -142,7 +141,7 @@ ce_send_nolock_srng(struct CE_handle *copyeng,
 			   uint32_t flags,
 			   uint32_t user_flags)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
 	unsigned int nentries_mask = src_ring->nentries_mask;
@@ -216,12 +215,12 @@ ce_send_nolock_srng(struct CE_handle *copyeng,
 	return status;
 }
 
-static QDF_STATUS
+static int
 ce_sendlist_send_srng(struct CE_handle *copyeng,
 		 void *per_transfer_context,
 		 struct ce_sendlist *sendlist, unsigned int transfer_id)
 {
-	QDF_STATUS status = QDF_STATUS_E_NOMEM;
+	int status = -ENOMEM;
 	struct ce_sendlist_s *sl = (struct ce_sendlist_s *)sendlist;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
@@ -295,13 +294,13 @@ ce_sendlist_send_srng(struct CE_handle *copyeng,
  * @per_recv_context: virtual address of the nbuf
  * @buffer: physical address of the nbuf
  *
- * Return: QDF_STATUS_SUCCESS if the buffer is enqueued
+ * Return: 0 if the buffer is enqueued
  */
-static QDF_STATUS
+static int
 ce_recv_buf_enqueue_srng(struct CE_handle *copyeng,
 		    void *per_recv_context, qdf_dma_addr_t buffer)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *dest_ring = CE_state->dest_ring;
 	unsigned int nentries_mask = dest_ring->nentries_mask;
@@ -317,7 +316,7 @@ ce_recv_buf_enqueue_srng(struct CE_handle *copyeng,
 
 	if (Q_TARGET_ACCESS_BEGIN(scn) < 0) {
 		qdf_spin_unlock_bh(&CE_state->ce_index_lock);
-		return QDF_STATUS_E_IO;
+		return -EIO;
 	}
 
 	if (hal_srng_access_start(scn->hal_soc, dest_ring->srng_ctx)) {
@@ -403,7 +402,7 @@ ce_send_entries_done_nolock_srng(struct hif_softc *scn,
  * Guts of ce_completed_recv_next.
  * The caller takes responsibility for any necessary locking.
  */
-static QDF_STATUS
+static int
 ce_completed_recv_next_nolock_srng(struct CE_state *CE_state,
 			      void **per_CE_contextp,
 			      void **per_transfer_contextp,
@@ -412,7 +411,7 @@ ce_completed_recv_next_nolock_srng(struct CE_state *CE_state,
 			      unsigned int *transfer_idp,
 			      unsigned int *flagsp)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_ring_state *dest_ring = CE_state->dest_ring;
 	struct CE_ring_state *status_ring = CE_state->status_ring;
 	unsigned int nentries_mask = dest_ring->nentries_mask;
@@ -548,7 +547,7 @@ ce_revoke_recv_next_srng(struct CE_handle *copyeng,
  * Guts of ce_completed_send_next.
  * The caller takes responsibility for any necessary locking.
  */
-static QDF_STATUS
+static int
 ce_completed_send_next_nolock_srng(struct CE_state *CE_state,
 			      void **per_CE_contextp,
 			      void **per_transfer_contextp,
@@ -559,7 +558,7 @@ ce_completed_send_next_nolock_srng(struct CE_state *CE_state,
 			      unsigned int *hw_idx,
 			      uint32_t *toeplitz_hash_result)
 {
-	QDF_STATUS status = QDF_STATUS_E_FAILURE;
+	int status = QDF_STATUS_E_FAILURE;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
 	unsigned int nentries_mask = src_ring->nentries_mask;
 	unsigned int sw_index = src_ring->sw_index;
@@ -622,7 +621,7 @@ ce_cancel_send_next_srng(struct CE_handle *copyeng,
 		uint32_t *toeplitz_hash_result)
 {
 	struct CE_state *CE_state;
-	QDF_STATUS status = QDF_STATUS_E_FAILURE;
+	int status = QDF_STATUS_E_FAILURE;
 	struct CE_ring_state *src_ring;
 	unsigned int nentries_mask;
 	unsigned int sw_index;
@@ -735,7 +734,7 @@ static void ce_srng_msi_ring_params_setup(struct hif_softc *scn, uint32_t ce_id,
 	ring_params->msi_data = (ce_id % msi_data_count) + msi_data_start;
 	ring_params->flags |= HAL_SRNG_MSI_INTR;
 
-	hif_debug("ce_id %d, msi_addr %pK, msi_data %d", ce_id,
+	HIF_DBG("%s: ce_id %d, msi_addr %pK, msi_data %d", __func__, ce_id,
 		  (void *)ring_params->msi_addr, ring_params->msi_data);
 }
 
@@ -807,7 +806,7 @@ static void ce_srng_dest_ring_setup(struct hif_softc *scn,
 	struct hal_srng_params ring_params = {0};
 	bool status_ring_timer_thresh_work_arround = true;
 
-	hif_debug("ce_id: %d", ce_id);
+	HIF_INFO("%s: ce_id %d", __func__, ce_id);
 
 	ring_params.ring_base_paddr = dest_ring->base_addr_CE_space;
 	ring_params.ring_base_vaddr = dest_ring->base_addr_owner_space;
@@ -868,7 +867,7 @@ static void ce_srng_status_ring_setup(struct hif_softc *scn, uint32_t ce_id,
 {
 	struct hal_srng_params ring_params = {0};
 
-	hif_debug("ce_id: %d", ce_id);
+	HIF_INFO("%s: ce_id %d", __func__, ce_id);
 
 	ce_srng_msi_ring_params_setup(scn, ce_id, &ring_params);
 
@@ -931,7 +930,8 @@ static void ce_prepare_shadow_register_v2_cfg_srng(struct hif_softc *scn,
 		int *num_shadow_registers_configured)
 {
 	if (!scn->hal_soc) {
-		hif_err("hal not initialized: not initializing shadow config");
+		HIF_ERROR("%s: hal not initialized: not initializing shadow config",
+			  __func__);
 		return;
 	}
 
@@ -939,7 +939,8 @@ static void ce_prepare_shadow_register_v2_cfg_srng(struct hif_softc *scn,
 			      num_shadow_registers_configured);
 
 	if (*num_shadow_registers_configured != 0) {
-		hif_err("hal shadow register configuration allready constructed");
+		HIF_ERROR("%s: hal shadow register configuration allready constructed",
+			  __func__);
 
 		/* return with original configuration*/
 		return;

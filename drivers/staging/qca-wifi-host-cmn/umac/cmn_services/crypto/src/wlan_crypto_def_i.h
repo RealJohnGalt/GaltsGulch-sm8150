@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -161,18 +161,18 @@ static inline void wlan_crypto_put_be64(u8 *a, u64 val)
 	a[7] = val & 0xff;
 }
 
-#define WLAN_CRYPTO_TX_OPS_ALLOCKEY(tx_ops) \
-	((tx_ops)->crypto_tx_ops.allockey)
-#define WLAN_CRYPTO_TX_OPS_SETKEY(tx_ops) \
-	((tx_ops)->crypto_tx_ops.setkey)
-#define WLAN_CRYPTO_TX_OPS_DELKEY(tx_ops) \
-	((tx_ops)->crypto_tx_ops.delkey)
-#define WLAN_CRYPTO_TX_OPS_DEFAULTKEY(tx_ops) \
-	((tx_ops)->crypto_tx_ops.defaultkey)
-#define WLAN_CRYPTO_TX_OPS_SET_KEY(tx_ops) \
-	((tx_ops)->crypto_tx_ops.set_key)
-#define WLAN_CRYPTO_TX_OPS_GETPN(tx_ops) \
-	((tx_ops)->crypto_tx_ops.getpn)
+#define WLAN_CRYPTO_TX_OPS_ALLOCKEY(psoc) \
+		(psoc->soc_cb.tx_ops.crypto_tx_ops.allockey)
+#define WLAN_CRYPTO_TX_OPS_SETKEY(psoc) \
+		(psoc->soc_cb.tx_ops.crypto_tx_ops.setkey)
+#define WLAN_CRYPTO_TX_OPS_DELKEY(psoc) \
+		(psoc->soc_cb.tx_ops.crypto_tx_ops.delkey)
+#define WLAN_CRYPTO_TX_OPS_DEFAULTKEY(psoc) \
+		(psoc->soc_cb.tx_ops.crypto_tx_ops.defaultkey)
+#define WLAN_CRYPTO_TX_OPS_SET_KEY(psoc) \
+		((psoc)->soc_cb.tx_ops.crypto_tx_ops.set_key)
+#define WLAN_CRYPTO_TX_OPS_GETPN(psoc) \
+		((psoc)->soc_cb.tx_ops.crypto_tx_ops.getpn)
 
 /* unalligned little endian access */
 #ifndef LE_READ_2
@@ -266,8 +266,6 @@ static inline void wlan_crypto_put_be64(u8 *a, u64 val)
 #define RSN_AUTH_KEY_MGMT_FT_FILS_SHA384\
 					WLAN_RSN_SEL(17)
 #define RSN_AUTH_KEY_MGMT_OWE           WLAN_RSN_SEL(18)
-#define RSN_AUTH_KEY_MGMT_FT_PSK_SHA384 WLAN_RSN_SEL(19)
-#define RSN_AUTH_KEY_MGMT_PSK_SHA384    WLAN_RSN_SEL(20)
 
 #define RSN_AUTH_KEY_MGMT_CCKM          (WLAN_RSN_CCKM_AKM)
 #define RSN_AUTH_KEY_MGMT_OSEN          (0x019a6f50)
@@ -292,7 +290,8 @@ static inline void wlan_crypto_put_be64(u8 *a, u64 val)
 #define CLEAR_PARAM(__param, __val)  ((__param) &= ((~1) << (__val)))
 
 
-#define RESET_AUTHMODE(_param)       ((_param)->authmodeset = 0)
+#define RESET_AUTHMODE(_param)       ((_param)->authmodeset = \
+					(1 << WLAN_CRYPTO_AUTH_OPEN))
 
 #define SET_AUTHMODE(_param, _mode)  ((_param)->authmodeset |= (1 << (_mode)))
 #define HAS_AUTHMODE(_param, _mode)  ((_param)->authmodeset &  (1 << (_mode)))
@@ -311,7 +310,8 @@ static inline void wlan_crypto_put_be64(u8 *a, u64 val)
 		(((_param1)->authmodeset & (_param2)->authmodeset) != 0)
 
 
-#define RESET_UCAST_CIPHERS(_param)   ((_param)->ucastcipherset = 0)
+#define RESET_UCAST_CIPHERS(_param)   ((_param)->ucastcipherset =\
+					(1 << WLAN_CRYPTO_CIPHER_NONE))
 #define SET_UCAST_CIPHER(_param, _c)  ((_param)->ucastcipherset |= (1 << (_c)))
 #define HAS_UCAST_CIPHER(_param, _c)  ((_param)->ucastcipherset & (1 << (_c)))
 
@@ -332,7 +332,8 @@ static inline void wlan_crypto_put_be64(u8 *a, u64 val)
 #define UCIPHER_IS_SMS4(_param)    \
 		HAS_UCAST_CIPHER((_param), WLAN_CRYPTO_CIPHER_WAPI_SMS4)
 
-#define RESET_MCAST_CIPHERS(_param)   ((_param)->mcastcipherset = 0)
+#define RESET_MCAST_CIPHERS(_param)   ((_param)->mcastcipherset = \
+					(1 << WLAN_CRYPTO_CIPHER_NONE))
 #define SET_MCAST_CIPHER(_param, _c)  ((_param)->mcastcipherset |= (1 << (_c)))
 #define HAS_MCAST_CIPHER(_param, _c)  ((_param)->mcastcipherset & (1 << (_c)))
 #define HAS_ANY_MCAST_CIPHER(_param)  ((_param)->mcastcipherset)
@@ -426,11 +427,9 @@ struct wlan_crypto_mmie {
  * @crypto_params:    crypto params for the peer
  * @key:              key buffers for this peer
  * @igtk_key:         igtk key buffer for this peer
- * @bigtk_key:        bigtk key buffer for this peer
  * @igtk_key_type:    igtk key type
  * @def_tx_keyid:     default key used for this peer
  * @def_igtk_tx_keyid default igtk key used for this peer
- * @def_bigtk_tx_keyid default bigtk key used for this peer
  * @fils_aead_set     fils params for this peer
  *
  */
@@ -438,11 +437,9 @@ struct wlan_crypto_comp_priv {
 	struct wlan_crypto_params crypto_params;
 	struct wlan_crypto_key *key[WLAN_CRYPTO_MAX_VLANKEYIX];
 	struct wlan_crypto_key *igtk_key[WLAN_CRYPTO_MAXIGTKKEYIDX];
-	struct wlan_crypto_key *bigtk_key[WLAN_CRYPTO_MAXBIGTKKEYIDX];
 	enum wlan_crypto_cipher_type igtk_key_type;
 	uint8_t def_tx_keyid;
 	uint8_t def_igtk_tx_keyid;
-	uint8_t def_bigtk_tx_keyid;
 	uint8_t fils_aead_set;
 };
 
@@ -519,12 +516,6 @@ static inline uint8_t ieee80211_hdrsize(const void *data)
 			== WLAN_FC0_STYPE_QOS_DATA))) {
 		size += sizeof(uint16_t);
 		/* Qos frame with Order bit set indicates an HTC frame */
-		if (hdr->i_fc[1] & WLAN_FC1_ORDER)
-			size += (sizeof(uint8_t)*4);
-	}
-	if (((WLAN_FC0_GET_STYPE(hdr->i_fc[0])
-			== WLAN_FC0_STYPE_ACTION))) {
-		/* Action frame with Order bit set indicates an HTC frame */
 		if (hdr->i_fc[1] & WLAN_FC1_ORDER)
 			size += (sizeof(uint8_t)*4);
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -78,10 +78,7 @@ void __qdf_delayed_work_destroy(struct qdf_delayed_work *dwork,
  *
  * Return: true if started successfully
  */
-#define qdf_delayed_work_start(dwork, msec) \
-	__qdf_delayed_work_start(dwork, msec)
-
-bool __qdf_delayed_work_start(struct qdf_delayed_work *dwork, uint32_t msec);
+bool qdf_delayed_work_start(struct qdf_delayed_work *dwork, uint32_t msec);
 
 /**
  * qdf_delayed_work_stop_sync() - Synchronously stop execution of @dwork
@@ -92,23 +89,7 @@ bool __qdf_delayed_work_start(struct qdf_delayed_work *dwork, uint32_t msec);
  *
  * Return: true if @dwork was queued or running
  */
-#define qdf_delayed_work_stop_sync(dwork) \
-	__qdf_delayed_work_stop_sync(dwork)
-
-bool __qdf_delayed_work_stop_sync(struct qdf_delayed_work *dwork);
-
-/**
- * qdf_delayed_work_stop() - Stop execution of @dwork
- * @dwork: the delayed work to stop
- *
- * Kill off a pending delayed_work
- *
- * Return: true if dwork was pending and canceled
- */
-#define qdf_delayed_work_stop(dwork) \
-	__qdf_delayed_work_stop(dwork)
-
-bool __qdf_delayed_work_stop(struct qdf_delayed_work *dwork);
+bool qdf_delayed_work_stop_sync(struct qdf_delayed_work *dwork);
 
 #ifdef WLAN_DELAYED_WORK_DEBUG
 /**

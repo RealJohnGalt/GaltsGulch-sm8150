@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -154,11 +154,8 @@ static void htc_cleanup(HTC_TARGET *target)
 	HTC_PACKET_QUEUE *pkt_queue;
 	qdf_nbuf_t netbuf;
 
-	while (htc_dec_return_runtime_cnt((void *)target) >= 0) {
+	while (htc_dec_return_runtime_cnt((void *)target) >= 0)
 		hif_pm_runtime_put(target->hif_dev, RTPM_ID_HTC);
-		hif_pm_runtime_update_stats(target->hif_dev, RTPM_ID_HTC,
-					    HIF_PM_HTC_STATS_PUT_HTC_CLEANUP);
-	}
 
 	if (target->hif_dev) {
 		hif_detach_htc(target->hif_dev);
@@ -760,8 +757,6 @@ static void reset_endpoint_states(HTC_TARGET *target)
 		INIT_HTC_PACKET_QUEUE(&pEndpoint->RxBufferHoldQueue);
 		pEndpoint->target = target;
 		pEndpoint->TxCreditFlowEnabled = (bool)htc_credit_flow;
-		pEndpoint->num_requeues_warn = 0;
-		pEndpoint->total_num_requeues = 0;
 		qdf_atomic_init(&pEndpoint->TxProcessCount);
 	}
 }
@@ -1177,16 +1172,15 @@ int htc_pm_runtime_get(HTC_HANDLE htc_handle)
 	HTC_TARGET *target = GET_HTC_TARGET_FROM_HANDLE(htc_handle);
 
 	return hif_pm_runtime_get(target->hif_dev,
-				  RTPM_ID_HTC, false);
+				  RTPM_ID_HTC);
 }
 
 int htc_pm_runtime_put(HTC_HANDLE htc_handle)
 {
 	HTC_TARGET *target = GET_HTC_TARGET_FROM_HANDLE(htc_handle);
 
-	hif_pm_runtime_update_stats(target->hif_dev, RTPM_ID_HTC,
-				    HIF_PM_HTC_STATS_PUT_HTT_RESPONSE);
-	return hif_pm_runtime_put(target->hif_dev, RTPM_ID_HTC);
+	return hif_pm_runtime_put(target->hif_dev,
+				  RTPM_ID_HTC);
 }
 #endif
 

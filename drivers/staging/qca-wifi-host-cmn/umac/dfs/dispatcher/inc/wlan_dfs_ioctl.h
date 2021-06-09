@@ -57,17 +57,17 @@
 #define DFS_ALLOW_HW_PULSES 28
 #define DFS_SET_PRI_MULTIPILER   29
 
-#define RESTRICTED_80P80_START_FREQ 5660
-#define RESTRICTED_80P80_END_FREQ 5805
+#define RESTRICTED_80P80_START_CHAN 132
+#define RESTRICTED_80P80_END_CHAN 161
 
-/* Check if the given frequencies are within restricted 80P80 start freq(5660)
- * and end freq (5805).
+/* Check if the given channels are within restricted 80P80 start chan(132) and
+ * end chan (161).
  */
-#define CHAN_WITHIN_RESTRICTED_80P80(cfreq1, cfreq2) \
-	((((cfreq1) >= RESTRICTED_80P80_START_FREQ) && \
-	  ((cfreq1) <= RESTRICTED_80P80_END_FREQ) && \
-	  ((cfreq2) >= RESTRICTED_80P80_START_FREQ) && \
-	  ((cfreq2) <= RESTRICTED_80P80_END_FREQ)) ? true : false)
+#define CHAN_WITHIN_RESTRICTED_80P80(chan, cfreq_seg2) \
+	((((chan) >= RESTRICTED_80P80_START_CHAN) && \
+	  ((chan) <= RESTRICTED_80P80_END_CHAN) && \
+	  ((cfreq_seg2) >= RESTRICTED_80P80_START_CHAN) && \
+	  ((cfreq_seg2) <= RESTRICTED_80P80_END_CHAN)) ? true : false)
 
 /*
  * Spectral IOCTLs use DFS_LAST_IOCTL as the base.
@@ -84,14 +84,14 @@
  * struct dfsreq_nolelem - NOL elements.
  * @nol_freq:          NOL channel frequency.
  * @nol_chwidth:       NOL channel width.
- * @nol_start_us:      OS microseconds when the NOL timer started.
+ * @nol_start_ticks:   OS ticks when the NOL timer started.
  * @nol_timeout_ms:    Nol timeout value in msec.
  */
 
 struct dfsreq_nolelem {
 	uint16_t        nol_freq;
 	uint16_t        nol_chwidth;
-	uint64_t        nol_start_us;
+	unsigned long   nol_start_ticks;
 	uint32_t        nol_timeout_ms;
 };
 
@@ -167,14 +167,12 @@ enum dfs_bangradar_types {
  * @seg_id:         Segment ID information.
  * @is_chirp:       Chirp radar or not.
  * @freq_offset:    Frequency offset at which radar was found.
- * @detector_id:    Detector ID corresponding to primary/agile detectors.
  */
 struct dfs_bangradar_params {
 	enum dfs_bangradar_types bangradar_type;
 	uint8_t seg_id;
 	uint8_t is_chirp;
 	int32_t freq_offset;
-	uint8_t detector_id;
 };
 #define DFS_IOCTL_PARAM_NOVAL  65535
 #define DFS_IOCTL_PARAM_ENABLE 0x8000
@@ -210,9 +208,6 @@ struct dfs_bangradar_params {
 /* Restricted 80P80 MHz is enabled */
 #define DFS_RANDOM_CH_FLAG_RESTRICTED_80P80_ENABLED 0x0200
 						       /* 0000 0010 0000 0000 */
-
-/* Flag to exclude all 6GHz channels */
-#define DFS_RANDOM_CH_FLAG_NO_6GHZ_CH          0x00400 /* 0000 0100 0000 0000 */
 
 /**
  * struct wlan_dfs_caps - DFS capability structure.
@@ -361,39 +356,4 @@ struct seq_store {
 	struct synthetic_seq *seq_arr[0];
 };
 #endif /* WLAN_DFS_PARTIAL_OFFLOAD && WLAN_DFS_SYNTHETIC_RADAR */
-
-/**
- * enum dfs_agile_sm_evt - DFS Agile SM events.
- * @DFS_AGILE_SM_EV_AGILE_START: Event to start AGILE PreCAC/RCAC.
- * @DFS_AGILE_SM_EV_AGILE_DOWN:  Event to stop AGILE PreCAC/RCAC..
- * @DFS_AGILE_SM_EV_AGILE_DONE:  Event to complete AGILE PreCAC/RCAC..
- * @DFS_AGILE_SM_EV_ADFS_RADAR: Event to restart AGILE PreCAC/RCAC after radar.
- */
-enum dfs_agile_sm_evt {
-	DFS_AGILE_SM_EV_AGILE_START = 0,
-	DFS_AGILE_SM_EV_AGILE_STOP =  1,
-	DFS_AGILE_SM_EV_AGILE_DONE =  2,
-	DFS_AGILE_SM_EV_ADFS_RADAR =  3,
-};
-
-/**
- * enum precac_status_for_chan - preCAC status for channels.
- * @DFS_NO_PRECAC_COMPLETED_CHANS: None of the channels are preCAC completed.
- * @DFS_PRECAC_COMPLETED_CHAN: A given channel is preCAC completed.
- * @DFS_PRECAC_REQUIRED_CHAN:  A given channel required preCAC.
- * @DFS_INVALID_PRECAC_STATUS: Invalid status.
- *
- * Note: "DFS_NO_PRECAC_COMPLETED_CHANS" has more priority than
- * "DFS_PRECAC_COMPLETED_CHAN". This is because if the preCAC list does not
- * have any channel that completed preCAC, "DFS_NO_PRECAC_COMPLETED_CHANS"
- * is returned and search for preCAC completion (DFS_PRECAC_COMPLETED_CHAN)
- * for a given channel is not done.
- */
-enum precac_status_for_chan {
-	DFS_NO_PRECAC_COMPLETED_CHANS,
-	DFS_PRECAC_COMPLETED_CHAN,
-	DFS_PRECAC_REQUIRED_CHAN,
-	DFS_INVALID_PRECAC_STATUS,
-};
-
 #endif  /* _DFS_IOCTL_H_ */
