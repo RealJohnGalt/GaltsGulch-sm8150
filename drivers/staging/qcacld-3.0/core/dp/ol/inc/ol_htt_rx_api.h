@@ -380,8 +380,7 @@ bool (*htt_rx_mpdu_desc_retry)(
  * @return the LSBs of the sequence number for the MPDU
  */
 extern uint16_t
-(*htt_rx_mpdu_desc_seq_num)(htt_pdev_handle pdev, void *mpdu_desc,
-			    bool update_seq_num);
+(*htt_rx_mpdu_desc_seq_num)(htt_pdev_handle pdev, void *mpdu_desc);
 
 /**
  * @brief Return a rx MPDU's rx reorder array index, based on sequence number.

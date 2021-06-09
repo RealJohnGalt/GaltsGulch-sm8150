@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -19,13 +19,12 @@
 #include <dp_txrx.h>
 #include "dp_peer.h"
 #include "dp_internal.h"
-#include "dp_types.h"
 #include <cdp_txrx_cmn_struct.h>
 #include <cdp_txrx_peer_ops.h>
 #include <cds_sched.h>
 
 /* Timeout in ms to wait for a DP rx thread */
-#define DP_RX_THREAD_WAIT_TIMEOUT 2000
+#define DP_RX_THREAD_WAIT_TIMEOUT 1000
 
 #define DP_RX_TM_DEBUG 0
 #if DP_RX_TM_DEBUG
@@ -320,17 +319,7 @@ enq_done:
 	return QDF_STATUS_SUCCESS;
 }
 
-/**
- * dp_rx_tm_thread_gro_flush_ind() - Rxthread flush ind post
- * @rx_thread: rx_thread in which the flush needs to be handled
- * @flush_code: flush code to differentiate low TPUT flush
- *
- * Return: QDF_STATUS_SUCCESS on success or qdf error code on
- * failure
- */
-static QDF_STATUS
-dp_rx_tm_thread_gro_flush_ind(struct dp_rx_thread *rx_thread,
-			      enum dp_rx_gro_flush_code flush_code)
+static QDF_STATUS dp_rx_tm_thread_gro_flush_ind(struct dp_rx_thread *rx_thread)
 {
 	struct dp_rx_tm_handle_cmn *tm_handle_cmn;
 	qdf_wait_queue_head_t *wait_q_ptr;
@@ -338,7 +327,7 @@ dp_rx_tm_thread_gro_flush_ind(struct dp_rx_thread *rx_thread,
 	tm_handle_cmn = rx_thread->rtm_handle_cmn;
 	wait_q_ptr = &rx_thread->wait_q;
 
-	qdf_atomic_set(&rx_thread->gro_flush_ind, flush_code);
+	qdf_atomic_set(&rx_thread->gro_flush_ind, 1);
 
 	dp_debug("Flush indication received");
 
@@ -445,18 +434,16 @@ static int dp_rx_thread_process_nbufq(struct dp_rx_thread *rx_thread)
 
 /**
  * dp_rx_thread_gro_flush() - flush GRO packets for the RX thread
- * @rx_thread: rx_thread to be processed
- * @gro_flush_code: flush code to differentiating flushes
+ * @rx_thread - rx_thread to be processed
  *
- * Return: void
+ * Returns: void
  */
-static void dp_rx_thread_gro_flush(struct dp_rx_thread *rx_thread,
-				   enum dp_rx_gro_flush_code gro_flush_code)
+static void dp_rx_thread_gro_flush(struct dp_rx_thread *rx_thread)
 {
 	dp_debug("flushing packets for thread %u", rx_thread->id);
 
 	local_bh_disable();
-	dp_rx_napi_gro_flush(&rx_thread->napi, gro_flush_code);
+	napi_gro_flush(&rx_thread->napi, false);
 	local_bh_enable();
 
 	rx_thread->stats.gro_flushes++;
@@ -476,8 +463,6 @@ static void dp_rx_thread_gro_flush(struct dp_rx_thread *rx_thread,
  */
 static int dp_rx_thread_sub_loop(struct dp_rx_thread *rx_thread, bool *shutdown)
 {
-	enum dp_rx_gro_flush_code gro_flush_code;
-
 	while (true) {
 		if (qdf_atomic_test_and_clear_bit(RX_SHUTDOWN_EVENT,
 						  &rx_thread->event_flag)) {
@@ -494,12 +479,10 @@ static int dp_rx_thread_sub_loop(struct dp_rx_thread *rx_thread, bool *shutdown)
 
 		dp_rx_thread_process_nbufq(rx_thread);
 
-		gro_flush_code = qdf_atomic_read(&rx_thread->gro_flush_ind);
-
-		if (gro_flush_code ||
+		if (qdf_atomic_read(&rx_thread->gro_flush_ind) |
 		    qdf_atomic_test_bit(RX_VDEV_DEL_EVENT,
 					&rx_thread->event_flag)) {
-			dp_rx_thread_gro_flush(rx_thread, gro_flush_code);
+			dp_rx_thread_gro_flush(rx_thread);
 			qdf_atomic_set(&rx_thread->gro_flush_ind, 0);
 		}
 
@@ -576,86 +559,6 @@ static int dp_rx_thread_loop(void *arg)
 	/* If we get here the scheduler thread must exit */
 	dp_info("exiting (%s) id %d pid %d", qdf_get_current_comm(),
 		rx_thread->id, qdf_get_current_pid());
-	qdf_event_set(&rx_thread->shutdown_event);
-	qdf_exit_thread(QDF_STATUS_SUCCESS);
-
-	return 0;
-}
-
-static int dp_rx_refill_thread_sub_loop(struct dp_rx_refill_thread *rx_thread,
-					bool *shutdown)
-{
-	while (true) {
-		if (qdf_atomic_test_and_clear_bit(RX_REFILL_SHUTDOWN_EVENT,
-						  &rx_thread->event_flag)) {
-			if (qdf_atomic_test_and_clear_bit(RX_REFILL_SUSPEND_EVENT,
-							  &rx_thread->event_flag)) {
-				qdf_event_set(&rx_thread->suspend_event);
-			}
-			dp_debug("shutting down (%s) pid %d",
-				 qdf_get_current_comm(), qdf_get_current_pid());
-			*shutdown = true;
-			break;
-		}
-
-		dp_rx_refill_buff_pool_enqueue((struct dp_soc *)rx_thread->soc);
-
-		if (qdf_atomic_test_and_clear_bit(RX_REFILL_SUSPEND_EVENT,
-						  &rx_thread->event_flag)) {
-			dp_debug("refill thread received suspend ind (%s) pid %d",
-				 qdf_get_current_comm(),
-				 qdf_get_current_pid());
-			qdf_event_set(&rx_thread->suspend_event);
-			dp_debug("refill thread waiting for resume (%s) pid %d",
-				 qdf_get_current_comm(),
-				 qdf_get_current_pid());
-			qdf_wait_single_event(&rx_thread->resume_event, 0);
-		}
-		break;
-	}
-	return 0;
-}
-
-static int dp_rx_refill_thread_loop(void *arg)
-{
-	struct dp_rx_refill_thread *rx_thread = arg;
-	bool shutdown = false;
-	int status;
-
-	if (!arg) {
-		dp_err("bad Args passed");
-		return 0;
-	}
-
-	qdf_set_user_nice(qdf_get_current_task(), -1);
-	qdf_set_wake_up_idle(true);
-
-	qdf_event_set(&rx_thread->start_event);
-	dp_info("starting rx_refill_thread (%s) pid %d", qdf_get_current_comm(),
-		qdf_get_current_pid());
-	while (!shutdown) {
-		/* This implements the execution model algorithm */
-		dp_debug("refill thread sleeping");
-		status =
-		    qdf_wait_queue_interruptible
-				(rx_thread->wait_q,
-				 qdf_atomic_test_bit(RX_REFILL_POST_EVENT,
-						     &rx_thread->event_flag) ||
-				 qdf_atomic_test_bit(RX_REFILL_SUSPEND_EVENT,
-						     &rx_thread->event_flag));
-		dp_debug("refill thread woken up");
-
-		if (status == -ERESTARTSYS) {
-			QDF_DEBUG_PANIC("wait_event_interruptible returned -ERESTARTSYS");
-			break;
-		}
-		dp_rx_refill_thread_sub_loop(rx_thread, &shutdown);
-		qdf_atomic_clear_bit(RX_REFILL_POST_EVENT, &rx_thread->event_flag);
-	}
-
-	/* If we get here the scheduler thread must exit */
-	dp_info("exiting (%s) pid %d", qdf_get_current_comm(),
-		qdf_get_current_pid());
 	qdf_event_set(&rx_thread->shutdown_event);
 	qdf_exit_thread(QDF_STATUS_SUCCESS);
 
@@ -778,60 +681,6 @@ static QDF_STATUS dp_rx_tm_thread_deinit(struct dp_rx_thread *rx_thread)
 	return QDF_STATUS_SUCCESS;
 }
 
-QDF_STATUS dp_rx_refill_thread_init(struct dp_rx_refill_thread *refill_thread)
-{
-	char refill_thread_name[20] = {0};
-	QDF_STATUS qdf_status = QDF_STATUS_SUCCESS;
-
-	qdf_scnprintf(refill_thread_name, sizeof(refill_thread_name),
-		      "dp_refill_thread");
-	dp_info("Initializing %s", refill_thread_name);
-
-	refill_thread->state = DP_RX_REFILL_THREAD_INVALID;
-	refill_thread->event_flag = 0;
-	qdf_event_create(&refill_thread->start_event);
-	qdf_event_create(&refill_thread->suspend_event);
-	qdf_event_create(&refill_thread->resume_event);
-	qdf_event_create(&refill_thread->shutdown_event);
-	qdf_init_waitqueue_head(&refill_thread->wait_q);
-	refill_thread->task = qdf_create_thread(dp_rx_refill_thread_loop,
-						refill_thread,
-						refill_thread_name);
-	if (!refill_thread->task) {
-		dp_err("could not create dp_rx_refill_thread");
-		return QDF_STATUS_E_FAILURE;
-	}
-	qdf_wake_up_process(refill_thread->task);
-	qdf_status = qdf_wait_single_event(&refill_thread->start_event,
-					   0);
-	if (!QDF_IS_STATUS_SUCCESS(qdf_status)) {
-		dp_err("failed waiting for refill thread creation status: %d",
-		       qdf_status);
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	refill_thread->state = DP_RX_REFILL_THREAD_RUNNING;
-	return QDF_STATUS_SUCCESS;
-}
-
-QDF_STATUS dp_rx_refill_thread_deinit(struct dp_rx_refill_thread *refill_thread)
-{
-	qdf_set_bit(RX_REFILL_SHUTDOWN_EVENT,
-		    &refill_thread->event_flag);
-	qdf_set_bit(RX_REFILL_POST_EVENT,
-		    &refill_thread->event_flag);
-	qdf_wake_up_interruptible(&refill_thread->wait_q);
-	qdf_wait_single_event(&refill_thread->shutdown_event, 0);
-
-	qdf_event_destroy(&refill_thread->start_event);
-	qdf_event_destroy(&refill_thread->suspend_event);
-	qdf_event_destroy(&refill_thread->resume_event);
-	qdf_event_destroy(&refill_thread->shutdown_event);
-
-	refill_thread->state = DP_RX_REFILL_THREAD_INVALID;
-	return QDF_STATUS_SUCCESS;
-}
-
 QDF_STATUS dp_rx_tm_init(struct dp_rx_tm_handle *rx_tm_hdl,
 			 uint8_t num_dp_rx_threads)
 {
@@ -941,50 +790,6 @@ suspend_fail:
 }
 
 /**
- * dp_rx_refill_thread_suspend() - Suspend DP RX refill threads
- * @refill_thread: containing the overall refill thread infrastructure
- *
- * Return: Success/Failure
- */
-QDF_STATUS
-dp_rx_refill_thread_suspend(struct dp_rx_refill_thread *refill_thread)
-{
-	QDF_STATUS qdf_status;
-
-	if (refill_thread->state == DP_RX_REFILL_THREAD_SUSPENDED) {
-		dp_info("already in suspend state! Ignoring.");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	refill_thread->state = DP_RX_REFILL_THREAD_SUSPENDING;
-
-	qdf_event_reset(&refill_thread->resume_event);
-	qdf_event_reset(&refill_thread->suspend_event);
-	qdf_set_bit(RX_REFILL_SUSPEND_EVENT,
-		    &refill_thread->event_flag);
-	qdf_wake_up_interruptible(&refill_thread->wait_q);
-
-	qdf_status = qdf_wait_single_event(&refill_thread->suspend_event,
-					   DP_RX_THREAD_WAIT_TIMEOUT);
-	if (QDF_IS_STATUS_SUCCESS(qdf_status))
-		dp_debug("Refill thread  suspended");
-	else
-		goto suspend_fail;
-
-	refill_thread->state = DP_RX_REFILL_THREAD_SUSPENDED;
-	return QDF_STATUS_SUCCESS;
-
-suspend_fail:
-	dp_err("Refill thread %s(%d) while waiting for suspend",
-	       qdf_status == QDF_STATUS_E_TIMEOUT ? "timeout out" : "failed",
-	       qdf_status);
-
-	dp_rx_refill_thread_resume(refill_thread);
-
-	return qdf_status;
-}
-
-/**
  * dp_rx_thread_flush_by_vdev_id() - flush rx packets by vdev_id in
 				     a particular rx thread queue
  * @rx_thread - rx_thread pointer of the queue from which packets are
@@ -1029,17 +834,10 @@ void dp_rx_thread_flush_by_vdev_id(struct dp_rx_thread *rx_thread,
 	if (QDF_IS_STATUS_SUCCESS(qdf_status))
 		dp_debug("thread:%d napi gro flush successfully",
 			 rx_thread->id);
-	else if (qdf_status == QDF_STATUS_E_TIMEOUT) {
+	else if (qdf_status == QDF_STATUS_E_TIMEOUT)
 		dp_err("thread:%d timed out waiting for napi gro flush",
 		       rx_thread->id);
-		/*
-		 * If timeout, then force flush here in case any rx packets
-		 * belong to this vdev is still pending on stack queue,
-		 * while net_vdev will be freed soon.
-		 */
-		dp_rx_thread_gro_flush(rx_thread,
-				       DP_RX_GRO_NORMAL_FLUSH);
-	} else
+	else
 		dp_err("thread:%d failed while waiting for napi gro flush",
 		       rx_thread->id);
 }
@@ -1102,35 +900,6 @@ QDF_STATUS dp_rx_tm_resume(struct dp_rx_tm_handle *rx_tm_hdl)
 	}
 
 	rx_tm_hdl->state = DP_RX_THREADS_RUNNING;
-
-	return QDF_STATUS_SUCCESS;
-}
-
-/**
- * dp_rx_refill_thread_resume() - Resume DP RX refill threads
- * @refill_thread: refill_thread containing the overall thread infrastructure
- *
- * Return: QDF_STATUS_SUCCESS on resume success. QDF error otherwise.
- */
-QDF_STATUS dp_rx_refill_thread_resume(struct dp_rx_refill_thread *refill_thread)
-{
-	dp_debug("calling refill thread to resume");
-
-	if (refill_thread->state != DP_RX_REFILL_THREAD_SUSPENDED &&
-	    refill_thread->state != DP_RX_REFILL_THREAD_SUSPENDING) {
-		dp_info("resume callback received in %d state ! Ignoring.",
-			refill_thread->state);
-		return QDF_STATUS_E_INVAL;
-	}
-
-	/* postively reset event_flag for DP_RX_REFILL_THREAD_SUSPENDING
-	 * state
-	 */
-	qdf_clear_bit(RX_REFILL_SUSPEND_EVENT,
-		      &refill_thread->event_flag);
-	qdf_event_set(&refill_thread->resume_event);
-
-	refill_thread->state = DP_RX_REFILL_THREAD_RUNNING;
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -1241,14 +1010,12 @@ QDF_STATUS dp_rx_tm_enqueue_pkt(struct dp_rx_tm_handle *rx_tm_hdl,
 }
 
 QDF_STATUS
-dp_rx_tm_gro_flush_ind(struct dp_rx_tm_handle *rx_tm_hdl, int rx_ctx_id,
-		       enum dp_rx_gro_flush_code flush_code)
+dp_rx_tm_gro_flush_ind(struct dp_rx_tm_handle *rx_tm_hdl, int rx_ctx_id)
 {
 	uint8_t selected_thread_id;
 
 	selected_thread_id = dp_rx_tm_select_thread(rx_tm_hdl, rx_ctx_id);
-	dp_rx_tm_thread_gro_flush_ind(rx_tm_hdl->rx_thread[selected_thread_id],
-				      flush_code);
+	dp_rx_tm_thread_gro_flush_ind(rx_tm_hdl->rx_thread[selected_thread_id]);
 
 	return QDF_STATUS_SUCCESS;
 }

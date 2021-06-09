@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -40,8 +40,8 @@
 #define NAN_CMD_MAX_SIZE 2048
 
 /* NLA policy */
-const struct nla_policy nan_attr_policy[
-			QCA_WLAN_VENDOR_ATTR_NAN_PARAMS_MAX + 1] = {
+static const struct nla_policy
+nan_attr_policy[QCA_WLAN_VENDOR_ATTR_NAN_PARAMS_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA] = {
 						.type = NLA_BINARY,
 						.len = NAN_CMD_MAX_SIZE
@@ -61,8 +61,8 @@ const struct nla_policy nan_attr_policy[
 };
 
 /* NLA policy */
-const struct nla_policy vendor_attr_policy[
-			QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1] = {
+static const struct nla_policy
+vendor_attr_policy[QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_NDP_SUBCMD] = {
 						.type = NLA_U32,
 						.len = sizeof(uint32_t)
@@ -83,8 +83,10 @@ const struct nla_policy vendor_attr_policy[
 						.type = NLA_U32,
 						.len = sizeof(uint32_t)
 	},
-	[QCA_WLAN_VENDOR_ATTR_NDP_PEER_DISCOVERY_MAC_ADDR] =
-						VENDOR_NLA_POLICY_MAC_ADDR,
+	[QCA_WLAN_VENDOR_ATTR_NDP_PEER_DISCOVERY_MAC_ADDR] = {
+						.type = NLA_UNSPEC,
+						.len = QDF_MAC_ADDR_SIZE
+	},
 	[QCA_WLAN_VENDOR_ATTR_NDP_CONFIG_SECURITY] = {
 						.type = NLA_U16,
 						.len = sizeof(uint16_t)
@@ -154,7 +156,7 @@ const struct nla_policy vendor_attr_policy[
 						.len = sizeof(uint32_t)
 	},
 	[QCA_WLAN_VENDOR_ATTR_NDP_IPV6_ADDR] = {
-						.type = NLA_EXACT_LEN,
+						.type = NLA_UNSPEC,
 						.len = QDF_IPV6_ADDR_SIZE
 	},
 	[QCA_WLAN_VENDOR_ATTR_NDP_TRANSPORT_PORT] = {
@@ -1759,9 +1761,10 @@ static void os_if_ndp_end_ind_handler(struct wlan_objmgr_vdev *vdev,
 
 	ndp_instance_array = qdf_mem_malloc(end_ind->num_ndp_ids *
 		sizeof(*ndp_instance_array));
-	if (!ndp_instance_array)
+	if (!ndp_instance_array) {
+		osif_err("Failed to allocate ndp_instance_array");
 		return;
-
+	}
 	for (i = 0; i < end_ind->num_ndp_ids; i++)
 		ndp_instance_array[i] = end_ind->ndp_map[i].ndp_instance_id;
 
@@ -2501,8 +2504,10 @@ static int os_if_nan_generic_req(struct wlan_objmgr_psoc *psoc,
 	buf_len = nla_len(tb[QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA]);
 
 	nan_req = qdf_mem_malloc(sizeof(*nan_req) +  buf_len);
-	if (!nan_req)
+	if (!nan_req) {
+		osif_err("Request allocation failure");
 		return -ENOMEM;
+	}
 
 	nan_req->psoc = psoc;
 	nan_req->params.request_data_len = buf_len;
@@ -2565,9 +2570,11 @@ static int os_if_process_nan_enable_req(struct wlan_objmgr_psoc *psoc,
 	buf_len = nla_len(tb[QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA]);
 
 	nan_req = qdf_mem_malloc(sizeof(*nan_req) + buf_len);
-	if (!nan_req)
-		return -ENOMEM;
 
+	if (!nan_req) {
+		osif_err("Request allocation failure");
+		return -ENOMEM;
+	}
 	nan_req->social_chan_2g_freq = chan_freq_2g;
 	if (chan_freq_5g)
 		nan_req->social_chan_5g_freq = chan_freq_5g;
@@ -2576,7 +2583,6 @@ static int os_if_process_nan_enable_req(struct wlan_objmgr_psoc *psoc,
 
 	ucfg_mlme_get_fine_time_meas_cap(psoc, &fine_time_meas_cap);
 	nan_req->params.rtt_cap = fine_time_meas_cap;
-	nan_req->params.disable_6g_nan = ucfg_get_disable_6g_nan(psoc);
 
 	nla_memcpy(nan_req->params.request_data,
 		   tb[QCA_WLAN_VENDOR_ATTR_NAN_CMD_DATA], buf_len);
@@ -2617,7 +2623,7 @@ int os_if_process_nan_req(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 	 * sure that HW mode is not set to DBS by NAN Enable request. NAN state
 	 * machine will remain unaffected in this case.
 	 */
-	if (!NAN_CONCURRENCY_SUPPORTED(psoc)) {
+	if (!ucfg_is_nan_dbs_supported(psoc)) {
 		policy_mgr_check_and_stop_opportunistic_timer(psoc, vdev_id);
 		return os_if_nan_generic_req(psoc, tb);
 	}

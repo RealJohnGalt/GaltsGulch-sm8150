@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -141,9 +141,9 @@ int lim_process_ft_pre_auth_req(struct mac_context *mac_ctx,
 					   ft_pre_auth_req->currbssId,
 					   &session_id);
 	if (!session) {
-		pe_err("Unable to find session for the bssid "
-			QDF_MAC_ADDR_FMT,
-			QDF_MAC_ADDR_REF(ft_pre_auth_req->currbssId));
+		pe_err("Unable to find session for the bssid"
+			   QDF_MAC_ADDR_FMT,
+			   QDF_MAC_ADDR_REF(ft_pre_auth_req->currbssId));
 		/* Post the FT Pre Auth Response to SME */
 		lim_post_ft_pre_auth_rsp(mac_ctx, QDF_STATUS_E_FAILURE, NULL, 0,
 					 session);
@@ -439,8 +439,7 @@ void lim_handle_ft_pre_auth_rsp(struct mac_context *mac, QDF_STATUS status,
 		      pe_session->ftPEContext.pFTPreAuthReq->pbssDescription;
 		ft_session =
 			pe_create_session(mac, pbssDescription->bssId,
-					  &sessionId,
-					  mac->lim.max_sta_of_pe_session,
+					  &sessionId, mac->lim.maxStation,
 					  pe_session->bssType,
 					  pe_session->vdev_id,
 					  pe_session->opmode);
@@ -457,7 +456,9 @@ void lim_handle_ft_pre_auth_rsp(struct mac_context *mac, QDF_STATUS status,
 				  pbssDescription->bssId);
 
 		/* Update the beacon/probe filter in mac_ctx */
-		lim_set_bcn_probe_filter(mac, ft_session, 0);
+		lim_set_bcn_probe_filter(mac,
+					 ft_session,
+					 NULL, 0);
 
 		if (ft_session->bssType == eSIR_INFRASTRUCTURE_MODE)
 			ft_session->limSystemRole = eLIM_STA_ROLE;

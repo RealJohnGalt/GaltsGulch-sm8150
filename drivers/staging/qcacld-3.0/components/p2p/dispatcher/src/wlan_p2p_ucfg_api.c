@@ -33,7 +33,7 @@
 static inline struct wlan_lmac_if_p2p_tx_ops *
 ucfg_p2p_psoc_get_tx_ops(struct wlan_objmgr_psoc *psoc)
 {
-	return &(psoc->soc_cb.tx_ops->p2p);
+	return &(psoc->soc_cb.tx_ops.p2p);
 }
 
 /**
@@ -135,8 +135,10 @@ QDF_STATUS ucfg_p2p_roc_req(struct wlan_objmgr_psoc *soc,
 	}
 
 	roc_ctx = qdf_mem_malloc(sizeof(*roc_ctx));
-	if (!roc_ctx)
+	if (!roc_ctx) {
+		p2p_err("failed to allocate p2p roc context");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	status = qdf_idr_alloc(&p2p_soc_obj->p2p_idr, roc_ctx, &id);
 	if (QDF_IS_STATUS_ERROR(status)) {
@@ -342,8 +344,10 @@ QDF_STATUS ucfg_p2p_mgmt_tx(struct wlan_objmgr_psoc *soc,
 	}
 
 	tx_action = qdf_mem_malloc(sizeof(*tx_action));
-	if (!tx_action)
+	if (!tx_action) {
+		p2p_err("Failed to allocate tx action context");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	/* return cookie just for ota ack frames */
 	if (mgmt_frm->dont_wait_for_ack)
@@ -369,6 +373,7 @@ QDF_STATUS ucfg_p2p_mgmt_tx(struct wlan_objmgr_psoc *soc,
 	tx_action->off_chan = mgmt_frm->off_chan;
 	tx_action->buf = qdf_mem_malloc(tx_action->buf_len);
 	if (!(tx_action->buf)) {
+		p2p_err("Failed to allocate buffer for action frame");
 		qdf_mem_free(tx_action);
 		return QDF_STATUS_E_NOMEM;
 	}
@@ -431,8 +436,10 @@ QDF_STATUS ucfg_p2p_mgmt_tx_cancel(struct wlan_objmgr_psoc *soc,
 	p2p_del_random_mac(soc, wlan_vdev_get_id(vdev), cookie, 20);
 
 	cancel_tx = qdf_mem_malloc(sizeof(*cancel_tx));
-	if (!cancel_tx)
+	if (!cancel_tx) {
+		p2p_err("Failed to allocate cancel p2p roc");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	cancel_tx->p2p_soc_obj = p2p_soc_obj;
 	cancel_tx->cookie = (uintptr_t)tx_ctx;

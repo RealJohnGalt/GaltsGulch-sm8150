@@ -12,8 +12,6 @@ ifeq ($(CONFIG_CNSS_QCA6390), y)
 	CONFIG_WLAN_FEATURE_DFS_OFFLOAD := y
 	CONFIG_IPA3 := n
 	CONFIG_SCALE_INCLUDES := y
-	CONFIG_MORE_TX_DESC := y
-	CONFIG_FW_THERMAL_THROTTLE := y
 endif
 
 ifeq ($(CONFIG_ENABLE_IPA), y)
@@ -71,7 +69,7 @@ endif
 
 ifneq ($(DEVELOPER_DISABLE_BUILD_TIMESTAMP), y)
 ifneq ($(WLAN_DISABLE_BUILD_TAG), y)
-CONFIG_BUILD_TAG := y
+CONFIG_BUILD_TAG := n
 endif
 endif
 
@@ -457,6 +455,8 @@ CONFIG_FEATURE_WLAN_STA_AP_MODE_DFS_DISABLE := y
 CONFIG_FEATURE_AP_MCC_CH_AVOIDANCE := y
 else
 CONFIG_QCOM_ESE := y
+CONFIG_QCA_IBSS_SUPPORT := y
+CONFIG_FEATURE_WLAN_RMC := y
 CONFIG_WLAN_OPEN_P2P_INTERFACE := y
 CONFIG_WLAN_ENABLE_SOCIAL_CHANNELS_5G_ONLY := y
 endif
@@ -516,6 +516,11 @@ CONFIG_CHECKSUM_OFFLOAD := y
 
 #Enable GTK offload
 CONFIG_GTK_OFFLOAD := y
+
+#Enable EXT WOW
+ifeq ($(CONFIG_HIF_PCI), y)
+	CONFIG_EXT_WOW := y
+endif
 
 #Set this to 1 to catch erroneous Target accesses during debug.
 CONFIG_ATH_PCIE_ACCESS_DEBUG := n
@@ -591,9 +596,7 @@ CONFIG_FEATURE_ROAM_DEBUG := y
 CONFIG_WLAN_DFS_MASTER_ENABLE := y
 
 #Flag to enable WEXT support for STA/AP/P2P interfaces
-ifeq ($(CONFIG_WIRELESS_EXT), y)
 CONFIG_WLAN_WEXT_SUPPORT_ENABLE := y
-endif
 
 #Flag to enable/disable MTRACE feature
 CONFIG_ENABLE_MTRACE_LOG := y
@@ -616,9 +619,6 @@ CONFIG_WIFI_POS_LEGACY := y
 endif
 
 CONFIG_CP_STATS := y
-
-#Flag to enable compilation of DCS module
-CONFIG_DCS := y
 
 CONFIG_FEATURE_WLAN_WAPI := y
 
@@ -681,9 +681,6 @@ CONFIG_WMI_STA_SUPPORT := y
 
 #Flag to enable LTE COEX feature
 CONFIG_LTE_COEX := y
-
-#Flag to enable/disable TARGET 11d scan
-CONFIG_TARGET_11D_SCAN := y
 
 #Flag to enable HOST OPCLASS feature
 CONFIG_HOST_OPCLASS := y

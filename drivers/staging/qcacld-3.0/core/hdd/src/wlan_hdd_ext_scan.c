@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -58,82 +58,7 @@ struct hdd_ext_scan_context {
 };
 static struct hdd_ext_scan_context ext_scan_context;
 
-const struct nla_policy
-wlan_hdd_extscan_config_policy[EXTSCAN_PARAM_MAX + 1] = {
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_CHANNEL] = {.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_DWELL_TIME] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_PASSIVE] = {.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_CLASS] = {.type = NLA_U8},
-
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_INDEX] = {.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_BAND] = {.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_PERIOD] = {.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_REPORT_EVENTS] = {
-				.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_NUM_CHANNEL_SPECS] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SCAN_CMD_PARAMS_BASE_PERIOD] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SCAN_CMD_PARAMS_MAX_AP_PER_SCAN] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SCAN_CMD_PARAMS_REPORT_THRESHOLD_PERCENT] = {
-				.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SCAN_CMD_PARAMS_REPORT_THRESHOLD_NUM_SCANS] = {
-				.type = NLA_U8 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SCAN_CMD_PARAMS_NUM_BUCKETS] = {
-				.type = NLA_U8},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_GET_CACHED_SCAN_RESULTS_CONFIG_PARAM_FLUSH] = {
-				.type = NLA_U8},
-
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_GET_CACHED_SCAN_RESULTS_CONFIG_PARAM_MAX] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_AP_THRESHOLD_PARAM_BSSID] =
-				VENDOR_NLA_POLICY_MAC_ADDR,
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_AP_THRESHOLD_PARAM_RSSI_LOW] = {
-				.type = NLA_S32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_AP_THRESHOLD_PARAM_RSSI_HIGH] = {
-				.type = NLA_S32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_AP_THRESHOLD_PARAM_CHANNEL] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BSSID_HOTLIST_PARAMS_NUM_AP] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SIGNIFICANT_CHANGE_PARAMS_RSSI_SAMPLE_SIZE] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SIGNIFICANT_CHANGE_PARAMS_LOST_AP_SAMPLE_SIZE] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SIGNIFICANT_CHANGE_PARAMS_MIN_BREACHING] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SIGNIFICANT_CHANGE_PARAMS_NUM_AP] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_MAX_PERIOD] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_BASE] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BUCKET_SPEC_STEP_COUNT] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_THRESHOLD_PARAM_SSID] = {
-				.type = NLA_BINARY,
-				.len = IEEE80211_MAX_SSID_LEN + 1 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_HOTLIST_PARAMS_LOST_SSID_SAMPLE_SIZE] = {
-				.type = NLA_U32 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_HOTLIST_PARAMS_NUM_SSID] = {
-				.type = NLA_U32 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_THRESHOLD_PARAM_BAND] = {
-				.type = NLA_U8 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_THRESHOLD_PARAM_RSSI_LOW] = {
-				.type = NLA_S32 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SSID_THRESHOLD_PARAM_RSSI_HIGH] = {
-				.type = NLA_S32 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CONFIGURATION_FLAGS] = {
-				.type = NLA_U32 },
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_BSSID_HOTLIST_PARAMS_LOST_AP_SAMPLE_SIZE] = {
-				.type = NLA_U32},
-};
-
-const struct nla_policy
+static const struct nla_policy
 wlan_hdd_pno_config_policy[QCA_WLAN_VENDOR_ATTR_PNO_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_PNO_PASSPOINT_LIST_PARAM_NUM] = {
 		.type = NLA_U32
@@ -1947,8 +1872,10 @@ __wlan_hdd_cfg80211_extscan_set_bssid_hotlist(struct wiphy *wiphy,
 	}
 
 	params = qdf_mem_malloc(sizeof(*params));
-	if (!params)
+	if (!params) {
+		hdd_err("qdf_mem_malloc failed");
 		return -ENOMEM;
+	}
 
 	/* assume the worst until proven otherwise */
 	retval = -EINVAL;
@@ -2129,8 +2056,10 @@ __wlan_hdd_cfg80211_extscan_set_significant_change(struct wiphy *wiphy,
 	}
 
 	params = qdf_mem_malloc(sizeof(*params));
-	if (!params)
+	if (!params) {
+		hdd_err("qdf_mem_malloc failed");
 		return -ENOMEM;
+	}
 
 	/* assume the worst until proven otherwise */
 	retval = -EINVAL;
@@ -2538,9 +2467,10 @@ static int hdd_extscan_start_fill_bucket_channel_spec(
 
 				channel->channel = chan_list[j];
 				channel->channel_class = 0;
-				if ((wlan_reg_get_channel_state_for_freq(
-				     hdd_ctx->pdev, chan_list[j])) !=
-				    CHANNEL_STATE_ENABLE) {
+				if ((wlan_reg_get_channel_state(
+					hdd_ctx->pdev,
+					cds_freq_to_chan(chan_list[j]))) !=
+						CHANNEL_STATE_ENABLE) {
 					channel->passive = 1;
 					channel->dwell_time_ms =
 						max_dwell_time_passive_bucket;
@@ -2676,9 +2606,11 @@ static int hdd_extscan_start_fill_bucket_channel_spec(
 				hdd_debug("WiFi band is unspecified, dwellTime:%d",
 						channel->dwell_time_ms);
 
-				if ((wlan_reg_get_channel_state_for_freq(
-				     hdd_ctx->pdev, channel->channel)) !=
-				    CHANNEL_STATE_ENABLE) {
+				if ((wlan_reg_get_channel_state(
+					hdd_ctx->pdev,
+					cds_freq_to_chan(
+					channel->channel)))
+						!= CHANNEL_STATE_ENABLE) {
 					channel->dwell_time_ms =
 						max_dwell_time_passive_bucket;
 				} else {
@@ -2690,9 +2622,10 @@ static int hdd_extscan_start_fill_bucket_channel_spec(
 			hdd_debug("New Dwell time %u ms",
 				channel->dwell_time_ms);
 
-			if ((wlan_reg_get_channel_state_for_freq(
-			     hdd_ctx->pdev, channel->channel)) !=
-			    CHANNEL_STATE_ENABLE) {
+			if ((wlan_reg_get_channel_state(hdd_ctx->pdev,
+					cds_freq_to_chan(
+					channel->channel)))
+					!= CHANNEL_STATE_ENABLE) {
 				if (min_dwell_time_passive_bucket >
 						channel->dwell_time_ms) {
 					min_dwell_time_passive_bucket =
@@ -2728,10 +2661,10 @@ static int hdd_extscan_start_fill_bucket_channel_spec(
 			hdd_debug("Chnl spec passive %u",
 				channel->passive);
 			/* Override scan type if required */
-			if ((wlan_reg_get_channel_state_for_freq(
-							hdd_ctx->pdev,
-							channel->channel))
-			    != CHANNEL_STATE_ENABLE) {
+			if ((wlan_reg_get_channel_state(hdd_ctx->pdev,
+					cds_freq_to_chan(
+					channel->channel)))
+					!= CHANNEL_STATE_ENABLE) {
 				channel->passive = true;
 			} else {
 				channel->passive = false;
@@ -3121,6 +3054,7 @@ int wlan_hdd_cfg80211_extscan_stop(struct wiphy *wiphy,
 	return errno;
 }
 
+
 /**
  * __wlan_hdd_cfg80211_extscan_reset_bssid_hotlist() - reset bssid hotlist
  * @wiphy: Pointer to wireless phy
@@ -3414,8 +3348,8 @@ hdd_extscan_epno_fill_network(struct nlattr *network,
 	nw->ssid.length = ssid_len;
 	hdd_debug("network ssid length %d", ssid_len);
 	ssid = nla_data(tb[id]);
-	qdf_mem_copy(nw->ssid.ssid, ssid, ssid_len);
-	hdd_debug("Ssid (%.*s)", nw->ssid.length, nw->ssid.ssid);
+	qdf_mem_copy(nw->ssid.mac_ssid, ssid, ssid_len);
+	hdd_debug("Ssid (%.*s)", nw->ssid.length, nw->ssid.mac_ssid);
 
 	/* Parse and fetch epno flags */
 	id = QCA_WLAN_VENDOR_ATTR_PNO_SET_LIST_PARAM_EPNO_NETWORK_FLAGS;
@@ -3553,9 +3487,10 @@ static int __wlan_hdd_cfg80211_set_epno_list(struct wiphy *wiphy,
 			(num_networks * sizeof(req_msg->networks[0]));
 
 	req_msg = qdf_mem_malloc(len);
-	if (!req_msg)
+	if (!req_msg) {
+		hdd_err("qdf_mem_malloc failed");
 		return -ENOMEM;
-
+	}
 	req_msg->num_networks = num_networks;
 
 	/* Parse and fetch request Id */
@@ -3876,9 +3811,10 @@ static int __wlan_hdd_cfg80211_set_passpoint_list(struct wiphy *wiphy,
 
 	req_msg = qdf_mem_malloc(sizeof(*req_msg) +
 			(num_networks * sizeof(req_msg->networks[0])));
-	if (!req_msg)
+	if (!req_msg) {
+		hdd_err("qdf_mem_malloc failed");
 		return -ENOMEM;
-
+	}
 	req_msg->num_networks = num_networks;
 
 	/* Parse and fetch request Id */
@@ -3987,8 +3923,10 @@ static int __wlan_hdd_cfg80211_reset_passpoint_list(struct wiphy *wiphy,
 	}
 
 	req_msg = qdf_mem_malloc(sizeof(*req_msg));
-	if (!req_msg)
+	if (!req_msg) {
+		hdd_err("qdf_mem_malloc failed");
 		return -ENOMEM;
+	}
 
 	/* Parse and fetch request Id */
 	id = QCA_WLAN_VENDOR_ATTR_EXTSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID;

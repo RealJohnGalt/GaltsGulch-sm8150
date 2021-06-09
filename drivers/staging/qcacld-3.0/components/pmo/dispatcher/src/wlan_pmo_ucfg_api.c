@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -280,14 +280,6 @@ QDF_STATUS ucfg_pmo_enable_gtk_offload_in_fwr(struct wlan_objmgr_vdev *vdev)
 	return pmo_core_enable_gtk_offload_in_fwr(vdev);
 }
 
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-QDF_STATUS ucfg_pmo_enable_igmp_offload(struct wlan_objmgr_vdev *vdev,
-					struct pmo_igmp_offload_req *igmp_req)
-{
-	return pmo_core_enable_igmp_offload(vdev, igmp_req);
-}
-#endif
-
 QDF_STATUS ucfg_pmo_disable_gtk_offload_in_fwr(struct wlan_objmgr_vdev *vdev)
 {
 	return pmo_core_disable_gtk_offload_in_fwr(vdev);
@@ -548,22 +540,28 @@ ucfg_pmo_set_wow_enable(struct wlan_objmgr_psoc *psoc,
 }
 
 bool
+ucfg_pmo_is_wowlan_deauth_enabled(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_psoc_ctx->psoc_cfg.wowlan_deauth_enable;
+}
+
+bool
+ucfg_pmo_is_wowlan_disassoc_enabled(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_psoc_ctx->psoc_cfg.wowlan_disassoc_enable;
+}
+
+bool
 ucfg_pmo_is_arp_offload_enabled(struct wlan_objmgr_psoc *psoc)
 {
 	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
 
 	return pmo_psoc_ctx->psoc_cfg.arp_offload_enable;
 }
-
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-bool
-ucfg_pmo_is_igmp_offload_enabled(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.igmp_offload_enable;
-}
-#endif
 
 void
 ucfg_pmo_set_arp_offload_enabled(struct wlan_objmgr_psoc *psoc,
@@ -573,17 +571,6 @@ ucfg_pmo_set_arp_offload_enabled(struct wlan_objmgr_psoc *psoc,
 
 	pmo_psoc_ctx->psoc_cfg.arp_offload_enable = val;
 }
-
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-void
-ucfg_pmo_set_igmp_offload_enabled(struct wlan_objmgr_psoc *psoc,
-				  bool val)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	pmo_psoc_ctx->psoc_cfg.igmp_offload_enable = val;
-}
-#endif
 
 enum pmo_auto_pwr_detect_failure_mode
 ucfg_pmo_get_auto_power_fail_mode(struct wlan_objmgr_psoc *psoc)
@@ -620,20 +607,6 @@ uint16_t ucfg_pmo_get_wow_pulse_interval_low(struct wlan_objmgr_psoc *psoc)
 	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
 
 	return pmo_psoc_ctx->psoc_cfg.wow_pulse_interval_low;
-}
-
-uint32_t ucfg_pmo_get_wow_pulse_repeat_count(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.wow_pulse_repeat_count;
-}
-
-uint32_t ucfg_pmo_get_wow_pulse_init_state(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.wow_pulse_init_state;
 }
 #endif
 
@@ -718,14 +691,6 @@ ucfg_pmo_get_power_save_mode(struct wlan_objmgr_psoc *psoc)
 	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
 
 	return pmo_psoc_ctx->psoc_cfg.power_save_mode;
-}
-
-enum powersave_mode
-ucfg_pmo_get_default_power_save_mode(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.default_power_save_mode;
 }
 
 void
@@ -898,36 +863,3 @@ ucfg_pmo_get_active_mc_bc_apf_mode(struct wlan_objmgr_psoc *psoc)
 
 	return pmo_psoc_ctx->psoc_cfg.active_mc_bc_apf_mode;
 }
-
-bool
-ucfg_pmo_get_sap_mode_bus_suspend(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.is_bus_suspend_enabled_in_sap_mode;
-}
-
-bool
-ucfg_pmo_get_go_mode_bus_suspend(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	return pmo_psoc_ctx->psoc_cfg.is_bus_suspend_enabled_in_go_mode;
-}
-
-QDF_STATUS ucfg_pmo_core_txrx_suspend(struct wlan_objmgr_psoc *psoc)
-{
-	return pmo_core_txrx_suspend(psoc);
-}
-
-QDF_STATUS ucfg_pmo_core_txrx_resume(struct wlan_objmgr_psoc *psoc)
-{
-	return pmo_core_txrx_resume(psoc);
-}
-
-#ifdef SYSTEM_PM_CHECK
-void ucfg_pmo_notify_system_resume(struct wlan_objmgr_psoc *psoc)
-{
-	pmo_core_system_resume(psoc);
-}
-#endif

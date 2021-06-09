@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -53,11 +53,6 @@
 #include "dot11f.h"
 #include "wlan_p2p_cfg_api.h"
 
-#define SA_QUERY_REQ_MIN_LEN \
-(DOT11F_FF_CATEGORY_LEN + DOT11F_FF_ACTION_LEN + DOT11F_FF_TRANSACTIONID_LEN)
-#define SA_QUERY_RESP_MIN_LEN \
-(DOT11F_FF_CATEGORY_LEN + DOT11F_FF_ACTION_LEN + DOT11F_FF_TRANSACTIONID_LEN)
-
 static last_processed_msg rrm_link_action_frm;
 
 /**-----------------------------------------------------------------
@@ -85,6 +80,7 @@ void lim_stop_tx_and_switch_channel(struct mac_context *mac, uint8_t sessionId)
 		return;
 	}
 
+	mac->lim.lim_timers.gLimChannelSwitchTimer.sessionId = sessionId;
 	status = policy_mgr_check_and_set_hw_mode_for_channel_switch(mac->psoc,
 				pe_session->smeSessionId,
 				pe_session->gLimChannelSwitch.sw_target_freq,
@@ -111,9 +107,209 @@ void lim_stop_tx_and_switch_channel(struct mac_context *mac, uint8_t sessionId)
 		pe_info("Channel change will continue after HW mode change");
 		return;
 	}
+	/* change the channel immediately only if
+	 * the channel switch count is 0
+	 */
+	if (pe_session->gLimChannelSwitch.switchCount == 0) {
+		lim_process_channel_switch_timeout(mac);
+		return;
+	}
+	MTRACE(mac_trace
+		       (mac, TRACE_CODE_TIMER_ACTIVATE, sessionId,
+		       eLIM_CHANNEL_SWITCH_TIMER));
 
-	lim_process_channel_switch(mac, pe_session->smeSessionId);
+	if (tx_timer_activate(&mac->lim.lim_timers.gLimChannelSwitchTimer) !=
+	    TX_SUCCESS) {
+		pe_err("tx_timer_activate failed");
+	}
+	return;
+}
 
+/**------------------------------------------------------------
+   \fn     lim_start_channel_switch
+   \brief  Switches the channel if switch count == 0, otherwise
+   starts the timer for channel switch and stops BG scan
+   and heartbeat timer tempororily.
+
+   \param  mac
+   \param  pe_session
+   \return NONE
+   ------------------------------------------------------------*/
+QDF_STATUS lim_start_channel_switch(struct mac_context *mac,
+				       struct pe_session *pe_session)
+{
+	pe_debug("Starting the channel switch");
+
+	/*If channel switch is already running and it is on a different session, just return */
+	/*This need to be removed for MCC */
+	if ((lim_is_chan_switch_running(mac) &&
+	     pe_session->gLimSpecMgmt.dot11hChanSwState !=
+	     eLIM_11H_CHANSW_RUNNING) || pe_session->csaOffloadEnable) {
+		pe_warn("Ignoring channel switch on session: %d",
+			pe_session->peSessionId);
+		return QDF_STATUS_SUCCESS;
+	}
+
+	/* Deactivate and change reconfigure the timeout value */
+	/* lim_deactivate_and_change_timer(mac, eLIM_CHANNEL_SWITCH_TIMER); */
+	MTRACE(mac_trace
+		       (mac, TRACE_CODE_TIMER_DEACTIVATE, pe_session->peSessionId,
+		       eLIM_CHANNEL_SWITCH_TIMER));
+	if (tx_timer_deactivate(&mac->lim.lim_timers.gLimChannelSwitchTimer) !=
+	    QDF_STATUS_SUCCESS) {
+		pe_err("tx_timer_deactivate failed!");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (tx_timer_change(&mac->lim.lim_timers.gLimChannelSwitchTimer,
+			    pe_session->gLimChannelSwitch.switchTimeoutValue,
+			    0) != TX_SUCCESS) {
+		pe_err("tx_timer_change failed");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	/* Prepare for 11h channel switch */
+	lim_prepare_for11h_channel_switch(mac, pe_session);
+
+	/** Dont add any more statements here as we posted finish scan request
+	 * to HAL, wait till we get the response
+	 */
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ *  __lim_process_channel_switch_action_frame() - to process channel switch
+ * @mac_ctx: Pointer to Global MAC structure
+ * @rx_pkt_info: A pointer to packet info structure
+ *
+ * This routine will be called to process channel switch action frame
+ *
+ * Return: None
+ */
+
+static void __lim_process_channel_switch_action_frame(struct mac_context *mac_ctx,
+			  uint8_t *rx_pkt_info, struct pe_session *session)
+{
+	tpSirMacMgmtHdr mac_hdr;
+	uint8_t *body_ptr;
+	tDot11fChannelSwitch *chnl_switch_frame;
+	uint16_t bcn_period;
+	uint32_t val, frame_len, status;
+	tLimChannelSwitchInfo *ch_switch_params;
+	struct sDot11fIEWiderBWChanSwitchAnn *wbw_chnlswitch_ie = NULL;
+	struct sLimWiderBWChannelSwitch *lim_wbw_chnlswitch_info = NULL;
+	struct sDot11fIEsec_chan_offset_ele *sec_chnl_offset = NULL;
+
+	mac_hdr = WMA_GET_RX_MAC_HEADER(rx_pkt_info);
+	body_ptr = WMA_GET_RX_MPDU_DATA(rx_pkt_info);
+	frame_len = WMA_GET_RX_PAYLOAD_LEN(rx_pkt_info);
+
+	pe_debug("Received Channel switch action frame");
+	if (!session->lim11hEnable)
+		return;
+
+	chnl_switch_frame = qdf_mem_malloc(sizeof(*chnl_switch_frame));
+	if (!chnl_switch_frame)
+		return;
+
+	/* Unpack channel switch frame */
+	status = dot11f_unpack_channel_switch(mac_ctx, body_ptr, frame_len,
+			chnl_switch_frame, false);
+
+	if (DOT11F_FAILED(status)) {
+		pe_err("Failed to unpack and parse (0x%08x, %d bytes)",
+			status, frame_len);
+		qdf_mem_free(chnl_switch_frame);
+		return;
+	} else if (DOT11F_WARNED(status)) {
+		pe_warn("warning: unpack 11h-CHANSW Req(0x%08x, %d bytes)",
+			status, frame_len);
+	}
+
+	if (qdf_mem_cmp((uint8_t *) &session->bssId,
+			(uint8_t *) &mac_hdr->sa, sizeof(tSirMacAddr))) {
+		pe_warn("Rcvd action frame not from our BSS, dropping");
+		qdf_mem_free(chnl_switch_frame);
+		return;
+	}
+	/* copy the beacon interval from session */
+	val = session->beaconParams.beaconInterval;
+	ch_switch_params = &session->gLimChannelSwitch;
+	bcn_period = (uint16_t)val;
+	ch_switch_params->primaryChannel =
+		chnl_switch_frame->ChanSwitchAnn.newChannel;
+	ch_switch_params->sw_target_freq = wlan_reg_legacy_chan_to_freq
+			(mac_ctx->pdev,
+			chnl_switch_frame->ChanSwitchAnn.newChannel);
+	ch_switch_params->switchCount =
+		chnl_switch_frame->ChanSwitchAnn.switchCount;
+	ch_switch_params->switchTimeoutValue =
+		SYS_MS_TO_TICKS(bcn_period) *
+		session->gLimChannelSwitch.switchCount;
+	ch_switch_params->switchMode =
+		chnl_switch_frame->ChanSwitchAnn.switchMode;
+
+	/* Only primary channel switch element is present */
+	ch_switch_params->state = eLIM_CHANNEL_SWITCH_PRIMARY_ONLY;
+	ch_switch_params->ch_width = CH_WIDTH_20MHZ;
+
+	if (chnl_switch_frame->WiderBWChanSwitchAnn.present
+			&& session->vhtCapability) {
+		wbw_chnlswitch_ie = &chnl_switch_frame->WiderBWChanSwitchAnn;
+		session->gLimWiderBWChannelSwitch.newChanWidth =
+			wbw_chnlswitch_ie->newChanWidth;
+		session->gLimWiderBWChannelSwitch.newCenterChanFreq0 =
+			wbw_chnlswitch_ie->newCenterChanFreq0;
+		session->gLimWiderBWChannelSwitch.newCenterChanFreq1 =
+			wbw_chnlswitch_ie->newCenterChanFreq1;
+	}
+	pe_debug("Rcv Chnl Swtch Frame: Timeout in %d ticks",
+		session->gLimChannelSwitch.switchTimeoutValue);
+	if (session->htSupportedChannelWidthSet) {
+		sec_chnl_offset = &chnl_switch_frame->sec_chan_offset_ele;
+		if (sec_chnl_offset->secondaryChannelOffset ==
+				PHY_DOUBLE_CHANNEL_LOW_PRIMARY) {
+			ch_switch_params->state =
+				eLIM_CHANNEL_SWITCH_PRIMARY_AND_SECONDARY;
+			ch_switch_params->ch_width = CH_WIDTH_40MHZ;
+			ch_switch_params->ch_center_freq_seg0 =
+				ch_switch_params->primaryChannel + 2;
+		} else if (sec_chnl_offset->secondaryChannelOffset ==
+				PHY_DOUBLE_CHANNEL_HIGH_PRIMARY) {
+			ch_switch_params->state =
+				eLIM_CHANNEL_SWITCH_PRIMARY_AND_SECONDARY;
+			ch_switch_params->ch_width = CH_WIDTH_40MHZ;
+			ch_switch_params->ch_center_freq_seg0 =
+				ch_switch_params->primaryChannel - 2;
+
+		}
+		if (session->vhtCapability &&
+			chnl_switch_frame->WiderBWChanSwitchAnn.present) {
+			wbw_chnlswitch_ie =
+				&chnl_switch_frame->WiderBWChanSwitchAnn;
+			ch_switch_params->ch_width =
+				wbw_chnlswitch_ie->newChanWidth + 1;
+			lim_wbw_chnlswitch_info =
+				&session->gLimWiderBWChannelSwitch;
+			ch_switch_params->ch_center_freq_seg0 =
+				lim_wbw_chnlswitch_info->newCenterChanFreq0;
+			ch_switch_params->ch_center_freq_seg1 =
+				lim_wbw_chnlswitch_info->newCenterChanFreq1;
+
+		}
+	}
+
+	if (CH_WIDTH_20MHZ == ch_switch_params->ch_width) {
+		session->htSupportedChannelWidthSet =
+			WNI_CFG_CHANNEL_BONDING_MODE_DISABLE;
+		session->htRecommendedTxWidthSet =
+			session->htSupportedChannelWidthSet;
+	}
+
+	if (QDF_STATUS_SUCCESS != lim_start_channel_switch(mac_ctx, session))
+		pe_err("Could not start channel switch");
+
+	qdf_mem_free(chnl_switch_frame);
 	return;
 }
 
@@ -550,7 +746,7 @@ static void __lim_process_add_ts_rsp(struct mac_context *mac_ctx,
 		SIR_MAC_ACCESSPOLICY_HCCA) ||
 		(addts.tspec.tsinfo.traffic.accessPolicy ==
 			SIR_MAC_ACCESSPOLICY_BOTH)) &&
-		(addts.status == STATUS_SUCCESS)) {
+		(addts.status == eSIR_MAC_SUCCESS_STATUS)) {
 		/* add the classifier - this should always succeed */
 		if (addts.numTclas > 1) {
 			/* currently no support for multiple tclas elements */
@@ -570,7 +766,7 @@ static void __lim_process_add_ts_rsp(struct mac_context *mac_ctx,
 	/* deactivate the response timer */
 	lim_deactivate_and_change_timer(mac_ctx, eLIM_ADDTS_RSP_TIMER);
 
-	if (addts.status != STATUS_SUCCESS) {
+	if (addts.status != eSIR_MAC_SUCCESS_STATUS) {
 		pe_debug("Recv AddTsRsp: tsid: %d UP: %d status: %d",
 			addts.tspec.tsinfo.traffic.tsid,
 			addts.tspec.tsinfo.traffic.userPrio, addts.status);
@@ -1253,8 +1449,8 @@ static void __lim_process_sa_query_request_action_frame(struct mac_context *mac,
 	pBody = WMA_GET_RX_MPDU_DATA(pRxPacketInfo);
 	frame_len = WMA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
 
-	if (frame_len < SA_QUERY_REQ_MIN_LEN) {
-		pe_err("Invalid frame length %d", frame_len);
+	if (frame_len < sizeof(struct sDot11fSaQueryReq)) {
+		pe_err("Invalid frame length");
 		return;
 	}
 	/* If this is an unprotected SA Query Request, then ignore it. */
@@ -1320,8 +1516,8 @@ static void __lim_process_sa_query_response_action_frame(struct mac_context *mac
 	pBody = WMA_GET_RX_MPDU_DATA(pRxPacketInfo);
 	pe_debug("SA Query Response received");
 
-	if (frame_len < SA_QUERY_RESP_MIN_LEN) {
-		pe_err("Invalid frame length %d", frame_len);
+	if (frame_len < sizeof(struct sDot11fSaQueryRsp)) {
+		pe_err("Invalid frame length");
 		return;
 	}
 	/* When a station, supplicant handles SA Query Response.
@@ -1473,8 +1669,6 @@ static void lim_process_addba_req(struct mac_context *mac_ctx, uint8_t *rx_pkt_i
 				       &session->dph.dphHashTable);
 	if (sta_ds && lim_is_session_he_capable(session))
 		he_cap = lim_is_sta_he_capable(sta_ds);
-	if (sta_ds && sta_ds->staType == STA_ENTRY_NDI_PEER)
-		he_cap = lim_is_session_he_capable(session);
 
 	if (he_cap)
 		buff_size = MAX_BA_BUFF_SIZE;
@@ -1676,6 +1870,11 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 						rx_pkt_info, session);
 			break;
 #endif
+		case ACTION_SPCT_CHL_SWITCH:
+			if (LIM_IS_STA_ROLE(session))
+				__lim_process_channel_switch_action_frame(
+					mac_ctx, rx_pkt_info, session);
+			break;
 		default:
 			pe_warn("Spectrum mgmt action id: %d not handled",
 				action_hdr->actionID);
@@ -1749,7 +1948,6 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 				pe_debug("p2p session active drop BTM frame");
 				break;
 			}
-			/* fallthrough */
 		case WNM_NOTIF_REQUEST:
 		case WNM_NOTIF_RESPONSE:
 			rssi = WMA_GET_RX_RSSI_NORMALIZED(rx_pkt_info);
@@ -1892,8 +2090,7 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 					pub_action->Oui[2], pub_action->Oui[3]);
 				break;
 			}
-			/* send the frame to supplicant */
-			/* fallthrough */
+			/* Fall through to send the frame to supplicant */
 		case SIR_MAC_ACTION_VENDOR_SPECIFIC_CATEGORY:
 		case SIR_MAC_ACTION_2040_BSS_COEXISTENCE:
 		case SIR_MAC_ACTION_GAS_INITIAL_REQUEST:
@@ -1962,16 +2159,12 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 			break;
 		}
 		break;
-	case ACTION_CATEGORY_RVS:
 	case ACTION_CATEGORY_FST: {
 		tpSirMacMgmtHdr     hdr;
 
 		hdr = WMA_GET_RX_MAC_HEADER(rx_pkt_info);
 
-		pe_debug("Received %s MGMT action frame",
-			 (action_hdr->category == ACTION_CATEGORY_FST) ?
-			"FST" : "RVS");
-
+		pe_debug("Received FST MGMT action frame");
 		/* Forward to the SME to HDD */
 		lim_send_sme_mgmt_frame_ind(mac_ctx, hdr->fc.subType,
 					    (uint8_t *)hdr,
@@ -2089,7 +2282,7 @@ void lim_process_action_frame_no_session(struct mac_context *mac, uint8_t *pBd)
 					vendor_specific->Oui[3]);
 				break;
 			}
-			/* fallthrough */
+			/* Fall through to send the frame to supplicant */
 		case SIR_MAC_ACTION_GAS_INITIAL_REQUEST:
 		case SIR_MAC_ACTION_GAS_INITIAL_RESPONSE:
 		case SIR_MAC_ACTION_GAS_COMEBACK_REQUEST:

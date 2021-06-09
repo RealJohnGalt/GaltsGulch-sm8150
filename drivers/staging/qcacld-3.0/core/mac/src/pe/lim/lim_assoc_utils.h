@@ -44,33 +44,11 @@ uint8_t lim_compare_capabilities(struct mac_context *,
 				 tSirMacCapabilityInfo *, struct pe_session *);
 uint8_t lim_check_rx_basic_rates(struct mac_context *, tSirMacRateSet, struct pe_session *);
 uint8_t lim_check_mcs_set(struct mac_context *mac, uint8_t *supportedMCSSet);
-
-/**
- * lim_cleanup_rx_path() - Called to cleanup STA state at SP & RFP.
- * @mac: Pointer to Global MAC structure
- * @sta: Pointer to the per STA data structure initialized by LIM
- *	 and maintained at DPH
- * @pe_session: pointer to pe session
- * @delete_peer: is peer delete allowed
- *
- * To circumvent RFP's handling of dummy packet when it does not
- * have an incomplete packet for the STA to be deleted, a packet
- * with 'more framgents' bit set will be queued to RFP's WQ before
- * queuing 'dummy packet'.
- * A 'dummy' BD is pushed into RFP's WQ with type=00, subtype=1010
- * (Disassociation frame) and routing flags in BD set to eCPU's
- * Low Priority WQ.
- * RFP cleans up its local context for the STA id mentioned in the
- * BD and then pushes BD to eCPU's low priority WQ.
- *
- * Return: QDF_STATUS_SUCCESS or QDF_STATUS_E_FAILURE.
- */
 QDF_STATUS lim_cleanup_rx_path(struct mac_context *, tpDphHashNode,
-			       struct pe_session *, bool delete_peer);
-
+			       struct pe_session *);
 void lim_reject_association(struct mac_context *, tSirMacAddr, uint8_t,
 			    uint8_t, tAniAuthType, uint16_t, uint8_t,
-			    enum wlan_status_code, struct pe_session *);
+			    enum mac_status_code, struct pe_session *);
 
 QDF_STATUS lim_populate_peer_rate_set(struct mac_context *mac,
 				      struct supported_rates *pRates,
@@ -127,26 +105,6 @@ QDF_STATUS lim_del_bss(struct mac_context *, tpDphHashNode, uint16_t, struct pe_
 QDF_STATUS lim_del_sta(struct mac_context *, tpDphHashNode, bool, struct pe_session *);
 QDF_STATUS lim_add_sta_self(struct mac_context *, uint8_t, struct pe_session *);
 
-/**
- *lim_del_peer_info() - remove all peer information from host driver and fw
- * @mac:    Pointer to Global MAC structure
- * @pe_session: Pointer to PE Session entry
- *
- * @Return: QDF_STATUS
- */
-QDF_STATUS lim_del_peer_info(struct mac_context *mac,
-			     struct pe_session *pe_session);
-
-/**
- * lim_del_sta_all() - Cleanup all peers associated with VDEV
- * @mac:    Pointer to Global MAC structure
- * @pe_session: Pointer to PE Session entry
- *
- * @Return: QDF Status of operation.
- */
-QDF_STATUS lim_del_sta_all(struct mac_context *mac,
-			   struct pe_session *pe_session);
-
 #ifdef WLAN_FEATURE_HOST_ROAM
 void lim_restore_pre_reassoc_state(struct mac_context *,
 				   tSirResultCodes, uint16_t, struct pe_session *);
@@ -193,14 +151,12 @@ static inline QDF_STATUS lim_add_ft_sta_self(struct mac_context *mac,
 #endif
 
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
-static inline bool lim_is_roam_synch_in_progress(struct wlan_objmgr_psoc *psoc,
-						 struct pe_session *pe_session)
+static inline bool lim_is_roam_synch_in_progress(struct pe_session *pe_session)
 {
-	return MLME_IS_ROAM_SYNCH_IN_PROGRESS(psoc, pe_session->vdev_id);
+	return pe_session->bRoamSynchInProgress;
 }
 #else
-static inline bool lim_is_roam_synch_in_progress(struct wlan_objmgr_psoc *psoc,
-						 struct pe_session *pe_session)
+static inline bool lim_is_roam_synch_in_progress(struct pe_session *pe_session)
 {
 	return false;
 }
@@ -272,10 +228,6 @@ QDF_STATUS lim_sta_send_add_bss(struct mac_context *mac,
  * Return: none
  */
 QDF_STATUS lim_sta_send_add_bss_pre_assoc(struct mac_context *mac,
-					  struct pe_session *pe_session);
-
-void lim_prepare_and_send_del_all_sta_cnf(struct mac_context *mac,
-					  tSirResultCodes status_code,
 					  struct pe_session *pe_session);
 
 void lim_prepare_and_send_del_sta_cnf(struct mac_context *mac,

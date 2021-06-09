@@ -26,7 +26,6 @@
 /* Include files */
 
 #include "wlan_policy_mgr_api.h"
-#include "wlan_policy_mgr_tables_no_dbs_i.h"
 #include "wlan_policy_mgr_tables_1x1_dbs_i.h"
 #include "wlan_policy_mgr_tables_2x2_dbs_i.h"
 #include "wlan_policy_mgr_tables_2x2_5g_1x1_2g.h"
@@ -35,7 +34,6 @@
 #include "qdf_types.h"
 #include "qdf_trace.h"
 #include "wlan_objmgr_global_obj.h"
-#include "target_if.h"
 
 static QDF_STATUS policy_mgr_psoc_obj_create_cb(struct wlan_objmgr_psoc *psoc,
 		void *data)
@@ -44,8 +42,10 @@ static QDF_STATUS policy_mgr_psoc_obj_create_cb(struct wlan_objmgr_psoc *psoc,
 
 	policy_mgr_ctx = qdf_mem_malloc(
 		sizeof(struct policy_mgr_psoc_priv_obj));
-	if (!policy_mgr_ctx)
+	if (!policy_mgr_ctx) {
+		policy_mgr_err("memory allocation failed");
 		return QDF_STATUS_E_FAILURE;
+	}
 
 	policy_mgr_ctx->psoc = psoc;
 	policy_mgr_ctx->old_hw_mode_index = POLICY_MGR_DEFAULT_HW_MODE_INDEX;
@@ -335,6 +335,7 @@ QDF_STATUS policy_mgr_psoc_open(struct wlan_objmgr_psoc *psoc)
 		sizeof(struct sta_ap_intf_check_work_ctx));
 	if (!pm_ctx->sta_ap_intf_check_work_info) {
 		qdf_mutex_destroy(&pm_ctx->qdf_conc_list_lock);
+		policy_mgr_err("Failed to alloc sta_ap_intf_check_work_info");
 		return QDF_STATUS_E_FAILURE;
 	}
 	pm_ctx->sta_ap_intf_check_work_info->psoc = psoc;
@@ -405,46 +406,11 @@ static void policy_mgr_update_5g_scc_prefer(struct wlan_objmgr_psoc *psoc)
 	}
 }
 
-#ifdef FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT
-static void policy_mgr_init_non_dbs_pcl(struct wlan_objmgr_psoc *psoc)
-{
-	struct wmi_unified *wmi_handle = get_wmi_unified_hdl_from_psoc(psoc);
-
-	if (!wmi_handle) {
-		policy_mgr_debug("Invalid WMI handle");
-		return;
-	}
-
-	if (wmi_service_enabled(wmi_handle,
-				wmi_service_no_interband_mcc_support) &&
-	    !wmi_service_enabled(wmi_handle,
-				wmi_service_dual_band_simultaneous_support)) {
-		second_connection_pcl_non_dbs_table =
-		&second_connection_pcl_nodbs_no_interband_mcc_table;
-		third_connection_pcl_non_dbs_table =
-		&third_connection_pcl_nodbs_no_interband_mcc_table;
-	} else {
-		second_connection_pcl_non_dbs_table =
-		&second_connection_pcl_nodbs_table;
-		third_connection_pcl_non_dbs_table =
-		&third_connection_pcl_nodbs_table;
-	}
-}
-#else
-static void policy_mgr_init_non_dbs_pcl(struct wlan_objmgr_psoc *psoc)
-{
-	second_connection_pcl_non_dbs_table =
-	&second_connection_pcl_nodbs_table;
-	third_connection_pcl_non_dbs_table =
-	&third_connection_pcl_nodbs_table;
-}
-#endif
-
 QDF_STATUS policy_mgr_psoc_enable(struct wlan_objmgr_psoc *psoc)
 {
 	QDF_STATUS status;
 	struct policy_mgr_psoc_priv_obj *pm_ctx;
-	bool enable_mcc_adaptive_sch = false;
+	uint8_t enable_mcc_adaptive_sch = 0;
 
 	pm_ctx = policy_mgr_get_context(psoc);
 	if (!pm_ctx) {
@@ -528,9 +494,6 @@ QDF_STATUS policy_mgr_psoc_enable(struct wlan_objmgr_psoc *psoc)
 	else
 		third_connection_pcl_dbs_table =
 		&pm_third_connection_pcl_dbs_1x1_table;
-
-	/* Initialize non-DBS pcl table pointer to particular table*/
-	policy_mgr_init_non_dbs_pcl(psoc);
 
 	if (policy_mgr_is_hw_dbs_2x2_capable(psoc) ||
 	    policy_mgr_is_hw_dbs_required_for_band(psoc,
@@ -654,6 +617,8 @@ QDF_STATUS policy_mgr_register_sme_cb(struct wlan_objmgr_psoc *psoc,
 		sme_cbacks->sme_nss_update_request;
 	pm_ctx->sme_cbacks.sme_pdev_set_hw_mode =
 		sme_cbacks->sme_pdev_set_hw_mode;
+	pm_ctx->sme_cbacks.sme_pdev_set_pcl =
+		sme_cbacks->sme_pdev_set_pcl;
 	pm_ctx->sme_cbacks.sme_soc_set_dual_mac_config =
 		sme_cbacks->sme_soc_set_dual_mac_config;
 	pm_ctx->sme_cbacks.sme_change_mcc_beacon_interval =
@@ -662,10 +627,6 @@ QDF_STATUS policy_mgr_register_sme_cb(struct wlan_objmgr_psoc *psoc,
 		sme_cbacks->sme_get_ap_channel_from_scan;
 	pm_ctx->sme_cbacks.sme_scan_result_purge =
 		sme_cbacks->sme_scan_result_purge;
-	pm_ctx->sme_cbacks.sme_rso_start_cb =
-		sme_cbacks->sme_rso_start_cb;
-	pm_ctx->sme_cbacks.sme_rso_stop_cb =
-		sme_cbacks->sme_rso_stop_cb;
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -708,8 +669,6 @@ QDF_STATUS policy_mgr_register_hdd_cb(struct wlan_objmgr_psoc *psoc,
 		hdd_cbacks->hdd_get_ap_6ghz_capable;
 	pm_ctx->hdd_cbacks.wlan_hdd_indicate_active_ndp_cnt =
 		hdd_cbacks->wlan_hdd_indicate_active_ndp_cnt;
-	pm_ctx->hdd_cbacks.wlan_get_ap_prefer_conc_ch_params =
-		hdd_cbacks->wlan_get_ap_prefer_conc_ch_params;
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -731,7 +690,6 @@ QDF_STATUS policy_mgr_deregister_hdd_cb(struct wlan_objmgr_psoc *psoc)
 	pm_ctx->hdd_cbacks.hdd_is_chan_switch_in_progress = NULL;
 	pm_ctx->hdd_cbacks.hdd_is_cac_in_progress = NULL;
 	pm_ctx->hdd_cbacks.hdd_get_ap_6ghz_capable = NULL;
-	pm_ctx->hdd_cbacks.wlan_get_ap_prefer_conc_ch_params = NULL;
 
 	return QDF_STATUS_SUCCESS;
 }

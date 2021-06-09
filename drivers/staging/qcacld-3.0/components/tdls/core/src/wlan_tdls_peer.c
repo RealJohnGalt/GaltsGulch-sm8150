@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -165,8 +165,10 @@ static struct tdls_peer *tdls_add_peer(struct tdls_vdev_priv_obj *vdev_obj,
 	uint8_t reg_bw_offset;
 
 	peer = qdf_mem_malloc(sizeof(*peer));
-	if (!peer)
+	if (!peer) {
+		tdls_err("add tdls peer malloc memory failed!");
 		return NULL;
+	}
 
 	soc_obj = wlan_vdev_get_tdls_soc_obj(vdev_obj->vdev);
 	if (!soc_obj) {
@@ -530,8 +532,7 @@ void tdls_extract_peer_state_param(struct tdls_peer_update_state *peer_param,
 	num = 0;
 	for (i = 0; i < peer->supported_channels_len; i++) {
 		chan_id = peer->supported_channels[i];
-		ch_freq = wlan_reg_legacy_chan_to_freq(pdev, chan_id);
-		ch_state = wlan_reg_get_channel_state_for_freq(pdev, ch_freq);
+		ch_state = wlan_reg_get_channel_state(pdev, chan_id);
 
 		if (CHANNEL_STATE_INVALID != ch_state &&
 		    CHANNEL_STATE_DFS != ch_state &&

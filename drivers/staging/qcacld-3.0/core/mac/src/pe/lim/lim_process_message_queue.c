@@ -39,6 +39,7 @@
 #include "lim_prop_exts_utils.h"
 
 #include "lim_admit_control.h"
+#include "lim_ibss_peer_mgmt.h"
 #include "sch_api.h"
 #include "lim_ft_defs.h"
 #include "lim_session.h"
@@ -94,11 +95,11 @@ static void lim_process_sae_msg_sta(struct mac_context *mac,
 		if (sae_msg->sae_status == IEEE80211_STATUS_SUCCESS)
 			lim_restore_from_auth_state(mac,
 						    eSIR_SME_SUCCESS,
-						    STATUS_SUCCESS,
+						    eSIR_MAC_SUCCESS_STATUS,
 						    session);
 		else
 			lim_restore_from_auth_state(mac, eSIR_SME_AUTH_REFUSED,
-				STATUS_UNSPECIFIED_FAILURE, session);
+				eSIR_MAC_UNSPEC_FAILURE_STATUS, session);
 		break;
 	default:
 		/* SAE msg is received in unexpected state */
@@ -207,9 +208,7 @@ static void lim_process_sae_msg(struct mac_context *mac, struct sir_sae_msg *bod
 	}
 
 	if (session->opmode != QDF_STA_MODE &&
-	    session->opmode != QDF_SAP_MODE &&
-	    session->opmode != QDF_P2P_GO_MODE &&
-	    session->opmode != QDF_P2P_CLIENT_MODE) {
+	    session->opmode != QDF_SAP_MODE) {
 		pe_err("SAE:Not supported in this mode %d",
 				session->opmode);
 		return;
@@ -525,8 +524,7 @@ static bool def_msg_decision(struct mac_context *mac_ctx,
 	if (mac_ctx->lim.gLimSmeState == eLIM_SME_OFFLINE_STATE) {
 		/* Defer processing this message */
 		if (lim_defer_msg(mac_ctx, lim_msg) != TX_SUCCESS) {
-			QDF_TRACE(QDF_MODULE_ID_PE, LOGE,
-					FL("Unable to Defer Msg"));
+			pe_err_rl("Unable to Defer Msg");
 			lim_log_session_states(mac_ctx);
 			lim_handle_defer_msg_error(mac_ctx, lim_msg);
 		}
@@ -876,7 +874,7 @@ static QDF_STATUS lim_allocate_and_get_bcn(
 	tSchBeaconStruct *bcn_l = NULL;
 	cds_pkt_t *pkt_l = NULL;
 
-	pkt_l = qdf_mem_malloc_atomic(sizeof(cds_pkt_t));
+	pkt_l = qdf_mem_malloc(sizeof(cds_pkt_t));
 	if (!pkt_l)
 		return QDF_STATUS_E_FAILURE;
 
@@ -887,7 +885,7 @@ static QDF_STATUS lim_allocate_and_get_bcn(
 		goto free;
 	}
 
-	bcn_l = qdf_mem_malloc_atomic(sizeof(tSchBeaconStruct));
+	bcn_l = qdf_mem_malloc(sizeof(tSchBeaconStruct));
 	if (!bcn_l)
 		goto free;
 
@@ -1013,7 +1011,8 @@ uint32_t lim_defer_msg(struct mac_context *mac, struct scheduler_msg *pMsg)
 			(mac, NO_SESSION,
 			LIM_TRACE_MAKE_RXMSG(pMsg->type, LIM_MSG_DEFERRED)));
 	} else {
-		pe_err("Dropped lim message (0x%X) Message %s", pMsg->type, lim_msg_str(pMsg->type));
+		pe_err_rl("Dropped lim message (0x%X) Message %s", pMsg->type,
+			  lim_msg_str(pMsg->type));
 		MTRACE(mac_trace_msg_rx
 			(mac, NO_SESSION,
 			LIM_TRACE_MAKE_RXMSG(pMsg->type, LIM_MSG_DROPPED)));
@@ -1412,7 +1411,6 @@ lim_handle80211_frames(struct mac_context *mac, struct scheduler_msg *limMsg,
 
 		case SIR_MAC_MGMT_ASSOC_RSP:
 			lim_process_assoc_rsp_frame(mac, pRxPacketInfo,
-						    ASSOC_FRAME_LEN,
 						    LIM_ASSOC,
 						    pe_session);
 			break;
@@ -1434,7 +1432,6 @@ lim_handle80211_frames(struct mac_context *mac, struct scheduler_msg *limMsg,
 
 		case SIR_MAC_MGMT_REASSOC_RSP:
 			lim_process_assoc_rsp_frame(mac, pRxPacketInfo,
-						    ASSOC_FRAME_LEN,
 						    LIM_REASSOC,
 						    pe_session);
 			break;
@@ -1579,6 +1576,20 @@ static void lim_process_sme_obss_scan_ind(struct mac_context *mac_ctx,
 			session->peSessionId);
 	}
 	return;
+}
+
+static void
+lim_process_vdev_delete(struct mac_context *mac_ctx,
+			struct del_vdev_params *vdev_param)
+{
+	tp_wma_handle wma_handle;
+
+	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	if (!wma_handle) {
+		WMA_LOGE("%s: WMA context is invalid", __func__);
+		return;
+	}
+	wma_vdev_detach(wma_handle, vdev_param);
 }
 
 /**
@@ -1744,7 +1755,6 @@ static void lim_process_messages(struct mac_context *mac_ctx,
 	case eWNI_SME_DEAUTH_CNF:
 	case eWNI_SME_ASSOC_CNF:
 	case eWNI_SME_ADDTS_REQ:
-	case eWNI_SME_MSCS_REQ:
 	case eWNI_SME_DELTS_REQ:
 	case eWNI_SME_SESSION_UPDATE_PARAM:
 	case eWNI_SME_CHNG_MCC_BEACON_INTERVAL:
@@ -1763,12 +1773,15 @@ static void lim_process_messages(struct mac_context *mac_ctx,
 	case eWNI_SME_EXT_CHANGE_CHANNEL:
 	case eWNI_SME_ROAM_INVOKE:
 		/* fall through */
-	case eWNI_SME_ROAM_SEND_SET_PCL_REQ:
+	case eWNI_SME_ROAM_SCAN_OFFLOAD_REQ:
+	case eWNI_SME_ROAM_INIT_PARAM:
+	case eWNI_SME_ROAM_SEND_PER_REQ:
 	case eWNI_SME_SET_ADDBA_ACCEPT:
 	case eWNI_SME_UPDATE_EDCA_PROFILE:
 	case WNI_SME_UPDATE_MU_EDCA_PARAMS:
 	case eWNI_SME_UPDATE_SESSION_EDCA_TXQ_PARAMS:
 	case WNI_SME_CFG_ACTION_FRM_HE_TB_PPDU:
+	case WNI_SME_REGISTER_BCN_REPORT_SEND_CB:
 		/* These messages are from HDD.No need to respond to HDD */
 		lim_process_normal_hdd_msg(mac_ctx, msg, false);
 		break;
@@ -1884,6 +1897,9 @@ static void lim_process_messages(struct mac_context *mac_ctx,
 		/* Does not receive CNF or dummy packet */
 		lim_handle_cnf_wait_timeout(mac_ctx, (uint16_t) msg->bodyval);
 		break;
+	case SIR_LIM_CHANNEL_SWITCH_TIMEOUT:
+		lim_process_channel_switch_timeout(mac_ctx);
+		break;
 	case SIR_LIM_UPDATE_OLBC_CACHEL_TIMEOUT:
 		lim_handle_update_olbc_cache(mac_ctx);
 		break;
@@ -1933,6 +1949,11 @@ static void lim_process_messages(struct mac_context *mac_ctx,
 		break;
 	case WMA_RX_CHN_STATUS_EVENT:
 		lim_process_rx_channel_status_event(mac_ctx, msg->bodyptr);
+		break;
+	case WMA_IBSS_PEER_INACTIVITY_IND:
+		lim_process_ibss_peer_inactivity(mac_ctx, msg->bodyptr);
+		qdf_mem_free((void *)(msg->bodyptr));
+		msg->bodyptr = NULL;
 		break;
 	case WMA_DFS_BEACON_TX_SUCCESS_IND:
 		lim_process_beacon_tx_success_ind(mac_ctx, msg->type,
@@ -2100,6 +2121,11 @@ static void lim_process_messages(struct mac_context *mac_ctx,
 					  (struct roam_blacklist_event *)
 					  msg->bodyptr);
 		qdf_mem_free((void *)msg->bodyptr);
+		msg->bodyptr = NULL;
+		break;
+	case eWNI_SME_VDEV_DELETE_REQ:
+		lim_process_vdev_delete(mac_ctx, msg->bodyptr);
+		/* Do not free msg->bodyptr, same memory used to send resp */
 		msg->bodyptr = NULL;
 		break;
 	case SIR_LIM_PROCESS_DEFERRED_QUEUE:

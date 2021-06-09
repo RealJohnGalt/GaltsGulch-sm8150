@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -26,7 +26,6 @@
 
 #include "sch_api.h"
 #include "wlan_mlme_api.h"
-#include <wlan_reg_services_api.h>
 
 /* / Minimum beacon interval allowed (in Kus) */
 #define SCH_BEACON_INTERVAL_MIN  10
@@ -104,7 +103,8 @@ sch_get_params(struct mac_context *mac,
 	uint32_t *prf;
 	struct wlan_mlme_edca_params *edca_params;
 	QDF_STATUS status;
-	uint8_t country_code_str[REG_ALPHA2_LEN + 1];
+	uint8_t country_code_str[CFG_COUNTRY_CODE_LEN];
+	uint32_t country_code_len = CFG_COUNTRY_CODE_LEN;
 	uint32_t ani_l[] = {edca_ani_acbe_local, edca_ani_acbk_local,
 			    edca_ani_acvi_local, edca_ani_acvo_local};
 
@@ -124,8 +124,9 @@ sch_get_params(struct mac_context *mac,
 			     edca_etsi_acvi_bcast, edca_etsi_acvo_bcast};
 	edca_params = &mac->mlme_cfg->edca_params;
 
-	wlan_reg_get_cc_and_src(mac->psoc, country_code_str);
-
+	country_code_len = (uint32_t)mac->mlme_cfg->reg.country_code_len;
+	qdf_mem_copy(country_code_str, mac->mlme_cfg->reg.country_code,
+		     country_code_len);
 	if (cds_is_etsi_europe_country(country_code_str)) {
 		val = WNI_CFG_EDCA_PROFILE_ETSI_EUROPE;
 		pe_debug("switch to ETSI EUROPE profile country code %c%c",
@@ -495,7 +496,8 @@ get_wmm_local_params(struct mac_context *mac_ctx,
  */
 void sch_edca_profile_update(struct mac_context *mac, struct pe_session *pe_session)
 {
-	if (LIM_IS_AP_ROLE(pe_session)) {
+	if (LIM_IS_AP_ROLE(pe_session) ||
+	    LIM_IS_IBSS_ROLE(pe_session)) {
 		sch_qos_update_local(mac, pe_session);
 		sch_qos_update_broadcast(mac, pe_session);
 	}

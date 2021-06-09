@@ -1,3 +1,5 @@
+CONFIG_AR6320_SUPPORT := y
+
 ifeq ($(CONFIG_CLD_HL_SDIO_CORE), y)
 	CONFIG_QCA_WIFI_SDIO := y
 ifndef CONFIG_SDIO_TRANSFER
@@ -419,6 +421,7 @@ CONFIG_FEATURE_WLAN_STA_AP_MODE_DFS_DISABLE := y
 CONFIG_FEATURE_AP_MCC_CH_AVOIDANCE := y
 else
 CONFIG_QCOM_ESE := y
+CONFIG_FEATURE_WLAN_RMC := y
 CONFIG_WLAN_OPEN_P2P_INTERFACE := y
 CONFIG_WLAN_ENABLE_SOCIAL_CHANNELS_5G_ONLY := y
 endif
@@ -477,6 +480,11 @@ CONFIG_CHECKSUM_OFFLOAD := y
 
 #Enable GTK offload
 CONFIG_GTK_OFFLOAD := y
+
+#Enable EXT WOW
+ifeq ($(CONFIG_HIF_PCI), y)
+	CONFIG_EXT_WOW := y
+endif
 
 #Set this to 1 to catch erroneous Target accesses during debug.
 CONFIG_ATH_PCIE_ACCESS_DEBUG := n
@@ -558,9 +566,7 @@ CONFIG_FEATURE_ROAM_DEBUG := y
 CONFIG_WLAN_DFS_MASTER_ENABLE := y
 
 #Flag to enable WEXT support for STA/AP/P2P interfaces
-ifeq ($(CONFIG_WIRELESS_EXT), y)
 CONFIG_WLAN_WEXT_SUPPORT_ENABLE := y
-endif
 
 #Flag to enable/disable MTRACE feature
 CONFIG_ENABLE_MTRACE_LOG := y
@@ -638,9 +644,6 @@ CONFIG_WMI_STA_SUPPORT := y
 
 #Flag to enable LTE COEX feature
 CONFIG_LTE_COEX := y
-
-#Flag to enable/disable TARGET 11d scan
-CONFIG_TARGET_11D_SCAN := y
 
 #Flag to enable HOST OPCLASS feature
 CONFIG_HOST_OPCLASS := y
@@ -746,6 +749,4 @@ CONFIG_SAP_DHCP_FW_IND := y
 
 #Enable FW Offload
 CONFIG_WLAN_FW_OFFLOAD := y
-
-CONFIG_FEATURE_SG := y
 

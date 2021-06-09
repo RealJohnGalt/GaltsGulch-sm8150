@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -29,9 +29,8 @@ struct hdd_context;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) || defined(WITH_BACKPORTS)
 #define IEEE80211_CHAN_PASSIVE_SCAN IEEE80211_CHAN_NO_IR
+#define IEEE80211_CHAN_NO_IBSS IEEE80211_CHAN_NO_IR
 #endif
-
-#define CHANNEL_LIST_UPDATE_TIMEOUT 4500
 
 /**
  * hdd_update_regulatory_config() - API to update regulatory config parameters
@@ -41,32 +40,7 @@ struct hdd_context;
  */
 int hdd_update_regulatory_config(struct hdd_context *hdd_ctx);
 
-/**
- * hdd_init_regulatory_update_event() - Initialize the regulatory update event
- * @hdd_ctx: HDD context
- *
- * Return: 0 on success, err on failure
- */
-int hdd_init_regulatory_update_event(struct hdd_context *hdd_ctx);
-
-/**
- * hdd_deinit_regulatory_update_event() - Cleanup the regulatory update event
- * @hdd_ctx: HDD context
- *
- * Return: none
- */
-void hdd_deinit_regulatory_update_event(struct hdd_context *hdd_ctx);
-
 int hdd_regulatory_init(struct hdd_context *hdd_ctx, struct wiphy *wiphy);
-
-/**
- * hdd_regulatory_deinit() - cleanup all components of regulatory
- * @hdd_ctx: HDD context
- *
- * Return: None
- */
-void hdd_regulatory_deinit(struct hdd_context *hdd_ctx);
-
 void hdd_program_country_code(struct hdd_context *hdd_ctx);
 void hdd_reset_global_reg_params(void);
 

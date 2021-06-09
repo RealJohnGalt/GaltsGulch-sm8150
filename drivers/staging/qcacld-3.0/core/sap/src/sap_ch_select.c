@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -457,7 +457,9 @@ static bool sap_chan_sel_init(mac_handle_t mac_handle,
 		if (sap_dfs_is_channel_in_nol_list(
 					sap_ctx, channel,
 					PHY_SINGLE_CHANNEL_CENTERED)) {
-			sap_debug_rl("Ch %d is in NOL list", channel);
+			QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+				  "In %s, Ch %d is in NOL list", __func__,
+				  channel);
 			continue;
 		}
 
@@ -465,18 +467,17 @@ static bool sap_chan_sel_init(mac_handle_t mac_handle,
 		    sta_sap_scc_on_dfs_chnl_config_value == 1) {
 			if (wlan_reg_is_dfs_for_freq(mac->pdev,
 						     pSpectCh->chan_freq)) {
-				sap_debug("DFS Ch %d not considered for ACS. include_dfs_ch %u, sta_sap_scc_on_dfs_chnl_config_value %d",
-					channel, include_dfs_ch,
-					sta_sap_scc_on_dfs_chnl_config_value);
+				QDF_TRACE(QDF_MODULE_ID_SAP,
+					  QDF_TRACE_LEVEL_INFO_HIGH,
+					  "In %s, DFS Ch %d not considered for ACS. include_dfs_ch %u, sta_sap_scc_on_dfs_chnl_config_value %d",
+					  __func__, channel, include_dfs_ch,
+					  sta_sap_scc_on_dfs_chnl_config_value);
 				continue;
 			}
 		}
 
-		if (!policy_mgr_is_sap_freq_allowed(mac->psoc, *pChans)) {
-			QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
-				  "%s: Skip freq %d", __func__, *pChans);
+		if (!policy_mgr_is_safe_channel(mac->psoc, *pChans))
 			continue;
-		}
 
 		/* OFDM rates are not supported on channel 14 */
 		if (channel == 14 &&
@@ -559,7 +560,8 @@ uint32_t sapweight_rssi_count(struct sap_context *sap_ctx, int8_t rssi,
 
 	rssicountWeight = rssiWeight + countWeight;
 
-	sap_debug("rssiWeight=%d, countWeight=%d, rssicountWeight=%d",
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "rssiWeight=%d, countWeight=%d, rssicountWeight=%d",
 		  rssiWeight, countWeight, rssicountWeight);
 
 	return rssicountWeight;
@@ -626,7 +628,8 @@ static uint32_t sap_weight_channel_noise_floor(struct sap_context *sap_ctx,
 	if (noise_floor_weight > softap_nf_weight_local)
 		noise_floor_weight = softap_nf_weight_local;
 
-	sap_debug("nf=%d, nfwc=%d, nfwl=%d, nfw=%d",
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "nf=%d, nfwc=%d, nfwl=%d, nfw=%d",
 		  channel_stat->noise_floor,
 		  softap_nf_weight_cfg, softap_nf_weight_local,
 		  noise_floor_weight);
@@ -681,7 +684,8 @@ static uint32_t sap_weight_channel_free(struct sap_context *sap_ctx,
 	if (channel_free_weight > softap_channel_free_weight_local)
 		channel_free_weight = softap_channel_free_weight_local;
 
-	sap_debug("rcc=%d, cc=%d, tc=%d, rc=%d, cfwc=%d, cfwl=%d, cfw=%d",
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "rcc=%d, cc=%d, tc=%d, rc=%d, cfwc=%d, cfwl=%d, cfw=%d",
 		  rx_clear_count, cycle_count,
 		  channel_stat->tx_frame_count,
 		  channel_stat->rx_frame_count,
@@ -730,7 +734,8 @@ static uint32_t sap_weight_channel_txpwr_range(struct sap_context *sap_ctx,
 	if (txpwr_weight_low_speed > softap_txpwr_range_weight_local)
 		txpwr_weight_low_speed = softap_txpwr_range_weight_local;
 
-	sap_debug("tpr=%d, tprwc=%d, tprwl=%d, tprw=%d",
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "tpr=%d, tprwc=%d, tprwl=%d, tprw=%d",
 		  channel_stat->chan_tx_pwr_range,
 		  softap_txpwr_range_weight_cfg,
 		  softap_txpwr_range_weight_local,
@@ -777,7 +782,8 @@ static uint32_t sap_weight_channel_txpwr_tput(struct sap_context *sap_ctx,
 	if (txpwr_weight_high_speed > softap_txpwr_tput_weight_local)
 		txpwr_weight_high_speed = softap_txpwr_tput_weight_local;
 
-	sap_debug("tpt=%d, tptwc=%d, tptwl=%d, tptw=%d",
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "tpt=%d, tptwc=%d, tptwl=%d, tptw=%d",
 		  channel_stat->chan_tx_pwr_throughput,
 		  softap_txpwr_tput_weight_cfg,
 		  softap_txpwr_tput_weight_local,
@@ -1028,7 +1034,8 @@ static void sap_interference_rssi_count(tSapSpectChInfo *spect_ch,
 	tSapSpectChInfo *spectch_end)
 {
 	if (!spect_ch) {
-		sap_err("spect_ch is NULL");
+		QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_ERROR,
+			  "%s: spect_ch is NULL", __func__);
 		return;
 	}
 
@@ -1290,7 +1297,8 @@ static void sap_compute_spect_weight(tSapChSelSpectInfo *pSpectInfoParams,
 				mac->mlme_cfg->acs.normalize_weight_range;
 	bool freq_present_in_list = false;
 
-	sap_debug("Computing spectral weight");
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "In %s, Computing spectral weight", __func__);
 
 	if (scan_list)
 		qdf_list_peek_front(scan_list, &cur_lst);
@@ -1406,10 +1414,7 @@ static void sap_compute_spect_weight(tSapChSelSpectInfo *pSpectInfoParams,
 				MLME_GET_DFS_CHAN_WEIGHT(
 				mac->mlme_cfg->acs.np_chan_weightage);
 			freq_present_in_list = true;
-			sap_debug_rl("DFS channel weightage %d",
-				     normalize_factor);
 		}
-
 		/* Check if the freq is present in range list */
 		for (i = 0; i < mac->mlme_cfg->acs.num_weight_range; i++) {
 			if (chan_freq >= range_list[i].start_freq &&
@@ -1439,9 +1444,9 @@ static void sap_compute_spect_weight(tSapChSelSpectInfo *pSpectInfoParams,
 			normalized_weight =
 				((SAP_ACS_WEIGHT_MAX - pSpectCh->weight) *
 				(100 - normalize_factor)) / 100;
-			sap_debug_rl("freq %d old weight %d new weight %d",
-				     chan_freq, pSpectCh->weight,
-				     pSpectCh->weight + normalized_weight);
+			sap_debug("freq %d old weight %d new weight %d",
+				  chan_freq, pSpectCh->weight,
+				  pSpectCh->weight + normalized_weight);
 			pSpectCh->weight += normalized_weight;
 			freq_present_in_list = false;
 		}
@@ -1451,9 +1456,9 @@ static void sap_compute_spect_weight(tSapChSelSpectInfo *pSpectInfoParams,
 		pSpectCh->weight_copy = pSpectCh->weight;
 
 debug_info:
-		sap_debug_rl("freq = %d, weight = %d rssi = %d bss count = %d",
-			     pSpectCh->chan_freq, pSpectCh->weight,
-			     pSpectCh->rssiAgr, pSpectCh->bssCount);
+		sap_debug("freq = %d, weight = %d rssi = %d bss count = %d",
+			   pSpectCh->chan_freq, pSpectCh->weight,
+			  pSpectCh->rssiAgr, pSpectCh->bssCount);
 
 		pSpectCh++;
 	}
@@ -1656,9 +1661,9 @@ static void sap_sort_chl_weight_80_mhz(struct mac_context *mac_ctx,
 	pSpectInfo = pSpectInfoParams->pSpectCh;
 
 	for (j = 0; j < (pSpectInfoParams->numSpectChans); j++) {
-		sap_debug_rl("freq = %d weight = %d rssi = %d bss count = %d",
-			     pSpectInfo->chan_freq, pSpectInfo->weight,
-			     pSpectInfo->rssiAgr, pSpectInfo->bssCount);
+		sap_debug("freq = %d weight = %d rssi = %d bss count = %d",
+			  pSpectInfo->chan_freq, pSpectInfo->weight,
+			  pSpectInfo->rssiAgr, pSpectInfo->bssCount);
 
 		pSpectInfo++;
 	}
@@ -1821,9 +1826,9 @@ static void sap_sort_chl_weight_160_mhz(struct mac_context *mac_ctx,
 
 	pSpectInfo = pSpectInfoParams->pSpectCh;
 	for (j = 0; j < (pSpectInfoParams->numSpectChans); j++) {
-		sap_debug_rl("freq = %d weight = %d rssi = %d bss count = %d",
-			     pSpectInfo->chan_freq, pSpectInfo->weight,
-			     pSpectInfo->rssiAgr, pSpectInfo->bssCount);
+		sap_debug("freq = %d weight = %d rssi = %d bss count = %d",
+			  pSpectInfo->chan_freq, pSpectInfo->weight,
+			  pSpectInfo->rssiAgr, pSpectInfo->bssCount);
 
 		pSpectInfo++;
 	}
@@ -2013,9 +2018,9 @@ static void sap_sort_chl_weight_ht40_24_g(struct mac_context *mac_ctx,
 
 	pSpectInfo = pSpectInfoParams->pSpectCh;
 	for (j = 0; j < (pSpectInfoParams->numSpectChans); j++) {
-		sap_debug_rl("freq = %d weight = %d rssi = %d bss count = %d",
-			     pSpectInfo->chan_freq, pSpectInfo->weight,
-			     pSpectInfo->rssiAgr, pSpectInfo->bssCount);
+		sap_debug("freq = %d weight = %d rssi = %d bss count = %d",
+			  pSpectInfo->chan_freq, pSpectInfo->weight,
+			  pSpectInfo->rssiAgr, pSpectInfo->bssCount);
 
 		pSpectInfo++;
 	}
@@ -2121,9 +2126,9 @@ static void sap_sort_chl_weight_40_mhz(struct mac_context *mac_ctx,
 
 	pSpectInfo = pSpectInfoParams->pSpectCh;
 	for (j = 0; j < (pSpectInfoParams->numSpectChans); j++) {
-		sap_debug_rl("freq = %d weight = %d rssi = %d bss count = %d",
-			     pSpectInfo->chan_freq, pSpectInfo->weight,
-			     pSpectInfo->rssiAgr, pSpectInfo->bssCount);
+		sap_debug("freq = %d weight = %d rssi = %d bss count = %d",
+			  pSpectInfo->chan_freq, pSpectInfo->weight,
+			  pSpectInfo->rssiAgr, pSpectInfo->bssCount);
 
 		pSpectInfo++;
 	}
@@ -2192,9 +2197,9 @@ static void sap_sort_chl_weight_all(struct mac_context *mac_ctx,
 
 	pSpectCh = pSpectInfoParams->pSpectCh;
 	for (j = 0; j < (pSpectInfoParams->numSpectChans); j++) {
-		sap_debug_rl("Freq = %d weight = %d rssi aggr = %d bss count = %d",
-			     pSpectCh->chan_freq, pSpectCh->weight,
-			     pSpectCh->rssiAgr, pSpectCh->bssCount);
+		sap_debug("Freq = %d weight = %d rssi aggr = %d bss count = %d",
+			  pSpectCh->chan_freq, pSpectCh->weight,
+			  pSpectCh->rssiAgr, pSpectCh->bssCount);
 		pSpectCh++;
 	}
 
@@ -2239,7 +2244,8 @@ uint32_t sap_select_channel(mac_handle_t mac_handle,
 
 	/* Initialize the structure pointed by spect_info */
 	if (sap_chan_sel_init(mac_handle, spect_info, sap_ctx) != true) {
-		sap_err("Ch Select initialization failed");
+		QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_ERROR,
+			  FL("Ch Select initialization failed"));
 		return SAP_CHANNEL_NOT_SELECTED;
 	}
 

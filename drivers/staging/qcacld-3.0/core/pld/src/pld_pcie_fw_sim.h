@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -21,7 +21,7 @@
 
 #include "pld_internal.h"
 
-#if !defined(CONFIG_PLD_PCIE_FW_SIM) && !defined(CONFIG_PLD_IPCIE_FW_SIM)
+#ifndef CONFIG_PLD_PCIE_FW_SIM
 
 static inline int pld_pcie_fw_sim_register_driver(void)
 {
@@ -128,25 +128,6 @@ static inline int pld_pcie_fw_sim_idle_restart(struct device *dev)
 {
 	return 0;
 }
-
-static inline int pld_pcie_fw_sim_thermal_register(struct device *dev,
-						   unsigned long max_state,
-						   int mon_id)
-{
-	return 0;
-}
-
-static inline void pld_pcie_fw_sim_thermal_unregister(struct device *dev,
-						      int mon_id)
-{
-}
-
-static inline int pld_pcie_fw_sim_get_thermal_state(struct device *dev,
-						    unsigned long *therm_state,
-						    int mon_id)
-{
-	return 0;
-}
 #else
 #include <net/cnss2.h>
 
@@ -225,27 +206,5 @@ static inline int pld_pcie_fw_sim_idle_restart(struct device *dev)
 {
 	return cnss_fw_sim_idle_restart(dev);
 }
-
-static inline int pld_pcie_fw_sim_thermal_register(struct device *dev,
-						   unsigned long max_state,
-						   int mon_id)
-{
-	return cnss_fw_sim_thermal_cdev_register(dev, max_state, mon_id);
-}
-
-static inline void pld_pcie_fw_sim_thermal_unregister(struct device *dev,
-						      int mon_id)
-{
-	cnss_fw_sim_thermal_cdev_unregister(dev, mon_id);
-}
-
-static inline int pld_pcie_fw_sim_get_thermal_state(struct device *dev,
-						    unsigned long *therm_state,
-						    int mon_id)
-{
-	return cnss_fw_sim_get_curr_therm_cdev_state(dev, therm_state,
-						     mon_id);
-}
-
 #endif
 #endif

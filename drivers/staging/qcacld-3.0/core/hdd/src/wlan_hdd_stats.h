@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -34,67 +34,10 @@
 
 #define DATA_RATE_11AC_MCS_MASK    0x03
 
-#ifdef FEATURE_CLUB_LL_STATS_AND_GET_STATION
 /* LL stats get request time out value */
-#define WLAN_WAIT_TIME_LL_STATS 2000
-#else
 #define WLAN_WAIT_TIME_LL_STATS 800
-#endif
 
 #define WLAN_HDD_TGT_NOISE_FLOOR_DBM     (-96)
-
-extern const struct nla_policy qca_wlan_vendor_ll_ext_policy[
-			QCA_WLAN_VENDOR_ATTR_LL_STATS_EXT_MAX + 1];
-
-#ifdef WLAN_FEATURE_LINK_LAYER_STATS
-/* QCA_NL80211_VENDOR_SUBCMD_LL_STATS_CLR */
-extern const struct nla_policy qca_wlan_vendor_ll_clr_policy[
-			QCA_WLAN_VENDOR_ATTR_LL_STATS_CLR_MAX + 1];
-
-/* QCA_NL80211_VENDOR_SUBCMD_LL_STATS_SET */
-extern const struct nla_policy qca_wlan_vendor_ll_set_policy[
-			QCA_WLAN_VENDOR_ATTR_LL_STATS_SET_MAX + 1];
-
-/* QCA_NL80211_VENDOR_SUBCMD_LL_STATS_GET */
-extern const struct nla_policy qca_wlan_vendor_ll_get_policy[
-			QCA_WLAN_VENDOR_ATTR_LL_STATS_GET_MAX + 1];
-
-#define FEATURE_LL_STATS_VENDOR_COMMANDS                                \
-{                                                                       \
-	.info.vendor_id = QCA_NL80211_VENDOR_ID,                        \
-	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LL_STATS_CLR,          \
-	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |                           \
-		WIPHY_VENDOR_CMD_NEED_NETDEV |                          \
-		WIPHY_VENDOR_CMD_NEED_RUNNING,                          \
-	.doit = wlan_hdd_cfg80211_ll_stats_clear,                       \
-	vendor_command_policy(qca_wlan_vendor_ll_clr_policy,            \
-			      QCA_WLAN_VENDOR_ATTR_LL_STATS_CLR_MAX)    \
-},                                                                      \
-									\
-{                                                                       \
-	.info.vendor_id = QCA_NL80211_VENDOR_ID,                        \
-	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LL_STATS_SET,          \
-	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |                           \
-		 WIPHY_VENDOR_CMD_NEED_NETDEV |                         \
-		 WIPHY_VENDOR_CMD_NEED_RUNNING,                         \
-	.doit = wlan_hdd_cfg80211_ll_stats_set,                         \
-	vendor_command_policy(qca_wlan_vendor_ll_set_policy,            \
-			      QCA_WLAN_VENDOR_ATTR_LL_STATS_SET_MAX)    \
-},                                                                      \
-                                                                        \
-{                                                                       \
-	.info.vendor_id = QCA_NL80211_VENDOR_ID,                        \
-	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LL_STATS_GET,          \
-	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |                           \
-		 WIPHY_VENDOR_CMD_NEED_NETDEV |                         \
-		 WIPHY_VENDOR_CMD_NEED_RUNNING,                         \
-	.doit = wlan_hdd_cfg80211_ll_stats_get,                         \
-	vendor_command_policy(qca_wlan_vendor_ll_get_policy,            \
-			      QCA_WLAN_VENDOR_ATTR_LL_STATS_GET_MAX)    \
-},
-#else
-#define FEATURE_LL_STATS_VENDOR_COMMANDS
-#endif
 
 /**
  * struct index_vht_data_rate_type - vht data rate type
@@ -466,64 +409,25 @@ int wlan_hdd_get_linkspeed_for_peermac(struct hdd_adapter *adapter,
 int wlan_hdd_get_link_speed(struct hdd_adapter *adapter, uint32_t *link_speed);
 
 /**
+ * wlan_hdd_get_peer_info() - get peer info
+ * @adapter: hostapd interface
+ * @macaddress: request peer mac address
+ * @peer_info_ext: one peer extended info retrieved
+ *
+ * This function will call sme_get_peer_info_ext to get peer info
+ *
+ * Return: 0 on success, otherwise error value
+ */
+int wlan_hdd_get_peer_info(struct hdd_adapter *adapter,
+			   struct qdf_mac_addr macaddress,
+			   struct sir_peer_info_ext *peer_info_ext);
+/**
  * wlan_hdd_get_station_stats() - Get station statistics
  * @adapter: adapter for which statistics are desired
  *
  * Return: status of operation
  */
 int wlan_hdd_get_station_stats(struct hdd_adapter *adapter);
-
-#ifdef WLAN_FEATURE_BIG_DATA_STATS
-/**
- * wlan_hdd_get_big_data_station_stats() - Get big data station statistics
- * @adapter: adapter for which statistics are desired
- *
- * Return: status of operation
- */
-int wlan_hdd_get_big_data_station_stats(struct hdd_adapter *adapter);
-
-/**
- * wlan_cfg80211_mc_cp_get_big_data_stats() - API to get big data
- * statistics from firmware
- * @vdev:    Pointer to vdev
- * @errno:   error type in case of failure
- *
- * Return: big data stats buffer on success, Null on failure
- */
-struct big_data_stats_event *
-wlan_cfg80211_mc_cp_get_big_data_stats(struct wlan_objmgr_vdev *vdev,
-				       int *errno);
-
-/**
- * wlan_cfg80211_mc_cp_stats_free_big_data_stats_event() - API to release big
- * data statistics buffer
- * @vdev:    Pointer to vdev
- * @info:    pointer to object to populate with big data stats
- *
- * Return: None
- */
-void wlan_cfg80211_mc_cp_stats_free_big_data_stats_event(
-					struct big_data_stats_event *info);
-#else
-static inline int wlan_hdd_get_big_data_station_stats(
-						struct hdd_adapter *adapter)
-{
-	return 0;
-}
-
-static inline struct big_data_stats_event *
-wlan_cfg80211_mc_cp_get_big_data_stats(struct wlan_objmgr_vdev *vdev,
-				       int *errno)
-{
-	return 0;
-}
-
-static inline
-void wlan_cfg80211_mc_cp_stats_free_big_data_stats_event(
-					struct big_data_stats_event *info)
-{
-}
-#endif
 
 /**
  * wlan_hdd_get_temperature() - get current device temperature
@@ -549,7 +453,7 @@ void wlan_hdd_display_txrx_stats(struct hdd_context *hdd_ctx);
 /**
  * hdd_report_max_rate() - Fill the max rate stats in the station info structure
  * to be sent to the userspace.
- * @adapter: pointer to adapter
+ *
  * @mac_handle: The mac handle
  * @rate: The station_info tx/rx rate to be filled
  * @signal: signal from station_info
@@ -560,8 +464,7 @@ void wlan_hdd_display_txrx_stats(struct hdd_context *hdd_ctx);
  *
  * Return: True if fill is successful
  */
-bool hdd_report_max_rate(struct hdd_adapter *adapter,
-			 mac_handle_t mac_handle,
+bool hdd_report_max_rate(mac_handle_t mac_handle,
 			 struct rate_info *rate,
 			 int8_t signal,
 			 enum tx_rate_info rate_flags,
@@ -595,4 +498,12 @@ void wlan_hdd_register_cp_stats_cb(struct hdd_context *hdd_ctx);
 #else
 static inline void wlan_hdd_register_cp_stats_cb(struct hdd_context *hdd_ctx) {}
 #endif
+
+/**
+ * hdd_update_sta_arp_stats() - update arp stats
+ * @adapter: adapter context
+ *
+ * Return: An error code or 0 on success.
+ */
+QDF_STATUS hdd_update_sta_arp_stats(struct hdd_adapter *adapter);
 #endif /* end #if !defined(WLAN_HDD_STATS_H) */

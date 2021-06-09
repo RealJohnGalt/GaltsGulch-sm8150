@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -569,12 +569,10 @@ struct nan_disable_ind_msg {
  * @request_data_len: request data length
  * @request_data: request data
  * @rtt_cap: indicate if responder/initiator role is supported
- * @disable_6g_nan: Disable NAN in 6Ghz
  */
 struct nan_msg_params {
 	uint16_t request_data_len;
 	uint32_t rtt_cap;
-	bool disable_6g_nan;
 	/* Variable length, do not add anything after this */
 	uint8_t request_data[];
 };
@@ -835,27 +833,23 @@ struct wlan_nan_rx_ops {
 
 /**
  * struct nan_tgt_caps - NAN Target capabilities
- * @nan_conc_control: Target supports disabling NAN Discovery from host
- *		      so that host is able to handle(disable) NAN
- *		      concurrencies.
+ * @nan_disable_supported: Target supports disabling NAN Discovery
  * @nan_dbs_supported: Target supports NAN Discovery with DBS
  * @ndi_dbs_supported: Target supports NAN Datapath with DBS
  * @nan_sap_supported: Target supports NAN Discovery with SAP concurrency
- * @ndi_sap_supported: Target supports NAN Datapath with SAP concurrency
+ * @ndi_sap_supported: Target supports NAN Datapth with SAP concurrency
  * @nan_vdev_allowed: Allow separate vdev creation for NAN discovery
  * @sta_nan_ndi_ndi_allowed: 4 port concurrency of STA+NAN+NDI+NDI is supported
- * @ndi_txbf_supported: Target supports NAN Datapath with TX beamforming
  * by Fw or not.
  */
 struct nan_tgt_caps {
-	uint32_t nan_conc_control:1;
+	uint32_t nan_disable_supported:1;
 	uint32_t nan_dbs_supported:1;
 	uint32_t ndi_dbs_supported:1;
 	uint32_t nan_sap_supported:1;
 	uint32_t ndi_sap_supported:1;
 	uint32_t nan_vdev_allowed:1;
 	uint32_t sta_nan_ndi_ndi_allowed:1;
-	uint32_t ndi_txbf_supported:1;
 };
 
 #endif

@@ -18,43 +18,14 @@
 
 #include <wlan_objmgr_pdev_obj.h>
 #include <dp_txrx.h>
-#include <dp_types.h>
+#include "dp_types.h"
 #include <dp_internal.h>
 #include <cdp_txrx_cmn.h>
 #include <cdp_txrx_misc.h>
-#include <dp_tx_desc.h>
-#include <dp_rx.h>
+#include "dp_tx_desc.h"
+#include "dp_rx.h"
 #include <ce_api.h>
 #include <ce_internal.h>
-#include <wlan_cfg.h>
-
-/**
- * dp_rx_refill_thread_schedule() - Schedule rx refill thread
- * @soc: ol_txrx_soc_handle object
- *
- */
-#ifdef WLAN_FEATURE_RX_PREALLOC_BUFFER_POOL
-static void dp_rx_refill_thread_schedule(ol_txrx_soc_handle soc)
-{
-	struct dp_rx_refill_thread *rx_thread;
-	struct dp_txrx_handle *dp_ext_hdl;
-
-	if (!soc)
-		return;
-
-	dp_ext_hdl = cdp_soc_get_dp_txrx_handle(soc);
-	if (!dp_ext_hdl)
-		return;
-
-	rx_thread = &dp_ext_hdl->refill_thread;
-	qdf_set_bit(RX_REFILL_POST_EVENT, &rx_thread->event_flag);
-	qdf_wake_up_interruptible(&rx_thread->wait_q);
-}
-#else
-static void dp_rx_refill_thread_schedule(ol_txrx_soc_handle soc)
-{
-}
-#endif
 
 QDF_STATUS dp_txrx_init(ol_txrx_soc_handle soc, uint8_t pdev_id,
 			struct dp_txrx_config *config)
@@ -63,7 +34,6 @@ QDF_STATUS dp_txrx_init(ol_txrx_soc_handle soc, uint8_t pdev_id,
 	QDF_STATUS qdf_status = QDF_STATUS_SUCCESS;
 	uint8_t num_dp_rx_threads;
 	struct dp_pdev *pdev;
-	struct dp_soc *dp_soc;
 
 	if (qdf_unlikely(!soc)) {
 		dp_err("soc is NULL");
@@ -91,21 +61,6 @@ QDF_STATUS dp_txrx_init(ol_txrx_soc_handle soc, uint8_t pdev_id,
 	dp_ext_hdl->rx_tm_hdl.txrx_handle_cmn =
 				dp_txrx_get_cmn_hdl_frm_ext_hdl(dp_ext_hdl);
 
-	dp_soc = cdp_soc_t_to_dp_soc(soc);
-	if (wlan_cfg_is_rx_refill_buffer_pool_enabled(dp_soc->wlan_cfg_ctx)) {
-		dp_ext_hdl->refill_thread.soc = soc;
-		dp_ext_hdl->refill_thread.enabled = true;
-		qdf_status =
-			dp_rx_refill_thread_init(&dp_ext_hdl->refill_thread);
-		if (qdf_status != QDF_STATUS_SUCCESS) {
-			dp_err("Failed to initialize RX refill thread status:%d",
-			       qdf_status);
-			return qdf_status;
-		}
-		cdp_register_rx_refill_thread_sched_handler(soc,
-						dp_rx_refill_thread_schedule);
-	}
-
 	num_dp_rx_threads = cdp_get_num_rx_contexts(soc);
 
 	if (dp_ext_hdl->config.enable_rx_threads) {
@@ -119,7 +74,6 @@ QDF_STATUS dp_txrx_init(ol_txrx_soc_handle soc, uint8_t pdev_id,
 QDF_STATUS dp_txrx_deinit(ol_txrx_soc_handle soc)
 {
 	struct dp_txrx_handle *dp_ext_hdl;
-	struct dp_soc *dp_soc;
 
 	if (!soc)
 		return QDF_STATUS_E_INVAL;
@@ -127,13 +81,6 @@ QDF_STATUS dp_txrx_deinit(ol_txrx_soc_handle soc)
 	dp_ext_hdl = cdp_soc_get_dp_txrx_handle(soc);
 	if (!dp_ext_hdl)
 		return QDF_STATUS_E_FAULT;
-
-	dp_soc = cdp_soc_t_to_dp_soc(soc);
-	if (wlan_cfg_is_rx_refill_buffer_pool_enabled(dp_soc->wlan_cfg_ctx)) {
-		dp_rx_refill_thread_deinit(&dp_ext_hdl->refill_thread);
-		dp_ext_hdl->refill_thread.soc = NULL;
-		dp_ext_hdl->refill_thread.enabled = false;
-	}
 
 	if (dp_ext_hdl->config.enable_rx_threads)
 		dp_rx_tm_deinit(&dp_ext_hdl->rx_tm_hdl);
@@ -146,69 +93,22 @@ QDF_STATUS dp_txrx_deinit(ol_txrx_soc_handle soc)
 	return QDF_STATUS_SUCCESS;
 }
 
-/**
- * dp_rx_tm_get_pending() - get number of frame in thread
- * nbuf queue pending
- * @soc: ol_txrx_soc_handle object
- *
- * Return: number of frames
- */
-#ifdef FEATURE_WLAN_DP_RX_THREADS
-int dp_rx_tm_get_pending(ol_txrx_soc_handle soc)
-{
-	int i;
-	int num_pending = 0;
-	struct dp_rx_thread *rx_thread;
-	struct dp_txrx_handle *dp_ext_hdl;
-	struct dp_rx_tm_handle *rx_tm_hdl;
-
-	if (!soc)
-		return 0;
-
-	dp_ext_hdl = cdp_soc_get_dp_txrx_handle(soc);
-	if (!dp_ext_hdl)
-		return 0;
-
-	rx_tm_hdl = &dp_ext_hdl->rx_tm_hdl;
-
-	for (i = 0; i < rx_tm_hdl->num_dp_rx_threads; i++) {
-		rx_thread = rx_tm_hdl->rx_thread[i];
-		if (!rx_thread)
-			continue;
-		num_pending += qdf_nbuf_queue_head_qlen(&rx_thread->nbuf_queue);
-	}
-
-	if (num_pending)
-		dp_debug("pending frames in thread queue %d", num_pending);
-
-	return num_pending;
-}
-#else
-int dp_rx_tm_get_pending(ol_txrx_soc_handle soc)
-{
-	return 0;
-}
-#endif
-
 #ifdef DP_MEM_PRE_ALLOC
-
-/* Max entries in FISA Flow table */
-#define FISA_RX_FT_SIZE 128
 
 /* Num elements in REO ring */
 #define REO_DST_RING_SIZE 1024
 
 /* Num elements in TCL Data ring */
-#define TCL_DATA_RING_SIZE 5120
+#define TCL_DATA_RING_SIZE 3072
 
 /* Num elements in WBM2SW ring */
-#define WBM2SW_RELEASE_RING_SIZE 8192
+#define WBM2SW_RELEASE_RING_SIZE 4096
 
 /* Num elements in WBM Idle Link */
 #define WBM_IDLE_LINK_RING_SIZE (32 * 1024)
 
 /* Num TX desc in TX desc pool */
-#define DP_TX_DESC_POOL_SIZE 6144
+#define DP_TX_DESC_POOL_SIZE 4096
 
 /**
  * struct dp_consistent_prealloc - element representing DP pre-alloc memory
@@ -272,55 +172,32 @@ struct dp_consistent_prealloc_unaligned {
  * @ctxt_type: DP context type
  * @size: size of pre-alloc memory
  * @in_use: check if element is being used
- * @is_critical: critical prealloc failure would cause prealloc_init to fail
  * @addr: address of memory allocated
  */
 struct dp_prealloc_context {
 	enum dp_ctxt_type ctxt_type;
 	uint32_t size;
 	bool in_use;
-	bool is_critical;
 	void *addr;
 };
 
 static struct dp_prealloc_context g_dp_context_allocs[] = {
-	{DP_PDEV_TYPE, (sizeof(struct dp_pdev)), false,  true, NULL},
+	{DP_PDEV_TYPE, (sizeof(struct dp_pdev)), false,  NULL},
 #ifdef WLAN_FEATURE_DP_RX_RING_HISTORY
 	/* 4 Rx ring history */
-	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, false,
-	 NULL},
-	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, false,
-	 NULL},
-	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, false,
-	 NULL},
-	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, false,
-	 NULL},
+	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, NULL},
+	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, NULL},
+	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, NULL},
+	{DP_RX_RING_HIST_TYPE, sizeof(struct dp_rx_history), false, NULL},
 	/* 1 Rx error ring history */
 	{DP_RX_ERR_RING_HIST_TYPE, sizeof(struct dp_rx_err_history),
-	 false, false, NULL},
+	 false, NULL},
 #ifndef RX_DEFRAG_DO_NOT_REINJECT
 	/* 1 Rx reinject ring history */
 	{DP_RX_REINJECT_RING_HIST_TYPE, sizeof(struct dp_rx_reinject_history),
-	 false, false, NULL},
+	 false, NULL},
 #endif	/* RX_DEFRAG_DO_NOT_REINJECT */
-	/* 1 Rx refill ring history */
-	{DP_RX_REFILL_RING_HIST_TYPE, sizeof(struct dp_rx_refill_history),
-	false, false, NULL},
 #endif	/* WLAN_FEATURE_DP_RX_RING_HISTORY */
-#ifdef DP_TX_HW_DESC_HISTORY
-	{DP_TX_HW_DESC_HIST_TYPE, sizeof(struct dp_tx_hw_desc_history),
-	false, false, NULL},
-#endif
-#ifdef WLAN_FEATURE_DP_TX_DESC_HISTORY
-	{DP_TX_TCL_HIST_TYPE, sizeof(struct dp_tx_tcl_history),
-	 false, false, NULL},
-	{DP_TX_COMP_HIST_TYPE, sizeof(struct dp_tx_comp_history),
-	 false, false, NULL},
-#endif	/* WLAN_FEATURE_DP_TX_DESC_HISTORY */
-#ifdef WLAN_SUPPORT_RX_FISA
-	{DP_FISA_RX_FT_TYPE, sizeof(struct dp_fisa_rx_sw_ft) * FISA_RX_FT_SIZE,
-	 false, true, NULL},
-#endif
 };
 
 static struct  dp_consistent_prealloc g_dp_consistent_allocs[] = {
@@ -348,8 +225,7 @@ static struct  dp_consistent_prealloc g_dp_consistent_allocs[] = {
 	{RXDMA_DST, (sizeof(struct reo_entrance_ring)) * WLAN_CFG_RXDMA_ERR_DST_RING_SIZE, 0, NULL, NULL, 0, 0},
 	/* REFILL ring 0 */
 	{RXDMA_BUF, (sizeof(struct wbm_buffer_ring)) * WLAN_CFG_RXDMA_REFILL_RING_SIZE, 0, NULL, NULL, 0, 0},
-	/* REO Exception ring */
-	{REO_EXCEPTION, (sizeof(struct reo_destination_ring)) * WLAN_CFG_REO_EXCEPTION_RING_SIZE, 0, NULL, NULL, 0, 0},
+
 };
 
 /* Number of HW link descriptors needed (rounded to power of 2) */
@@ -405,15 +281,14 @@ static struct  dp_multi_page_prealloc g_dp_multi_page_allocs[] = {
 	{DP_RX_DESC_BUF_TYPE, sizeof(union dp_rx_desc_list_elem_t),
 	 WLAN_CFG_RX_SW_DESC_WEIGHT_SIZE * WLAN_CFG_RXDMA_REFILL_RING_SIZE, 0, CACHEABLE, { 0 } },
 
-#ifdef DISABLE_MON_CONFIG
-	/* no op */
-#else
+#ifndef DISABLE_MON_CONFIG
 	/* 2 DP RX DESCs Status pools */
 	{DP_RX_DESC_STATUS_TYPE, sizeof(union dp_rx_desc_list_elem_t),
 	 WLAN_CFG_RXDMA_MONITOR_STATUS_RING_SIZE + 1, 0, CACHEABLE, { 0 } },
 	{DP_RX_DESC_STATUS_TYPE, sizeof(union dp_rx_desc_list_elem_t),
 	 WLAN_CFG_RXDMA_MONITOR_STATUS_RING_SIZE + 1, 0, CACHEABLE, { 0 } },
 #endif
+
 	/* DP HW Link DESCs pools */
 	{DP_HW_LINK_DESC_TYPE, HW_LINK_DESC_SIZE, NUM_HW_LINK_DESCS, 0, NON_CACHEABLE, { 0 } },
 
@@ -456,21 +331,16 @@ void dp_prealloc_deinit(void)
 	struct dp_consistent_prealloc_unaligned *up;
 	qdf_device_t qdf_ctx = cds_get_context(QDF_MODULE_ID_QDF_DEVICE);
 
-	if (!qdf_ctx) {
-		dp_warn("qdf_ctx is NULL");
-		return;
-	}
-
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_consistent_allocs); i++) {
 		p = &g_dp_consistent_allocs[i];
 
-		if (p->in_use)
-			dp_warn("i %d: consistent_mem in use while free", i);
+		if (qdf_unlikely(p->in_use))
+			dp_info("i %d: consistent_mem in use while free", i);
 
 		if (p->va_aligned) {
-			dp_debug("i %d: va aligned %pK pa aligned %pK size %d",
-				 i, p->va_aligned, (void *)p->pa_aligned,
-				 p->size);
+			dp_info("i %d: va aligned %pK pa aligned %pK size %d",
+				i, p->va_aligned, (void *)p->pa_aligned,
+				p->size);
 			qdf_mem_free_consistent(qdf_ctx, qdf_ctx->dev,
 						p->size,
 						p->va_unaligned,
@@ -482,11 +352,12 @@ void dp_prealloc_deinit(void)
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_multi_page_allocs); i++) {
 		mp = &g_dp_multi_page_allocs[i];
 
-		if (mp->in_use)
-			dp_warn("i %d: multi-page mem in use while free", i);
+		if (qdf_unlikely(mp->in_use))
+			dp_info("i %d: multi-page mem in use while free", i);
 
 		if (mp->pages.num_pages) {
-			dp_info("i %d: type %d cacheable_pages %pK dma_pages %pK num_pages %d",
+			dp_info("i %d: type %d cacheable_pages %pK "
+				"dma_pages %pK num_pages %d",
 				i, mp->desc_type,
 				mp->pages.cacheable_pages,
 				mp->pages.dma_pages,
@@ -517,7 +388,7 @@ void dp_prealloc_deinit(void)
 
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_context_allocs); i++) {
 		cp = &g_dp_context_allocs[i];
-		if (qdf_unlikely(cp->in_use))
+		if (qdf_unlikely(up->in_use))
 			dp_warn("i %d: context in use while free", i);
 
 		if (cp->addr) {
@@ -547,7 +418,7 @@ QDF_STATUS dp_prealloc_init(void)
 		cp = &g_dp_context_allocs[i];
 		cp->addr = qdf_mem_malloc(cp->size);
 
-		if (qdf_unlikely(!cp->addr) && cp->is_critical) {
+		if (qdf_unlikely(!cp->addr)) {
 			dp_warn("i %d: unable to preallocate %d bytes memory!",
 				i, cp->size);
 			break;
@@ -573,13 +444,14 @@ QDF_STATUS dp_prealloc_init(void)
 			dp_warn("i %d: unable to preallocate %d bytes memory!",
 				i, p->size);
 			break;
+		} else {
+			dp_info("i %d: va aligned %pK pa aligned %pK size %d", i,
+				p->va_aligned, (void *)p->pa_aligned, p->size);
 		}
-		dp_debug("i %d: va aligned %pK pa aligned %pK size %d",
-			 i, p->va_aligned, (void *)p->pa_aligned, p->size);
 	}
 
 	if (i != QDF_ARRAY_SIZE(g_dp_consistent_allocs)) {
-		dp_err("unable to allocate consistent memory!");
+		dp_info("unable to allocate consistent memory!");
 		goto deinit;
 	}
 
@@ -594,17 +466,17 @@ QDF_STATUS dp_prealloc_init(void)
 			dp_warn("i %d: preallocate %d bytes multi-pages failed!",
 				i, (int)(mp->element_size * mp->element_num));
 			break;
+		} else {
+			mp->pages.is_mem_prealloc = true;
+			dp_info("i %d: cacheable_pages %pK dma_pages %pK num_pages %d",
+				i, mp->pages.cacheable_pages,
+				mp->pages.dma_pages,
+				mp->pages.num_pages);
 		}
-
-		mp->pages.is_mem_prealloc = true;
-		dp_info("i %d: cacheable_pages %pK dma_pages %pK num_pages %d",
-			i, mp->pages.cacheable_pages,
-			mp->pages.dma_pages,
-			mp->pages.num_pages);
 	}
 
 	if (i != QDF_ARRAY_SIZE(g_dp_multi_page_allocs)) {
-		dp_err("unable to allocate multi-pages memory!");
+		dp_info("unable to allocate multi-pages memory!");
 		goto deinit;
 	}
 
@@ -627,7 +499,7 @@ QDF_STATUS dp_prealloc_init(void)
 
 	if (i != QDF_ARRAY_SIZE(g_dp_consistent_unaligned_allocs)) {
 		dp_info("unable to allocate unaligned memory!");
-		/*
+		/**
 		 * Only if unaligned memory prealloc fail, is deinit
 		 * necessary for all other DP srng/multi-pages memory?
 		 */
@@ -648,8 +520,7 @@ void *dp_prealloc_get_context_memory(uint32_t ctxt_type)
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_context_allocs); i++) {
 		cp = &g_dp_context_allocs[i];
 
-		if ((ctxt_type == cp->ctxt_type) && !cp->in_use &&
-		    cp->addr) {
+		if ((ctxt_type == cp->ctxt_type) && !cp->in_use) {
 			cp->in_use = true;
 			return cp->addr;
 		}
@@ -662,9 +533,6 @@ QDF_STATUS dp_prealloc_put_context_memory(uint32_t ctxt_type, void *vaddr)
 {
 	int i;
 	struct dp_prealloc_context *cp;
-
-	if (!vaddr)
-		return QDF_STATUS_E_FAILURE;
 
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_context_allocs); i++) {
 		cp = &g_dp_context_allocs[i];
@@ -699,17 +567,13 @@ void *dp_prealloc_get_coherent(uint32_t *size, void **base_vaddr_unaligned,
 			*paddr_aligned = p->pa_aligned;
 			va_aligned = p->va_aligned;
 			*size = p->size;
-			dp_debug("index %i -> ring type %s va-aligned %pK", i,
+			dp_info("index %i -> ring type %s va-aligned %pK", i,
 				dp_srng_get_str_from_hal_ring_type(ring_type),
 				va_aligned);
 			break;
 		}
 	}
 
-	if (i == QDF_ARRAY_SIZE(g_dp_consistent_allocs))
-		dp_info("unable to allocate memory for ring type %s (%d) size %d",
-			dp_srng_get_str_from_hal_ring_type(ring_type),
-			ring_type, *size);
 	return va_aligned;
 }
 
@@ -722,7 +586,7 @@ void dp_prealloc_put_coherent(qdf_size_t size, void *vaddr_unligned,
 	for (i = 0; i < QDF_ARRAY_SIZE(g_dp_consistent_allocs); i++) {
 		p = &g_dp_consistent_allocs[i];
 		if (p->va_unaligned == vaddr_unligned) {
-			dp_debug("index %d, returned", i);
+			dp_info("index %d, returned", i);
 			p->in_use = 0;
 			qdf_mem_zero(p->va_unaligned, p->size);
 			break;
@@ -791,7 +655,8 @@ void dp_prealloc_put_multi_pages(uint32_t desc_type,
 	}
 
 	if (qdf_unlikely(!mp_found))
-		dp_warn("Not prealloc pages %pK desc_type %d cacheable_pages %pK dma_pages %pK",
+		dp_warn("Not prealloc pages %pK desc_type %d"
+			"cacheable_pages %pK dma_pages %pK",
 			pages,
 			desc_type,
 			pages->cacheable_pages,
@@ -840,5 +705,49 @@ void dp_prealloc_put_consistent_mem_unaligned(void *va_unaligned)
 
 	if (i == QDF_ARRAY_SIZE(g_dp_consistent_unaligned_allocs))
 		dp_err("unable to find vaddr %pK", va_unaligned);
+}
+#endif
+
+/**
+ * dp_rx_tm_get_pending() - get number of frame in thread
+ * nbuf queue pending
+ * @soc: ol_txrx_soc_handle object
+ *
+ * Return: number of frames
+ */
+#ifdef FEATURE_WLAN_DP_RX_THREADS
+int dp_rx_tm_get_pending(ol_txrx_soc_handle soc)
+{
+	int i;
+	int num_pending = 0;
+	struct dp_rx_thread *rx_thread;
+	struct dp_txrx_handle *dp_ext_hdl;
+	struct dp_rx_tm_handle *rx_tm_hdl;
+
+	if (!soc)
+		return 0;
+
+	dp_ext_hdl = cdp_soc_get_dp_txrx_handle(soc);
+	if (!dp_ext_hdl)
+		return 0;
+
+	rx_tm_hdl = &dp_ext_hdl->rx_tm_hdl;
+
+	for (i = 0; i < rx_tm_hdl->num_dp_rx_threads; i++) {
+		rx_thread = rx_tm_hdl->rx_thread[i];
+		if (!rx_thread)
+			continue;
+		num_pending += qdf_nbuf_queue_head_qlen(&rx_thread->nbuf_queue);
+	}
+
+	if (num_pending)
+		dp_debug("pending frames in thread queue %d", num_pending);
+
+	return num_pending;
+}
+#else
+int dp_rx_tm_get_pending(ol_txrx_soc_handle soc)
+{
+	return 0;
 }
 #endif

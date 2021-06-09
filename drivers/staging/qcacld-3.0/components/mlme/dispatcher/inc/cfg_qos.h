@@ -24,22 +24,13 @@
 #ifndef __CFG_MLME_QOS_H
 #define __CFG_MLME_QOS_H
 
-#if defined(QCA_WIFI_QCA6290) || defined(QCA_WIFI_QCA6390) || \
-	defined(QCA_WIFI_QCA6490) || defined(QCA_WIFI_QCA6750)
-
-#define ADDBA_TXAGGR_SIZE 256
-#else
-#define ADDBA_TXAGGR_SIZE 64
-#endif
-
-#ifdef TX_AGGREGATION_SIZE_ENABLE
 /*
  * <ini>
  * gTxAggregationSize - Gives an option to configure Tx aggregation size
  * in no of MPDUs
  * @Min: 0
- * @Max: ADDBA_TXAGGR_SIZE
- * @Default: ADDBA_TXAGGR_SIZE
+ * @Max: 64
+ * @Default: 64
  *
  * gTxAggregationSize gives an option to configure Tx aggregation size
  * in no of MPDUs.This can be useful in debugging throughput issues
@@ -48,15 +39,15 @@
  *
  * Supported Feature: STA
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * </ini>
  */
 #define CFG_TX_AGGREGATION_SIZE CFG_INI_UINT( \
 			"gTxAggregationSize", \
 			0, \
-			ADDBA_TXAGGR_SIZE, \
-			ADDBA_TXAGGR_SIZE, \
+			64, \
+			64, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Tx Aggregation size value")
 
@@ -65,7 +56,7 @@
  * gTxAggregationSizeBE - To configure Tx aggregation size for BE queue
  * in no of MPDUs
  * @Min: 0
- * @Max: ADDBA_TXAGGR_SIZE
+ * @Max: 64
  * @Default: 0
  *
  * gTxAggregationSizeBE gives an option to configure Tx aggregation size
@@ -83,7 +74,7 @@
 #define CFG_TX_AGGREGATION_SIZEBE CFG_INI_UINT( \
 			"gTxAggregationSizeBE", \
 			0, \
-			ADDBA_TXAGGR_SIZE, \
+			64, \
 			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Tx Aggregation size value BE")
@@ -93,7 +84,7 @@
  * gTxAggregationSizeBK - To configure Tx aggregation size for BK queue
  * in no of MPDUs
  * @Min: 0
- * @Max: ADDBA_TXAGGR_SIZE
+ * @Max: 64
  * @Default: 0
  *
  * gTxAggregationSizeBK gives an option to configure Tx aggregation size
@@ -111,7 +102,7 @@
 #define CFG_TX_AGGREGATION_SIZEBK CFG_INI_UINT( \
 			"gTxAggregationSizeBK", \
 			0, \
-			ADDBA_TXAGGR_SIZE, \
+			64, \
 			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Tx Aggregation size value BK")
@@ -121,7 +112,7 @@
  * gTxAggregationSizeVI - To configure Tx aggregation size for VI queue
  * in no of MPDUs
  * @Min: 0
- * @Max: ADDBA_TXAGGR_SIZE
+ * @Max: 64
  * @Default: 0
  *
  * gTxAggregationSizeVI gives an option to configure Tx aggregation size
@@ -139,7 +130,7 @@
 #define CFG_TX_AGGREGATION_SIZEVI CFG_INI_UINT( \
 			"gTxAggregationSizeVI", \
 			0, \
-			ADDBA_TXAGGR_SIZE, \
+			64, \
 			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Tx Aggregation size value for VI")
@@ -149,7 +140,7 @@
  * gTxAggregationSizeVO - To configure Tx aggregation size for VO queue
  * in no of MPDUs
  * @Min: 0
- * @Max: ADDBA_TXAGGR_SIZE
+ * @Max: 64
  * @Default: 0
  *
  * gTxAggregationSizeVO gives an option to configure Tx aggregation size
@@ -167,20 +158,10 @@
 #define CFG_TX_AGGREGATION_SIZEVO CFG_INI_UINT( \
 			"gTxAggregationSizeVO", \
 			0, \
-			ADDBA_TXAGGR_SIZE, \
+			64, \
 			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Tx Aggregation size value for VO")
-
-#define CFG_QOS_TX_AGGREGATION \
-	CFG(CFG_TX_AGGREGATION_SIZE) \
-	CFG(CFG_TX_AGGREGATION_SIZEBE) \
-	CFG(CFG_TX_AGGREGATION_SIZEBK) \
-	CFG(CFG_TX_AGGREGATION_SIZEVI) \
-	CFG(CFG_TX_AGGREGATION_SIZEVO)
-#else
-#define CFG_QOS_TX_AGGREGATION
-#endif
 
 /*
  * <ini>
@@ -197,7 +178,7 @@
  *
  * Supported Feature: STA
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * </ini>
  */
@@ -209,27 +190,6 @@
 			CFG_VALUE_OR_DEFAULT, \
 			"Rx Aggregation size value")
 
-/*
- * <ini>
- * reject_addba_req - Configure Rx ADDBA Req reject for PEER AP
- * @Min: 0
- * @Max: 1
- * @Default: 0
- *
- * reject_addba_req gives an option to reject ADDBA Req from PEER AP
- *
- * Related: None
- *
- * Supported Feature: STA
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_REJECT_ADDBA_REQ CFG_INI_BOOL( \
-			"reject_addba_req", \
-			0, \
-			"Addba Req Reject")
 /*
  * <ini>
  * gTxAggSwRetryBE - Configure Tx aggregation sw retry for BE
@@ -506,7 +466,7 @@
  *
  * Supported Feature: SAP
  *
- * Usage: External
+ * Usage: Internal/External
  * </ini>
  */
 #define CFG_SAP_MAX_INACTIVITY_OVERRIDE CFG_INI_BOOL( \
@@ -527,7 +487,7 @@
  *
  * Supported Feature: SAP
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * </ini>
  */
@@ -537,8 +497,12 @@
 			"Enable UAPSD for SAP")
 
 #define CFG_QOS_ALL \
-	CFG_QOS_TX_AGGREGATION \
 	CFG(CFG_SAP_MAX_INACTIVITY_OVERRIDE) \
+	CFG(CFG_TX_AGGREGATION_SIZE) \
+	CFG(CFG_TX_AGGREGATION_SIZEBE) \
+	CFG(CFG_TX_AGGREGATION_SIZEBK) \
+	CFG(CFG_TX_AGGREGATION_SIZEVI) \
+	CFG(CFG_TX_AGGREGATION_SIZEVO) \
 	CFG(CFG_RX_AGGREGATION_SIZE) \
 	CFG(CFG_TX_AGGR_SW_RETRY_BE) \
 	CFG(CFG_TX_AGGR_SW_RETRY_BK) \
@@ -550,7 +514,6 @@
 	CFG(CFG_TX_NON_AGGR_SW_RETRY_VI) \
 	CFG(CFG_TX_NON_AGGR_SW_RETRY_VO) \
 	CFG(CFG_TX_NON_AGGR_SW_RETRY) \
-	CFG(CFG_SAP_QOS_UAPSD) \
-	CFG(CFG_REJECT_ADDBA_REQ)
+	CFG(CFG_SAP_QOS_UAPSD)
 
 #endif /* __CFG_MLME_QOS_H */

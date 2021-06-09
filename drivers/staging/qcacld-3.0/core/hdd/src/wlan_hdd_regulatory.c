@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -33,9 +33,6 @@
 #include "pld_common.h"
 #include <net/cfg80211.h>
 #include "wlan_policy_mgr_ucfg.h"
-#include "sap_api.h"
-#include "wlan_hdd_hostapd.h"
-#include "osif_psoc_sync.h"
 
 #define REG_RULE_2412_2462    REG_RULE(2412-10, 2462+10, 40, 0, 20, 0)
 
@@ -215,8 +212,7 @@ static void reg_program_config_vars(struct hdd_context *hdd_ctx,
 	uint32_t band_capability = 0, scan_11d_interval = 0;
 	bool indoor_chan_enabled = false;
 	uint32_t restart_beaconing = 0;
-	uint8_t enable_srd_chan;
-	bool enable_5dot9_ghz_chan;
+	bool enable_srd_chan = false;
 	QDF_STATUS status;
 	bool country_priority = 0;
 	bool value = false;
@@ -262,17 +258,12 @@ static void reg_program_config_vars(struct hdd_context *hdd_ctx,
 						    &restart_beaconing);
 	config_vars->restart_beaconing = restart_beaconing;
 
-	ucfg_mlme_get_etsi_srd_chan_in_master_mode(hdd_ctx->psoc,
-						   &enable_srd_chan);
+	ucfg_mlme_get_etsi13_srd_chan_in_master_mode(hdd_ctx->psoc,
+						     &enable_srd_chan);
 	config_vars->enable_srd_chan_in_master_mode = enable_srd_chan;
 
 	ucfg_mlme_get_11d_in_world_mode(hdd_ctx->psoc,
 					&config_vars->enable_11d_in_world_mode);
-
-	ucfg_mlme_get_5dot9_ghz_chan_in_master_mode(hdd_ctx->psoc,
-						    &enable_5dot9_ghz_chan);
-	config_vars->enable_5dot9_ghz_chan_in_master_mode =
-						enable_5dot9_ghz_chan;
 }
 
 /**
@@ -742,8 +733,6 @@ int hdd_reg_set_country(struct hdd_context *hdd_ctx, char *country_code)
 {
 	QDF_STATUS status;
 	uint8_t cc[REG_ALPHA2_LEN + 1];
-	uint8_t alpha2[REG_ALPHA2_LEN + 1];
-	enum country_src cc_src;
 
 	if (!country_code) {
 		hdd_err("country_code is null");
@@ -753,26 +742,9 @@ int hdd_reg_set_country(struct hdd_context *hdd_ctx, char *country_code)
 	qdf_mem_copy(cc, country_code, REG_ALPHA2_LEN);
 	cc[REG_ALPHA2_LEN] = '\0';
 
-	if (!qdf_mem_cmp(country_code, hdd_ctx->reg.alpha2, REG_ALPHA2_LEN)) {
-		cc_src = ucfg_reg_get_cc_and_src(hdd_ctx->psoc, alpha2);
-		if (cc_src == SOURCE_USERSPACE || cc_src == SOURCE_CORE) {
-			hdd_debug("country code is the same");
-			return 0;
-		}
-	}
-
-	qdf_event_reset(&hdd_ctx->regulatory_update_event);
-	qdf_mutex_acquire(&hdd_ctx->regulatory_status_lock);
-	hdd_ctx->is_regulatory_update_in_progress = true;
-	qdf_mutex_release(&hdd_ctx->regulatory_status_lock);
-
 	status = ucfg_reg_set_country(hdd_ctx->pdev, cc);
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		hdd_err("Failed to set country");
-		qdf_mutex_acquire(&hdd_ctx->regulatory_status_lock);
-		hdd_ctx->is_regulatory_update_in_progress = false;
-		qdf_mutex_release(&hdd_ctx->regulatory_status_lock);
-	}
 
 	return qdf_status_to_os_return(status);
 }
@@ -783,7 +755,7 @@ uint32_t hdd_reg_legacy_setband_to_reg_wifi_band_bitmap(uint8_t qca_setband)
 
 	switch (qca_setband) {
 	case QCA_SETBAND_AUTO:
-		band_bitmap |= REG_BAND_MASK_ALL;
+		band_bitmap |= (BIT(REG_BAND_2G) | BIT(REG_BAND_5G));
 		break;
 	case QCA_SETBAND_5G:
 		band_bitmap |= BIT(REG_BAND_5G);
@@ -929,11 +901,6 @@ void hdd_reg_notifier(struct wiphy *wiphy,
 		    NL80211_USER_REG_HINT_CELL_BASE)
 			return;
 
-		qdf_event_reset(&hdd_ctx->regulatory_update_event);
-		qdf_mutex_acquire(&hdd_ctx->regulatory_status_lock);
-		hdd_ctx->is_regulatory_update_in_progress = true;
-		qdf_mutex_release(&hdd_ctx->regulatory_status_lock);
-
 		qdf_mem_copy(country, request->alpha2, QDF_MIN(
 			     sizeof(request->alpha2), sizeof(country)));
 		status = ucfg_reg_set_country(hdd_ctx->pdev, country);
@@ -945,12 +912,8 @@ void hdd_reg_notifier(struct wiphy *wiphy,
 		break;
 	}
 
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		hdd_err("Failed to set country");
-		qdf_mutex_acquire(&hdd_ctx->regulatory_status_lock);
-		hdd_ctx->is_regulatory_update_in_progress = false;
-		qdf_mutex_release(&hdd_ctx->regulatory_status_lock);
-	}
 }
 #else
 void hdd_reg_notifier(struct wiphy *wiphy,
@@ -975,7 +938,8 @@ void hdd_reg_notifier(struct wiphy *wiphy,
 
 	if (cds_is_driver_unloading() || cds_is_driver_recovering() ||
 	    cds_is_driver_in_bad_state()) {
-		hdd_err("unloading or ssr in progress, ignore");
+		hdd_err("%s: unloading or ssr in progress, ignore",
+			__func__);
 		return;
 	}
 
@@ -985,7 +949,7 @@ void hdd_reg_notifier(struct wiphy *wiphy,
 	}
 
 	if (hdd_ctx->is_wiphy_suspended == true) {
-		hdd_err("system/cfg80211 is already suspend");
+		hdd_err("%s: system/cfg80211 is already suspend", __func__);
 		return;
 	}
 
@@ -1310,8 +1274,10 @@ void hdd_send_wiphy_regd_sync_event(struct hdd_context *hdd_ctx)
 
 	regd = qdf_mem_malloc((reg_rules->num_of_reg_rules *
 				sizeof(*regd_rules) + sizeof(*regd)));
-	if (!regd)
+	if (!regd) {
+		hdd_err("mem alloc failed for reg rules");
 		return;
+	}
 
 	regd->n_reg_rules = reg_rules->num_of_reg_rules;
 	qdf_mem_copy(regd->alpha2, reg_rules->alpha2, REG_ALPHA2_LEN + 1);
@@ -1406,247 +1372,6 @@ static void hdd_regulatory_chanlist_dump(struct regulatory_channel *chan_list)
 	hdd_debug("end total_count %d", count);
 }
 
-/**
- * hdd_country_change_update_sta() - handle country code change for STA
- * @hdd_ctx: Global HDD context
- *
- * This function handles the stop/start/restart of STA/P2P_CLI adapters when
- * the country code changes
- *
- * Return: none
- */
-static void hdd_country_change_update_sta(struct hdd_context *hdd_ctx)
-{
-	struct hdd_adapter *adapter = NULL, *next_adapter = NULL;
-	struct hdd_station_ctx *sta_ctx = NULL;
-	struct csr_roam_profile *roam_profile = NULL;
-	struct wlan_objmgr_pdev *pdev = NULL;
-	uint32_t new_phy_mode;
-	bool freq_changed, phy_changed;
-	qdf_freq_t oper_freq;
-	eCsrPhyMode csr_phy_mode;
-	wlan_net_dev_ref_dbgid dbgid = NET_DEV_HOLD_COUNTRY_CHANGE_UPDATE_STA;
-
-	pdev = hdd_ctx->pdev;
-
-	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
-					   dbgid) {
-		oper_freq = hdd_get_adapter_home_channel(adapter);
-		if (oper_freq)
-			freq_changed = wlan_reg_is_disable_for_freq(pdev,
-								    oper_freq);
-		else
-			freq_changed = false;
-
-		switch (adapter->device_mode) {
-		case QDF_P2P_CLIENT_MODE:
-			/*
-			 * P2P client is the same as STA
-			 * continue to next statement
-			 */
-		case QDF_STA_MODE:
-			sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
-			roam_profile = &sta_ctx->roam_profile;
-			new_phy_mode = wlan_reg_get_max_phymode(pdev,
-								REG_PHYMODE_MAX,
-								oper_freq);
-			csr_phy_mode =
-				csr_convert_from_reg_phy_mode(new_phy_mode);
-			phy_changed = (roam_profile->phyMode != csr_phy_mode);
-
-			if (phy_changed || freq_changed) {
-				sme_roam_disconnect(
-					hdd_ctx->mac_handle,
-					adapter->vdev_id,
-					eCSR_DISCONNECT_REASON_UNSPECIFIED,
-					REASON_UNSPEC_FAILURE);
-				roam_profile->phyMode = csr_phy_mode;
-			}
-			break;
-		default:
-			break;
-		}
-		/* dev_put has to be done here */
-		hdd_adapter_dev_put_debug(adapter, dbgid);
-	}
-}
-
-/**
- * hdd_restart_sap_with_new_phymode() - restart the SAP with the new phymode
- * @hdd_ctx: Global HDD context
- * @adapter: HDD vdev context
- * @sap_config: sap configuration pointer
- * @csr_phy_mode: phymode to restart SAP with
- *
- * This function handles the stop/start/restart of SAP/P2P_GO adapters when the
- * country code changes
- *
- * Return: none
- */
-static void hdd_restart_sap_with_new_phymode(struct hdd_context *hdd_ctx,
-					     struct hdd_adapter *adapter,
-					     struct sap_config *sap_config,
-					     eCsrPhyMode csr_phy_mode)
-{
-	struct hdd_hostapd_state *hostapd_state = NULL;
-	struct sap_context *sap_ctx = NULL;
-	QDF_STATUS status;
-
-	hostapd_state = WLAN_HDD_GET_HOSTAP_STATE_PTR(adapter);
-	sap_ctx = WLAN_HDD_GET_SAP_CTX_PTR(adapter);
-
-	if (!test_bit(SOFTAP_BSS_STARTED, &adapter->event_flags)) {
-		sap_config->sap_orig_hw_mode = sap_config->SapHw_mode;
-		sap_config->SapHw_mode = csr_phy_mode;
-		hdd_err("Can't restart AP because it is not started");
-		return;
-	}
-
-	qdf_event_reset(&hostapd_state->qdf_stop_bss_event);
-	status = wlansap_stop_bss(sap_ctx);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		hdd_err("SAP Stop Bss fail");
-		return;
-	}
-	status = qdf_wait_for_event_completion(
-					&hostapd_state->qdf_stop_bss_event,
-					SME_CMD_STOP_BSS_TIMEOUT);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		hdd_err("SAP Stop timeout");
-		return;
-	}
-
-	sap_config->chan_freq =
-		wlansap_get_safe_channel_from_pcl_and_acs_range(sap_ctx);
-
-	sap_config->sap_orig_hw_mode = sap_config->SapHw_mode;
-	sap_config->SapHw_mode = csr_phy_mode;
-
-	mutex_lock(&hdd_ctx->sap_lock);
-	qdf_event_reset(&hostapd_state->qdf_event);
-	status = wlansap_start_bss(sap_ctx, hdd_hostapd_sap_event_cb,
-				   sap_config, adapter->dev);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		mutex_unlock(&hdd_ctx->sap_lock);
-		hdd_err("SAP Start Bss fail");
-		return;
-	}
-	status = qdf_wait_for_event_completion(&hostapd_state->qdf_event,
-					       SME_CMD_START_BSS_TIMEOUT);
-	if (!QDF_IS_STATUS_SUCCESS(status)) {
-		mutex_unlock(&hdd_ctx->sap_lock);
-		hdd_err("SAP Start timeout");
-		return;
-	}
-	mutex_unlock(&hdd_ctx->sap_lock);
-}
-
-/**
- * hdd_country_change_update_sap() - handle country code change for SAP
- * @hdd_ctx: Global HDD context
- *
- * This function handles the stop/start/restart of SAP/P2P_GO adapters when the
- * country code changes
- *
- * Return: none
- */
-static void hdd_country_change_update_sap(struct hdd_context *hdd_ctx)
-{
-	struct hdd_adapter *adapter = NULL, *next_adapter = NULL;
-	struct sap_config *sap_config = NULL;
-	struct wlan_objmgr_pdev *pdev = NULL;
-	uint32_t reg_phy_mode, new_phy_mode;
-	bool phy_changed;
-	qdf_freq_t oper_freq;
-	eCsrPhyMode csr_phy_mode;
-	wlan_net_dev_ref_dbgid dbgid = NET_DEV_HOLD_COUNTRY_CHANGE_UPDATE_SAP;
-
-	pdev = hdd_ctx->pdev;
-
-	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
-					   dbgid) {
-		oper_freq = hdd_get_adapter_home_channel(adapter);
-
-		switch (adapter->device_mode) {
-		case QDF_P2P_GO_MODE:
-			policy_mgr_check_sap_restart(hdd_ctx->psoc,
-						     adapter->vdev_id);
-			break;
-		case QDF_SAP_MODE:
-			sap_config = &adapter->session.ap.sap_config;
-			reg_phy_mode = csr_convert_to_reg_phy_mode(
-						sap_config->sap_orig_hw_mode,
-						oper_freq);
-			new_phy_mode = wlan_reg_get_max_phymode(pdev,
-								reg_phy_mode,
-								oper_freq);
-			csr_phy_mode =
-				csr_convert_from_reg_phy_mode(new_phy_mode);
-			phy_changed = (csr_phy_mode != sap_config->SapHw_mode);
-
-			if (phy_changed)
-				hdd_restart_sap_with_new_phymode(hdd_ctx,
-								 adapter,
-								 sap_config,
-								 csr_phy_mode);
-			else
-				policy_mgr_check_sap_restart(hdd_ctx->psoc,
-							     adapter->vdev_id);
-			break;
-		default:
-			break;
-		}
-		/* dev_put has to be done here */
-		hdd_adapter_dev_put_debug(adapter, dbgid);
-	}
-}
-
-static void __hdd_country_change_work_handle(struct hdd_context *hdd_ctx)
-{
-	/*
-	 * Loop over STAs first since it may lead to different channel
-	 * selection for SAPs
-	 */
-	hdd_country_change_update_sta(hdd_ctx);
-	sme_generic_change_country_code(hdd_ctx->mac_handle,
-					hdd_ctx->reg.alpha2);
-
-	qdf_event_set(&hdd_ctx->regulatory_update_event);
-	qdf_mutex_acquire(&hdd_ctx->regulatory_status_lock);
-	hdd_ctx->is_regulatory_update_in_progress = false;
-	qdf_mutex_release(&hdd_ctx->regulatory_status_lock);
-
-	hdd_country_change_update_sap(hdd_ctx);
-}
-
-/**
- * hdd_country_change_work_handle() - handle country code change
- * @arg: Global HDD context
- *
- * This function handles the stop/start/restart of all adapters when the
- * country code changes
- *
- * Return: none
- */
-static void hdd_country_change_work_handle(void *arg)
-{
-	struct hdd_context *hdd_ctx = (struct hdd_context *)arg;
-	struct osif_psoc_sync *psoc_sync;
-	int errno;
-
-	errno = wlan_hdd_validate_context(hdd_ctx);
-	if (errno)
-		return;
-
-	errno = osif_psoc_sync_op_start(wiphy_dev(hdd_ctx->wiphy), &psoc_sync);
-	if (errno)
-		return;
-
-	__hdd_country_change_work_handle(hdd_ctx);
-
-	osif_psoc_sync_op_stop(psoc_sync);
-}
-
 static void hdd_regulatory_dyn_cbk(struct wlan_objmgr_psoc *psoc,
 				   struct wlan_objmgr_pdev *pdev,
 				   struct regulatory_channel *chan_list,
@@ -1662,12 +1387,6 @@ static void hdd_regulatory_dyn_cbk(struct wlan_objmgr_psoc *psoc,
 	pdev_priv = wlan_pdev_get_ospriv(pdev);
 	wiphy = pdev_priv->wiphy;
 	hdd_ctx = wiphy_priv(wiphy);
-
-	if (avoid_freq_ind) {
-		hdd_ch_avoid_ind(hdd_ctx, &avoid_freq_ind->chan_list,
-				 &avoid_freq_ind->freq_list);
-		return;
-	}
 
 	hdd_debug("process channel list update from regulatory");
 	hdd_regulatory_chanlist_dump(chan_list);
@@ -1689,8 +1408,17 @@ static void hdd_regulatory_dyn_cbk(struct wlan_objmgr_psoc *psoc,
 		hdd_send_wiphy_regd_sync_event(hdd_ctx);
 #endif
 
-	hdd_config_tdls_with_band_switch(hdd_ctx);
-	qdf_sched_work(0, &hdd_ctx->country_change_work);
+	if (avoid_freq_ind) {
+		hdd_ch_avoid_ind(hdd_ctx, &avoid_freq_ind->chan_list,
+				&avoid_freq_ind->freq_list);
+	} else {
+		hdd_config_tdls_with_band_switch(hdd_ctx);
+
+		sme_generic_change_country_code(hdd_ctx->mac_handle,
+				hdd_ctx->reg.alpha2);
+		/*Check whether need restart SAP/P2p Go*/
+		policy_mgr_check_concurrent_intf_and_restart_sap(hdd_ctx->psoc);
+	}
 }
 
 int hdd_update_regulatory_config(struct hdd_context *hdd_ctx)
@@ -1700,26 +1428,6 @@ int hdd_update_regulatory_config(struct hdd_context *hdd_ctx)
 	reg_program_config_vars(hdd_ctx, &config_vars);
 	ucfg_reg_set_config_vars(hdd_ctx->psoc, config_vars);
 	return 0;
-}
-
-int hdd_init_regulatory_update_event(struct hdd_context *hdd_ctx)
-{
-	QDF_STATUS status;
-
-	status = qdf_event_create(&hdd_ctx->regulatory_update_event);
-	if (QDF_IS_STATUS_ERROR(status)) {
-		hdd_err("Failed to create regulatory update event");
-		goto failure;
-	}
-	status = qdf_mutex_create(&hdd_ctx->regulatory_status_lock);
-	if (QDF_IS_STATUS_ERROR(status)) {
-		hdd_err("Failed to create regulatory status mutex");
-		goto failure;
-	}
-	hdd_ctx->is_regulatory_update_in_progress = false;
-
-failure:
-	return qdf_status_to_os_return(status);
 }
 
 int hdd_regulatory_init(struct hdd_context *hdd_ctx, struct wiphy *wiphy)
@@ -1734,11 +1442,10 @@ int hdd_regulatory_init(struct hdd_context *hdd_ctx, struct wiphy *wiphy)
 		return -ENOMEM;
 	}
 
-	qdf_create_work(0, &hdd_ctx->country_change_work,
-			hdd_country_change_work_handle, hdd_ctx);
 	ucfg_reg_register_chan_change_callback(hdd_ctx->psoc,
 					       hdd_regulatory_dyn_cbk,
 					       NULL);
+
 
 	wiphy->regulatory_flags |= REGULATORY_WIPHY_SELF_MANAGED;
 	/* Check the kernel version for upstream commit aced43ce780dc5 that
@@ -1798,29 +1505,13 @@ int hdd_regulatory_init(struct hdd_context *hdd_ctx, struct wiphy *wiphy)
 }
 #endif
 
-void hdd_deinit_regulatory_update_event(struct hdd_context *hdd_ctx)
-{
-	QDF_STATUS status;
-
-	status = qdf_event_destroy(&hdd_ctx->regulatory_update_event);
-	if (QDF_IS_STATUS_ERROR(status))
-		hdd_err("Failed to destroy regulatory update event");
-	status = qdf_mutex_destroy(&hdd_ctx->regulatory_status_lock);
-	if (QDF_IS_STATUS_ERROR(status))
-		hdd_err("Failed to destroy regulatory status mutex");
-}
-
-void hdd_regulatory_deinit(struct hdd_context *hdd_ctx)
-{
-	qdf_flush_work(&hdd_ctx->country_change_work);
-	qdf_destroy_work(0, &hdd_ctx->country_change_work);
-}
-
 void hdd_update_regdb_offload_config(struct hdd_context *hdd_ctx)
 {
+	QDF_STATUS status;
 	bool ignore_fw_reg_offload_ind = false;
 
-	ucfg_mlme_get_ignore_fw_reg_offload_ind(hdd_ctx->psoc,
+	status = ucfg_mlme_get_ignore_fw_reg_offload_ind(
+						hdd_ctx->psoc,
 						&ignore_fw_reg_offload_ind);
 	if (!ignore_fw_reg_offload_ind) {
 		hdd_debug("regdb offload is based on firmware capability");

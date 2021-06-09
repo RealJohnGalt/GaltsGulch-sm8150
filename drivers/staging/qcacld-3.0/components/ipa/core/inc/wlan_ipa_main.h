@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -91,18 +91,6 @@ ipa_pdev_get_priv_obj(struct wlan_objmgr_pdev *pdev)
 				WLAN_UMAC_COMP_IPA);
 
 	return pdev_obj;
-}
-
-/**
- * ipa_priv_obj_get_pdev() - API to get pdev from IPA object
- * @ipa_obj: IPA object
- *
- * Return: pdev object
- */
-static inline struct wlan_objmgr_pdev *
-ipa_priv_obj_get_pdev(struct wlan_ipa_priv *ipa_obj)
-{
-	return ipa_obj->pdev;
 }
 
 /**
@@ -301,13 +289,11 @@ void ipa_set_dfs_cac_tx(struct wlan_objmgr_pdev *pdev, bool tx_block);
 /**
  * ipa_set_ap_ibss_fwd() - Set AP intra bss forward
  * @pdev: pdev obj
- * @session_id: vdev id
  * @intra_bss: enable or disable ap intra bss forward
  *
  * Return: void
  */
-void ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, uint8_t session_id,
-			 bool intra_bss);
+void ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, bool intra_bss);
 
 /**
  * ipa_uc_force_pipe_shutdown() - Force IPA pipe shutdown
@@ -471,13 +457,6 @@ void ipa_fw_rejuvenate_send_msg(struct wlan_objmgr_pdev *pdev);
 void ipa_component_config_update(struct wlan_objmgr_psoc *psoc);
 
 /**
- * ipa_component_config_free() - Free ipa config
- *
- * Return: None
- */
-void ipa_component_config_free(void);
-
-/**
  * ipa_get_tx_buf_count() - get IPA config tx buffer count
  *
  * Return: IPA config tx buffer count
@@ -504,14 +483,6 @@ void ipa_update_tx_stats(struct wlan_objmgr_pdev *pdev, uint64_t sta_tx,
  */
 void ipa_flush_pending_vdev_events(struct wlan_objmgr_pdev *pdev,
 				   uint8_t vdev_id);
-
-/**
- * ipa_is_ready() - Is IPA register callback is invoked
- *
- * Return: true if IPA register callback is invoked or false
- * otherwise
- */
-bool ipa_is_ready(void);
 
 #else /* Not IPA_OFFLOAD */
 typedef QDF_STATUS (*wlan_ipa_softap_xmit)(qdf_nbuf_t nbuf, qdf_netdev_t dev);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -43,12 +43,11 @@ QDF_STATUS ipa_config_mem_alloc(void)
 {
 	struct wlan_ipa_config *ipa_cfg;
 
-	if (g_ipa_config)
-		return QDF_STATUS_SUCCESS;
-
 	ipa_cfg = qdf_mem_malloc(sizeof(*ipa_cfg));
-	if (!ipa_cfg)
+	if (!ipa_cfg) {
+		ipa_err("Failed to allocate memory for ipa config");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	g_ipa_config = ipa_cfg;
 
@@ -165,9 +164,6 @@ QDF_STATUS ipa_rm_set_perf_level(struct wlan_objmgr_pdev *pdev,
 		return QDF_STATUS_SUCCESS;
 	}
 
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -185,9 +181,6 @@ void ipa_uc_info(struct wlan_objmgr_pdev *pdev)
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -207,9 +200,6 @@ void ipa_uc_stat(struct wlan_objmgr_pdev *pdev)
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -227,9 +217,6 @@ void ipa_uc_rt_debug_host_dump(struct wlan_objmgr_pdev *pdev)
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -249,9 +236,6 @@ void ipa_dump_info(struct wlan_objmgr_pdev *pdev)
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -269,9 +253,6 @@ void ipa_uc_stat_request(struct wlan_objmgr_pdev *pdev, uint8_t reason)
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -292,9 +273,6 @@ void ipa_uc_stat_query(struct wlan_objmgr_pdev *pdev,
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -312,9 +290,6 @@ void ipa_reg_sap_xmit_cb(struct wlan_objmgr_pdev *pdev, wlan_ipa_softap_xmit cb)
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -334,9 +309,6 @@ void ipa_reg_send_to_nw_cb(struct wlan_objmgr_pdev *pdev,
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -380,9 +352,6 @@ void ipa_set_mcc_mode(struct wlan_objmgr_pdev *pdev, bool mcc_mode)
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -401,9 +370,6 @@ void ipa_set_dfs_cac_tx(struct wlan_objmgr_pdev *pdev, bool tx_block)
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -413,8 +379,7 @@ void ipa_set_dfs_cac_tx(struct wlan_objmgr_pdev *pdev, bool tx_block)
 	return wlan_ipa_set_dfs_cac_tx(ipa_obj, tx_block);
 }
 
-void ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, uint8_t session_id,
-			 bool intra_bss)
+void ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, bool intra_bss)
 {
 	struct wlan_ipa_priv *ipa_obj;
 
@@ -423,16 +388,13 @@ void ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, uint8_t session_id,
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
 		return;
 	}
 
-	return wlan_ipa_set_ap_ibss_fwd(ipa_obj, session_id, intra_bss);
+	return wlan_ipa_set_ap_ibss_fwd(ipa_obj, intra_bss);
 }
 
 void ipa_uc_force_pipe_shutdown(struct wlan_objmgr_pdev *pdev)
@@ -448,9 +410,6 @@ void ipa_uc_force_pipe_shutdown(struct wlan_objmgr_pdev *pdev)
 		ipa_debug("ipa is disabled");
 		return;
 	}
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -470,9 +429,6 @@ void ipa_flush(struct wlan_objmgr_pdev *pdev)
 		return;
 	}
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -491,9 +447,6 @@ QDF_STATUS ipa_suspend(struct wlan_objmgr_pdev *pdev)
 		return QDF_STATUS_SUCCESS;
 	}
 
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -511,9 +464,6 @@ QDF_STATUS ipa_resume(struct wlan_objmgr_pdev *pdev)
 		ipa_debug("ipa is disabled");
 		return QDF_STATUS_SUCCESS;
 	}
-
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -534,9 +484,6 @@ QDF_STATUS ipa_uc_ol_init(struct wlan_objmgr_pdev *pdev,
 		return QDF_STATUS_SUCCESS;
 	}
 
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -555,9 +502,6 @@ bool ipa_is_tx_pending(struct wlan_objmgr_pdev *pdev)
 		return QDF_STATUS_SUCCESS;
 	}
 
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 
 	return wlan_ipa_is_tx_pending(ipa_obj);
@@ -566,7 +510,11 @@ bool ipa_is_tx_pending(struct wlan_objmgr_pdev *pdev)
 QDF_STATUS ipa_uc_ol_deinit(struct wlan_objmgr_pdev *pdev)
 {
 	struct wlan_ipa_priv *ipa_obj;
-	QDF_STATUS status;
+
+	if (!ipa_config_is_enabled()) {
+		ipa_debug("ipa is disabled");
+		return QDF_STATUS_SUCCESS;
+	}
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -574,25 +522,7 @@ QDF_STATUS ipa_uc_ol_deinit(struct wlan_objmgr_pdev *pdev)
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	qdf_mutex_acquire(&ipa_obj->init_deinit_lock);
-
-	if (!ipa_config_is_enabled()) {
-		ipa_debug("ipa is disabled");
-		status = QDF_STATUS_SUCCESS;
-		goto out;
-	}
-
-	if (!ipa_is_ready()) {
-		ipa_debug("ipa is not ready");
-		status = QDF_STATUS_SUCCESS;
-		goto out;
-	}
-
-	status = wlan_ipa_uc_ol_deinit(ipa_obj);
-
-out:
-	qdf_mutex_release(&ipa_obj->init_deinit_lock);
-	return status;
+	return wlan_ipa_uc_ol_deinit(ipa_obj);
 }
 
 QDF_STATUS ipa_send_mcc_scc_msg(struct wlan_objmgr_pdev *pdev,
@@ -604,9 +534,6 @@ QDF_STATUS ipa_send_mcc_scc_msg(struct wlan_objmgr_pdev *pdev,
 		ipa_debug("ipa is disabled");
 		return QDF_STATUS_SUCCESS;
 	}
-
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -623,9 +550,6 @@ QDF_STATUS ipa_wlan_evt(struct wlan_objmgr_pdev *pdev, qdf_netdev_t net_dev,
 			uint8_t *mac_addr)
 {
 	struct wlan_ipa_priv *ipa_obj;
-
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -651,11 +575,6 @@ bool ipa_is_fw_wdi_activated(struct wlan_objmgr_pdev *pdev)
 		return false;
 	}
 
-	if (!ipa_is_ready()) {
-		ipa_debug("ipa is not ready");
-		return false;
-	}
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err_rl("IPA object is NULL");
@@ -669,11 +588,6 @@ void ipa_uc_cleanup_sta(struct wlan_objmgr_pdev *pdev,
 			qdf_netdev_t net_dev)
 {
 	struct wlan_ipa_priv *ipa_obj;
-
-	if (!ipa_is_ready()) {
-		ipa_debug("ipa is not ready");
-		return;
-	}
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -689,9 +603,6 @@ QDF_STATUS ipa_uc_disconnect_ap(struct wlan_objmgr_pdev *pdev,
 {
 	struct wlan_ipa_priv *ipa_obj;
 
-	if (!ipa_is_ready())
-		return QDF_STATUS_SUCCESS;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -706,9 +617,6 @@ void ipa_cleanup_dev_iface(struct wlan_objmgr_pdev *pdev,
 {
 	struct wlan_ipa_priv *ipa_obj;
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -721,9 +629,6 @@ void ipa_cleanup_dev_iface(struct wlan_objmgr_pdev *pdev,
 void ipa_uc_ssr_cleanup(struct wlan_objmgr_pdev *pdev)
 {
 	struct wlan_ipa_priv *ipa_obj;
-
-	if (!ipa_is_ready())
-		return;
 
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
@@ -754,11 +659,8 @@ void ipa_fw_rejuvenate_send_msg(struct wlan_objmgr_pdev *pdev)
 
 void ipa_component_config_update(struct wlan_objmgr_psoc *psoc)
 {
-	QDF_STATUS status;
-
-	status = ipa_config_mem_alloc();
-	if (QDF_IS_STATUS_ERROR(status)) {
-		ipa_err("Failed to alloc g_ipa_config");
+	if (!g_ipa_config) {
+		ipa_err("g_ipa_config is NULL");
 		return;
 	}
 
@@ -783,12 +685,6 @@ void ipa_component_config_update(struct wlan_objmgr_psoc *psoc)
 		cfg_get(psoc, CFG_DP_BUS_BANDWIDTH_LOW_THRESHOLD);
 	g_ipa_config->ipa_force_voting =
 		cfg_get(psoc, CFG_DP_IPA_ENABLE_FORCE_VOTING);
-}
-
-void ipa_component_config_free(void)
-{
-	ipa_info("Free the IPA config memory");
-	ipa_config_mem_free();
 }
 
 uint32_t ipa_get_tx_buf_count(void)
@@ -821,9 +717,6 @@ void ipa_flush_pending_vdev_events(struct wlan_objmgr_pdev *pdev,
 	if (!ipa_config_is_enabled())
 		return;
 
-	if (!ipa_is_ready())
-		return;
-
 	ipa_obj = ipa_pdev_get_priv_obj(pdev);
 	if (!ipa_obj) {
 		ipa_err("IPA object is NULL");
@@ -832,4 +725,3 @@ void ipa_flush_pending_vdev_events(struct wlan_objmgr_pdev *pdev,
 
 	wlan_ipa_flush_pending_vdev_events(ipa_obj, vdev_id);
 }
-

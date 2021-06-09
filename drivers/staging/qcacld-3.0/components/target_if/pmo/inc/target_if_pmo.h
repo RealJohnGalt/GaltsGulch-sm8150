@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -351,28 +351,6 @@ QDF_STATUS target_if_pmo_send_vdev_ps_param_req(
 		uint32_t param_id,
 		uint32_t param_value);
 
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-/**
- * target_if_pmo_send_igmp_offload_req() - Send igmp offload req to fw
- * @vdev: objmgr vdev
- * @pmo_igmp_req: igmp req
- *
- * Return: QDF status
- */
-QDF_STATUS
-target_if_pmo_send_igmp_offload_req(
-		struct wlan_objmgr_vdev *vdev,
-		struct pmo_igmp_offload_req *pmo_igmp_req);
-#else
-static inline QDF_STATUS
-target_if_pmo_send_igmp_offload_req(
-		struct wlan_objmgr_vdev *vdev,
-		struct pmo_igmp_offload_req *pmo_igmp_req)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
 /**
  * target_if_pmo_psoc_update_bus_suspend() - update wmi bus suspend flag
  * @psoc: objmgr psoc
@@ -404,22 +382,10 @@ int target_if_pmo_psoc_get_pending_cmnds(struct wlan_objmgr_psoc *psoc);
  * @psoc: objmgr psoc
  * @value: value
  *
- * Return: None
+ * Return: return wmi pending commands
  */
 void target_if_pmo_update_target_suspend_flag(struct wlan_objmgr_psoc *psoc,
 		uint8_t value);
-
-/**
- * target_if_pmo_update_target_suspend_acked_flag() - set wmi target suspend
- *                                                    acked flag
- * @psoc: objmgr psoc
- * @value: value
- *
- * Return: None
- */
-void target_if_pmo_update_target_suspend_acked_flag(
-						struct wlan_objmgr_psoc *psoc,
-						uint8_t value);
 
 /**
  * target_if_pmo_is_target_suspended() - get wmi target suspend flag

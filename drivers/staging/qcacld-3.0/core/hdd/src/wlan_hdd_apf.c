@@ -50,7 +50,8 @@
 #define APF_MAX \
 	QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_MAX
 
-const struct nla_policy wlan_hdd_apf_offload_policy[APF_MAX + 1] = {
+static const struct nla_policy
+wlan_hdd_apf_offload_policy[APF_MAX + 1] = {
 	[APF_SUBCMD] = {.type = NLA_U32},
 	[APF_VERSION] = {.type = NLA_U32},
 	[APF_FILTER_ID] = {.type = NLA_U32},

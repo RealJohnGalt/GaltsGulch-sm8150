@@ -340,7 +340,7 @@ void lim_ft_prepare_add_bss_req(struct mac_context *mac,
 	pAddBssParams->staContext.smesessionId = ft_session->smeSessionId;
 
 	/* Set a new state for MLME */
-	if (!lim_is_roam_synch_in_progress(mac->psoc, ft_session)) {
+	if (!lim_is_roam_synch_in_progress(ft_session)) {
 		ft_session->limMlmState =
 			eLIM_MLM_WT_ADD_BSS_RSP_FT_REASSOC_STATE;
 		MTRACE(mac_trace
@@ -424,32 +424,22 @@ static uint8_t lim_calculate_dot11_mode(struct mac_context *mac_ctx,
 	case MLME_DOT11_MODE_ALL:
 		if (bcn->he_cap.present)
 			return MLME_DOT11_MODE_11AX;
-		else if ((bcn->VHTCaps.present ||
-			  bcn->vendor_vht_ie.present) &&
-			 (!(band == REG_BAND_2G &&
-			  !mac_ctx->mlme_cfg->vht_caps.vht_cap_info.b24ghz_band)
-			 ))
-
+		else if (bcn->VHTCaps.present ||
+			 bcn->vendor_vht_ie.present)
 			return MLME_DOT11_MODE_11AC;
 		else if (bcn->HTCaps.present)
 			return MLME_DOT11_MODE_11N;
-		/* fallthrough */
 	case MLME_DOT11_MODE_11AC:
 	case MLME_DOT11_MODE_11AC_ONLY:
-		if ((bcn->VHTCaps.present ||
-		     bcn->vendor_vht_ie.present) &&
-		   (!(band == REG_BAND_2G &&
-		    !mac_ctx->mlme_cfg->vht_caps.vht_cap_info.b24ghz_band)
-		   ))
+		if (bcn->VHTCaps.present ||
+		    bcn->vendor_vht_ie.present)
 			return MLME_DOT11_MODE_11AC;
 		else if (bcn->HTCaps.present)
 			return MLME_DOT11_MODE_11N;
-		/* fallthrough */
 	case MLME_DOT11_MODE_11N:
 	case MLME_DOT11_MODE_11N_ONLY:
 		if (bcn->HTCaps.present)
 			return MLME_DOT11_MODE_11N;
-		/* fallthrough */
 	default:
 			return new_dot11_mode;
 	}
@@ -534,8 +524,7 @@ void lim_fill_ft_session(struct mac_context *mac,
 	int8_t regMax;
 	tSchBeaconStruct *pBeaconStruct;
 	ePhyChanBondState cbEnabledMode;
-	struct vdev_mlme_obj *mlme_obj;
-	bool is_pwr_constraint;
+	struct lim_max_tx_pwr_attr tx_pwr_attr = {0};
 
 	pBeaconStruct = qdf_mem_malloc(sizeof(tSchBeaconStruct));
 	if (!pBeaconStruct)
@@ -597,7 +586,7 @@ void lim_fill_ft_session(struct mac_context *mac,
 		lim_update_session_he_capable(mac, ft_session);
 
 	/* Assign default configured nss value in the new session */
-	if (!wlan_reg_is_24ghz_ch_freq(ft_session->curr_op_freq))
+	if (wlan_reg_is_5ghz_ch_freq(ft_session->curr_op_freq))
 		ft_session->vdev_nss = mac->vdev_type_nss_5g.sta;
 	else
 		ft_session->vdev_nss = mac->vdev_type_nss_2g.sta;
@@ -697,23 +686,15 @@ void lim_fill_ft_session(struct mac_context *mac,
 		ft_session->shortSlotTimeSupported = true;
 	}
 
-	mlme_obj = wlan_vdev_mlme_get_cmpt_obj(pe_session->vdev);
-	if (!mlme_obj) {
-		pe_err("vdev component object is NULL");
-		qdf_mem_free(pBeaconStruct);
-		return;
-	}
-
 	regMax = wlan_reg_get_channel_reg_power_for_freq(
 		mac->pdev, ft_session->curr_op_freq);
 	localPowerConstraint = regMax;
 	lim_extract_ap_capability(mac, (uint8_t *) pbssDescription->ieFields,
+
 		lim_get_ielen_from_bss_description(pbssDescription),
 		&ft_session->limCurrentBssQosCaps,
 		&currentBssUapsd,
-		&localPowerConstraint, ft_session, &is_pwr_constraint);
-	if (is_pwr_constraint)
-		localPowerConstraint = regMax - localPowerConstraint;
+		&localPowerConstraint, ft_session);
 
 	ft_session->limReassocBssQosCaps =
 		ft_session->limCurrentBssQosCaps;
@@ -730,19 +711,22 @@ void lim_fill_ft_session(struct mac_context *mac,
 	ft_session->isFastRoamIniFeatureEnabled =
 		pe_session->isFastRoamIniFeatureEnabled;
 
-	mlme_obj->reg_tpc_obj.reg_max[0] = regMax;
-	mlme_obj->reg_tpc_obj.ap_constraint_power = localPowerConstraint;
-	mlme_obj->reg_tpc_obj.frequency[0] = ft_session->curr_op_freq;
+	tx_pwr_attr.reg_max = regMax;
+	tx_pwr_attr.ap_tx_power = localPowerConstraint;
+	tx_pwr_attr.ini_tx_power = mac->mlme_cfg->power.max_tx_power;
+	tx_pwr_attr.frequency = ft_session->curr_op_freq;
 
 #ifdef FEATURE_WLAN_ESE
-	ft_session->maxTxPower = lim_get_max_tx_power(mac, mlme_obj);
+	ft_session->maxTxPower = lim_get_max_tx_power(mac, &tx_pwr_attr);
 #else
 	ft_session->maxTxPower = QDF_MIN(regMax, (localPowerConstraint));
 #endif
 
-	pe_debug("Reg max: %d local pwr: %d, max tx pwr: %d", regMax,
-		 localPowerConstraint, ft_session->maxTxPower);
-	if (!lim_is_roam_synch_in_progress(mac->psoc, pe_session)) {
+	pe_debug("Reg max: %d local pwr: %d, ini tx pwr: %d max tx pwr: %d",
+		regMax, localPowerConstraint,
+		mac->mlme_cfg->power.max_tx_power,
+		ft_session->maxTxPower);
+	if (!lim_is_roam_synch_in_progress(pe_session)) {
 		ft_session->limPrevSmeState = ft_session->limSmeState;
 		ft_session->limSmeState = eLIM_SME_WT_REASSOC_STATE;
 		MTRACE(mac_trace(mac,
@@ -800,10 +784,10 @@ lim_ft_send_aggr_qos_rsp(struct mac_context *mac, uint8_t rspReqd,
 		if ((1 << i) & aggrQosRsp->tspecIdx) {
 			if (QDF_IS_STATUS_SUCCESS(aggrQosRsp->status[i]))
 				rsp->aggrInfo.aggrRsp[i].status =
-					STATUS_SUCCESS;
+					eSIR_MAC_SUCCESS_STATUS;
 			else
 				rsp->aggrInfo.aggrRsp[i].status =
-					STATUS_UNSPECIFIED_FAILURE;
+					eSIR_MAC_UNSPEC_FAILURE_STATUS;
 			rsp->aggrInfo.aggrRsp[i].tspec = aggrQosRsp->tspec[i];
 		}
 	}
@@ -833,7 +817,7 @@ void lim_process_ft_aggr_qos_rsp(struct mac_context *mac,
 	pe_session =
 		pe_find_session_by_session_id(mac, pAggrQosRspMsg->sessionId);
 	if (!pe_session) {
-		pe_err("Cant find session entry");
+		pe_err("Cant find session entry for %s", __func__);
 		if (pAggrQosRspMsg) {
 			qdf_mem_free(pAggrQosRspMsg);
 		}

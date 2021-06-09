@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -36,7 +36,7 @@
  *
  * Supported Feature: ACS
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * </ini>
  */
@@ -58,7 +58,7 @@
  *
  * Supported Feature: ACS
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * bits 0-3:   rssi weight
  * bits 4-7:   bss count weight
@@ -92,7 +92,7 @@
  *
  * Supported Feature: ACS
  *
- * Usage: External
+ * Usage: External/Internal
  *
  * </ini>
  */
@@ -145,7 +145,7 @@
  *
  * Supported Feature: ACS
  *
- * Usage: External
+ * Usage: Internal/External
  *
  * </ini>
  */
@@ -176,7 +176,7 @@
 		"normalize_acs_weight", \
 		0, \
 		ACS_WEIGHT_MAX_STR_LEN, \
-		"5945-7125=0, 5975=100, 6055=100, 6135=100, 6215=100, 6295=100, 6375=100, 6615=100, 6695=100, 6775=100, 6855=100", \
+		"5940-7105=0, 5965=100, 6045=100, 6125=100, 6205=100, 6285=100, 6365=100, 6605=100, 6685=100, 6765=100, 6845=100", \
 		"Used to specify the channel weights")
 
 /*
@@ -221,7 +221,7 @@
  * recommended (it takes 60 sec/10min to start depending upon channel type).
  *
  * Indexes are defined in this way.
- *     0 Index (BITS 0-7): DFS - Def 1%
+ *     0 Index (BITS 0-7): DFS - Def 0%
  *     1 Index (BITS 8-15): Reserved
  *     2 Index (BITS 16-23): Reserved
  *     3 Index (BITS 24-31): Reserved
@@ -236,7 +236,7 @@
 		"np_chan_weight", \
 		0x00000000, \
 		0x64646464, \
-		0x00000001, \
+		0x00000000, \
 		CFG_VALUE_OR_DEFAULT, \
 		"np chan weight")
 

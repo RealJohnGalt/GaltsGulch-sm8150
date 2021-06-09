@@ -76,6 +76,7 @@ typedef struct sRrmSMEContext {
 	uint16_t duration[SIR_ESE_MAX_MEAS_IE_REQS];
 	uint8_t measMode[SIR_ESE_MAX_MEAS_IE_REQS];
 	uint32_t scan_id;
+	qdf_mc_timer_t IterMeasTimer;
 	tDblLinkList neighborReportCache;
 	tRrmNeighborRequestControlInfo neighborReqControlInfo;
 
@@ -92,15 +93,5 @@ typedef struct sRrmNeighborReq {
 	tSirMacSSid ssid;
 	bool neighbor_report_offload;
 } tRrmNeighborReq, *tpRrmNeighborReq;
-
-/**
- * sme_rrm_issue_scan_req() - To issue rrm scan request
- * @mac_ctx: pointer to mac context
- *
- * This routine is called to issue rrm scan request
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS sme_rrm_issue_scan_req(struct mac_context *mac_ctx, uint8_t idx);
 
 #endif /* #if !defined( __SMERRMINTERNAL_H ) */

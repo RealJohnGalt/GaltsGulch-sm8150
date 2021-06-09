@@ -253,17 +253,21 @@ QDF_STATUS pmo_core_ns_check_offload(struct wlan_objmgr_psoc *psoc,
 	bool active_offload_cond, is_applied_cond;
 	enum QDF_OPMODE opmode;
 
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id, WLAN_PMO_ID);
+	vdev = pmo_psoc_get_vdev(psoc, vdev_id);
 	if (!vdev) {
 		pmo_err("vdev is NULL");
 		status = QDF_STATUS_E_INVAL;
 		goto out;
 	}
 
+	status = pmo_vdev_get_ref(vdev);
+	if (QDF_IS_STATUS_ERROR(status))
+		goto out;
+
 	opmode = pmo_get_vdev_opmode(vdev);
 	if (opmode == QDF_NDI_MODE) {
 		pmo_debug("NS offload not supported in NaN mode");
-		wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+		pmo_vdev_put_ref(vdev);
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -280,11 +284,11 @@ QDF_STATUS pmo_core_ns_check_offload(struct wlan_objmgr_psoc *psoc,
 
 		if (active_offload_cond && is_applied_cond) {
 			pmo_debug("active offload is enabled and offload already sent");
-			wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+			pmo_vdev_put_ref(vdev);
 			return QDF_STATUS_E_INVAL;
 		}
 	}
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	return status;
 }
@@ -306,14 +310,16 @@ QDF_STATUS pmo_core_cache_ns_offload_req(struct pmo_ns_req *ns_req)
 		goto out;
 	}
 
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(ns_req->psoc,
-						    ns_req->vdev_id,
-						    WLAN_PMO_ID);
+	vdev = pmo_psoc_get_vdev(ns_req->psoc, ns_req->vdev_id);
 	if (!vdev) {
 		pmo_err("vdev is NULL");
 		status = QDF_STATUS_E_INVAL;
 		goto out;
 	}
+
+	status = pmo_vdev_get_ref(vdev);
+	if (QDF_IS_STATUS_ERROR(status))
+		goto out;
 
 	status = pmo_core_ns_offload_sanity(vdev);
 	if (status != QDF_STATUS_SUCCESS)
@@ -327,7 +333,7 @@ QDF_STATUS pmo_core_cache_ns_offload_req(struct pmo_ns_req *ns_req)
 
 	status = pmo_core_cache_ns_in_vdev_priv(ns_req, vdev);
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 
 	return status;
@@ -358,7 +364,7 @@ QDF_STATUS pmo_core_flush_ns_offload_req(struct wlan_objmgr_vdev *vdev)
 
 	status = pmo_core_flush_ns_from_vdev_priv(vdev);
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 
@@ -417,7 +423,7 @@ skip_ns_dynamic_check:
 		vdev_id, vdev, trigger);
 	status = pmo_core_do_enable_ns_offload(vdev, vdev_id, trigger);
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 
 	return status;
@@ -468,7 +474,7 @@ skip_ns_dynamic_check:
 
 	status = pmo_core_do_disable_ns_offload(vdev, vdev_id, trigger);
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 
@@ -510,7 +516,7 @@ pmo_core_get_ns_offload_params(struct wlan_objmgr_vdev *vdev,
 	qdf_spin_unlock_bh(&vdev_ctx->pmo_vdev_lock);
 
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 

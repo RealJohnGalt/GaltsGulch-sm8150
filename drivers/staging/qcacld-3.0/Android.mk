@@ -68,7 +68,9 @@ include $(foreach chip, $(TARGET_WLAN_CHIP), $(LOCAL_PATH)/.$(chip)/Android.mk)
 
 else # Multi-ok check
 
+ifeq ($(WLAN_PROFILE),)
 WLAN_PROFILE := default
+endif
 
 ifeq ($(LOCAL_DEV_NAME), qcacld-3.0)
 
@@ -123,21 +125,11 @@ KBUILD_OPTIONS += DYNAMIC_SINGLE_CHIP=$(DYNAMIC_SINGLE_CHIP)
 # This means we need to rename the module to <chipset>_wlan.ko
 # after wlan.ko is built.
 KBUILD_OPTIONS += MODNAME=$(LOCAL_MOD_NAME)
-KBUILD_OPTIONS += DEVNAME=$(LOCAL_DEV_NAME)
 KBUILD_OPTIONS += BOARD_PLATFORM=$(TARGET_BOARD_PLATFORM)
 KBUILD_OPTIONS += $(WLAN_SELECT)
 
 ifneq ($(WLAN_CFG_OVERRIDE_$(LOCAL_DEV_NAME)),)
 KBUILD_OPTIONS += WLAN_CFG_OVERRIDE="$(WLAN_CFG_OVERRIDE_$(LOCAL_DEV_NAME))"
-endif
-
-# Pass build options per chip to Kbuild. This will be injected from upper layer
-# makefile.
-#
-# e.g.
-#  WLAN_KBUILD_OPTIONS_qca6390 := CONFIG_CNSS_QCA6390=y
-ifneq ($(WLAN_KBUILD_OPTIONS_$(LOCAL_DEV_NAME)),)
-KBUILD_OPTIONS += "$(WLAN_KBUILD_OPTIONS_$(LOCAL_DEV_NAME))"
 endif
 
 include $(CLEAR_VARS)

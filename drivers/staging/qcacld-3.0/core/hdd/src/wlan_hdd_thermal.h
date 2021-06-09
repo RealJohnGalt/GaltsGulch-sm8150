@@ -25,45 +25,9 @@
 
 #include <linux/netdevice.h>
 #include <net/cfg80211.h>
-#include <qca_vendor.h>
-
-
-/**
- * enum hdd_thermal_states   - The various thermal states as supported by WLAN
- * @HDD_THERMAL_STATE_NONE   - The normal working state
- * @HDD_THERMAL_STATE_LIGHT  - Intermediate states, WLAN must perform partial
- *                             mitigation
- * @HDD_THERMAL_STATE_MODERATE - Intermediate states, WLAN must perform partial
- *                               mitigation
- * @HDD_THERMAL_STATE_SEVERE - Intermediate states, WLAN must perform partial
- *                             mitigation
- * @HDD_THERMAL_STATE_CRITICAL - Intermediate states, WLAN must perform partial
- *                               mitigation
- * @HDD_THERMAL_STATE_EMERGENCY - The highest state, WLAN must enter forced
- *                                IMPS and will disconnect any active STA
- *                                connection
- */
-enum hdd_thermal_states {
-	HDD_THERMAL_STATE_NONE = 0,
-	HDD_THERMAL_STATE_LIGHT = 1,
-	HDD_THERMAL_STATE_MODERATE = 2,
-	HDD_THERMAL_STATE_SEVERE = 3,
-	HDD_THERMAL_STATE_CRITICAL = 4,
-	HDD_THERMAL_STATE_EMERGENCY = 5,
-	HDD_THERMAL_STATE_INVAL = 0xFF,
-};
-
-/*
- * thermal_monitor_id: enum of thermal client
- * @THERMAL_MONITOR_APPS: Thermal monitor client of APPS
- * @THERMAL_MONITOR_WPSS: Thermal monitor client for WPSS
- */
-enum thermal_monitor_id {
-	THERMAL_MONITOR_APPS = 1,
-	THERMAL_MONITOR_WPSS,
-};
 
 #ifdef FW_THERMAL_THROTTLE_SUPPORT
+
 int
 wlan_hdd_cfg80211_set_thermal_mitigation_policy(struct wiphy *wiphy,
 						struct wireless_dev *wdev,
@@ -86,81 +50,13 @@ bool wlan_hdd_thermal_config_support(void);
  */
 QDF_STATUS hdd_restore_thermal_mitigation_config(struct hdd_context *hdd_ctx);
 
-extern const struct nla_policy
-	wlan_hdd_thermal_mitigation_policy
-	[QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_MAX + 1];
-
-#define FEATURE_THERMAL_VENDOR_COMMANDS                             \
-{                                                                   \
-	.info.vendor_id = QCA_NL80211_VENDOR_ID,                    \
-	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_THERMAL_CMD,       \
-	.flags = WIPHY_VENDOR_CMD_NEED_WDEV,                        \
-	.doit = wlan_hdd_cfg80211_set_thermal_mitigation_policy,    \
-	vendor_command_policy(wlan_hdd_thermal_mitigation_policy,   \
-			      QCA_WLAN_VENDOR_ATTR_THERMAL_CMD_MAX) \
+#define FEATURE_THERMAL_VENDOR_COMMANDS				\
+{								\
+	.info.vendor_id = QCA_NL80211_VENDOR_ID,		\
+	.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_THERMAL_CMD,	\
+	.flags = WIPHY_VENDOR_CMD_NEED_WDEV,			\
+	.doit = wlan_hdd_cfg80211_set_thermal_mitigation_policy	\
 },
-
-/**
- * hdd_thermal_mitigation_register() - Register for platform specific thermal
- *                                     mitigation support
- * @hdd_ctx: Pointer to Hdd context
- * @dev: Pointer to the device
- *
- * Register to the platform specific thermal mitigation support
- * Return: None
- */
-void hdd_thermal_mitigation_register(struct hdd_context *hdd_ctx,
-				     struct device *dev);
-
-/**
- * hdd_thermal_mitigation_unregister() - Unregister for platform specific
- *                                       thermal mitigation support
- * @hdd_ctx: Pointer to Hdd context
- * @dev: Pointer to the device
- *
- * Unregister to the platform specific thermal mitigation support
- * Return: None
- */
-void hdd_thermal_mitigation_unregister(struct hdd_context *hdd_ctx,
-				       struct device *dev);
-
-/**
- * wlan_hdd_pld_set_thermal_mitigation() - send the suggested thermal value
- *                                         to the firmware
- * @dev: Pointer to the device
- * @state: Thermal state to set
- * @mon_id: Thermal monitor id ie.. apps or wpss
- *
- * Send the requested thermal mitigation value to the firmware * for the
- * requested thermal monitor id.
- *
- * Return: 0 for success or errno for failure.
- */
-int wlan_hdd_pld_set_thermal_mitigation(struct device *dev,
-					unsigned long state, int mon_id);
-#ifdef FEATURE_WPSS_THERMAL_MITIGATION
-/**
- * hdd_thermal_fill_clientid_priority() - fill the client id/priority
- *
- * @mon_id: Thermal monitor id ie.. apps or wpss
- * @priority: Priority of the client to be considered
- *
- * Fill the clientid/priority for the firmware to consider.
- *
- * Return: none
- */
-void
-hdd_thermal_fill_clientid_priority(uint8_t mon_id, uint8_t priority_apps,
-				   uint8_t priority_wpps,
-				   struct thermal_mitigation_params *params);
-#else
-static inline void
-hdd_thermal_fill_clientid_priority(uint8_t mon_id, uint8_t priority_apps,
-				   uint8_t priority_wpps,
-				   struct thermal_mitigation_params *params)
-{
-}
-#endif
 #else
 #define FEATURE_THERMAL_VENDOR_COMMANDS
 
@@ -173,25 +69,6 @@ static inline
 QDF_STATUS hdd_restore_thermal_mitigation_config(struct hdd_context *hdd_ctx)
 {
 	return false;
-}
-
-static inline
-void hdd_thermal_mitigation_register(struct hdd_context *hdd_ctx,
-				     struct device *dev)
-{
-}
-
-static inline
-void hdd_thermal_mitigation_unregister(struct hdd_context *hdd_ctx,
-				       struct device *dev)
-{
-}
-
-static inline
-int wlan_hdd_pld_set_thermal_mitigation(struct device *dev,
-					unsigned long state, int mon_id)
-{
-	return 0;
 }
 
 #endif /* FEATURE_THERMAL_VENDOR_COMMANDS */

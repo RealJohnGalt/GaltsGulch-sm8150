@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -201,11 +201,6 @@ struct wlan_pmo_tx_ops {
 	QDF_STATUS (*send_vdev_sta_ps_param_req)(
 			struct wlan_objmgr_vdev *vdev,
 			uint32_t ps_mode, uint32_t value);
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-	QDF_STATUS (*send_igmp_offload_req)(
-			struct wlan_objmgr_vdev *vdev,
-			struct pmo_igmp_offload_req *pmo_igmp_req);
-#endif
 	void (*psoc_update_wow_bus_suspend)(
 			struct wlan_objmgr_psoc *psoc, uint8_t value);
 	int (*psoc_get_host_credits)(
@@ -213,8 +208,6 @@ struct wlan_pmo_tx_ops {
 	int (*psoc_get_pending_cmnds)(
 			struct wlan_objmgr_psoc *psoc);
 	void (*update_target_suspend_flag)(
-		struct wlan_objmgr_psoc *psoc, uint8_t value);
-	void (*update_target_suspend_acked_flag)(
 		struct wlan_objmgr_psoc *psoc, uint8_t value);
 	bool (*is_target_suspended)(struct wlan_objmgr_psoc *psoc);
 	QDF_STATUS (*psoc_send_wow_enable_req)(struct wlan_objmgr_psoc *psoc,

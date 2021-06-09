@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -66,7 +66,7 @@ QDF_STATUS pmo_core_del_wow_pattern(struct wlan_objmgr_vdev *vdev)
 	for (id = 0; id < pattern_count; id++)
 		status = pmo_tgt_del_wow_pattern(vdev, id, true);
 
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	return status;
 }
@@ -130,7 +130,7 @@ QDF_STATUS pmo_core_add_wow_user_pattern(struct wlan_objmgr_vdev *vdev,
 	if (status != QDF_STATUS_SUCCESS)
 		pmo_err("Failed to add wow pattern %d", ptrn->pattern_id);
 
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 
@@ -164,7 +164,7 @@ QDF_STATUS pmo_core_del_wow_user_pattern(struct wlan_objmgr_vdev *vdev,
 	if (!pmo_get_wow_user_ptrn(vdev_ctx))
 		pmo_register_wow_default_patterns(vdev);
 rel_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 
@@ -175,6 +175,7 @@ void pmo_core_enable_wakeup_event(struct wlan_objmgr_psoc *psoc,
 				  uint32_t vdev_id,
 				  WOW_WAKE_EVENT_TYPE wow_event)
 {
+	QDF_STATUS status;
 	struct wlan_objmgr_vdev *vdev;
 	uint32_t bitmap[PMO_WOW_MAX_EVENT_BM_LEN] = {0};
 
@@ -185,17 +186,21 @@ void pmo_core_enable_wakeup_event(struct wlan_objmgr_psoc *psoc,
 		goto out;
 	}
 
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id, WLAN_PMO_ID);
+	vdev = pmo_psoc_get_vdev(psoc, vdev_id);
 	if (!vdev) {
 		pmo_err("vdev is NULL");
 		goto out;
 	}
 
+	status = pmo_vdev_get_ref(vdev);
+	if (QDF_IS_STATUS_ERROR(status))
+		goto out;
+
 	pmo_set_wow_event_bitmap(wow_event, PMO_WOW_MAX_EVENT_BM_LEN, bitmap);
 
 	pmo_tgt_enable_wow_wakeup_event(vdev, bitmap);
 
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 
 out:
 	pmo_exit();
@@ -205,6 +210,7 @@ void pmo_core_disable_wakeup_event(struct wlan_objmgr_psoc *psoc,
 				   uint32_t vdev_id,
 				   WOW_WAKE_EVENT_TYPE wow_event)
 {
+	QDF_STATUS status;
 	struct wlan_objmgr_vdev *vdev;
 	uint32_t bitmap[PMO_WOW_MAX_EVENT_BM_LEN] = {0};
 
@@ -213,17 +219,21 @@ void pmo_core_disable_wakeup_event(struct wlan_objmgr_psoc *psoc,
 		return;
 	}
 
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id, WLAN_PMO_ID);
+	vdev = pmo_psoc_get_vdev(psoc, vdev_id);
 	if (!vdev) {
 		pmo_err("vdev is NULL");
 		return;
 	}
 
+	status = pmo_vdev_get_ref(vdev);
+	if (QDF_IS_STATUS_ERROR(status))
+		return;
+
 	pmo_set_wow_event_bitmap(wow_event, PMO_WOW_MAX_EVENT_BM_LEN, bitmap);
 
 	pmo_tgt_disable_wow_wakeup_event(vdev, bitmap);
 
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 }
 
 /**
@@ -239,19 +249,23 @@ bool pmo_is_beaconing_vdev_up(struct wlan_objmgr_psoc *psoc)
 	struct wlan_objmgr_vdev *vdev;
 	enum QDF_OPMODE vdev_opmode;
 	bool is_beaconing;
+	QDF_STATUS status;
 
 	/* Iterate through VDEV list */
 	for (vdev_id = 0; vdev_id < WLAN_UMAC_PSOC_MAX_VDEVS; vdev_id++) {
-		vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
-							    WLAN_PMO_ID);
+		vdev = pmo_psoc_get_vdev(psoc, vdev_id);
 		if (!vdev)
+			continue;
+
+		status = pmo_vdev_get_ref(vdev);
+		if (QDF_IS_STATUS_ERROR(status))
 			continue;
 
 		vdev_opmode = pmo_get_vdev_opmode(vdev);
 		is_beaconing = pmo_is_vdev_in_beaconning_mode(vdev_opmode) &&
 			       QDF_IS_STATUS_SUCCESS(wlan_vdev_is_up(vdev));
 
-		wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+		pmo_vdev_put_ref(vdev);
 
 		if (is_beaconing)
 			return true;
@@ -284,6 +298,7 @@ bool pmo_core_is_wow_applicable(struct wlan_objmgr_psoc *psoc)
 	int vdev_id;
 	struct wlan_objmgr_vdev *vdev;
 	bool is_wow_applicable = false;
+	QDF_STATUS status;
 
 	if (!psoc) {
 		pmo_err("psoc is null");
@@ -312,9 +327,12 @@ bool pmo_core_is_wow_applicable(struct wlan_objmgr_psoc *psoc)
 
 	/* Iterate through VDEV list */
 	for (vdev_id = 0; vdev_id < WLAN_UMAC_PSOC_MAX_VDEVS; vdev_id++) {
-		vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
-							    WLAN_PMO_ID);
+		vdev = pmo_psoc_get_vdev(psoc, vdev_id);
 		if (!vdev)
+			continue;
+
+		status = pmo_vdev_get_ref(vdev);
+		if (QDF_IS_STATUS_ERROR(status))
 			continue;
 
 		if (wlan_vdev_is_up(vdev) == QDF_STATUS_SUCCESS) {
@@ -335,7 +353,7 @@ bool pmo_core_is_wow_applicable(struct wlan_objmgr_psoc *psoc)
 			is_wow_applicable = true;
 		}
 
-		wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+		pmo_vdev_put_ref(vdev);
 
 		if (is_wow_applicable)
 			return true;
@@ -409,13 +427,6 @@ void pmo_set_sta_wow_bitmask(uint32_t *bitmask, uint32_t wow_bitmap_size)
 				 wow_bitmap_size,
 				 bitmask);
 	pmo_set_wow_event_bitmap(WOW_ROAM_PMKID_REQUEST_EVENT,
-				 wow_bitmap_size,
-				 bitmask);
-	pmo_set_wow_event_bitmap(WOW_VDEV_DISCONNECT_EVENT,
-				 wow_bitmap_size,
-				 bitmask);
-
-	pmo_set_wow_event_bitmap(WOW_TWT_EVENT,
 				 wow_bitmap_size,
 				 bitmask);
 }

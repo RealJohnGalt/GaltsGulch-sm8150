@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -85,8 +85,10 @@ hdd_roam_scan_stats_cb(void *context, struct wmi_roam_scan_stats_res *res)
 		    sizeof(struct wmi_roam_scan_stats_params);
 
 	stats_res = qdf_mem_malloc(total_len);
-	if (!stats_res)
+	if (!stats_res) {
+		hdd_err("No memory for response");
 		goto end;
+	}
 
 	qdf_mem_copy(stats_res, res, total_len);
 	priv->roam_scan_stats_res = stats_res;
@@ -162,8 +164,10 @@ wmi_roam_scan_stats_res *hdd_get_roam_scan_stats(struct hdd_context *hdd_ctx,
 		    sizeof(struct wmi_roam_scan_stats_params);
 
 	stats_res = qdf_mem_malloc(total_len);
-	if (!stats_res)
+	if (!stats_res) {
+		hdd_err("No memory for response");
 		goto cleanup;
+	}
 
 	qdf_mem_copy(stats_res, res, total_len);
 

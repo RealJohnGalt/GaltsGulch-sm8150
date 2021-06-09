@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -37,46 +37,9 @@
 #include <sir_api.h>
 #endif
 #include "osif_sync.h"
-#include "wlan_hdd_sysfs_sta_info.h"
-#include "wlan_hdd_sysfs_channel.h"
-#include <wlan_hdd_sysfs_fw_mode_config.h>
-#include <wlan_hdd_sysfs_reassoc.h>
-#include <wlan_hdd_sysfs_mem_stats.h>
-#include "wlan_hdd_sysfs_crash_inject.h"
-#include "wlan_hdd_sysfs_suspend_resume.h"
-#include "wlan_hdd_sysfs_unit_test.h"
-#include "wlan_hdd_sysfs_modify_acl.h"
-#include "wlan_hdd_sysfs_connect_info.h"
-#include <wlan_hdd_sysfs_scan_disable.h>
-#include "wlan_hdd_sysfs_dcm.h"
-#include <wlan_hdd_sysfs_wow_ito.h>
-#include <wlan_hdd_sysfs_wowl_add_ptrn.h>
-#include <wlan_hdd_sysfs_wowl_del_ptrn.h>
-#include <wlan_hdd_sysfs_tx_stbc.h>
-#include <wlan_hdd_sysfs_wlan_dbg.h>
-#include <wlan_hdd_sysfs_txrx_fw_st_rst.h>
-#include <wlan_hdd_sysfs_gtx_bw_mask.h>
-#include <wlan_hdd_sysfs_scan_config.h>
-#include <wlan_hdd_sysfs_monitor_mode_channel.h>
-#include <wlan_hdd_sysfs_range_ext.h>
-#include <wlan_hdd_sysfs_radar.h>
-#include <wlan_hdd_sysfs_rts_cts.h>
-#include <wlan_hdd_sysfs_he_bss_color.h>
-#include <wlan_hdd_sysfs_txrx_fw_stats.h>
-#include <wlan_hdd_sysfs_txrx_stats.h>
-#include <wlan_hdd_sysfs_dp_trace.h>
-#include <wlan_hdd_sysfs_stats.h>
-#include <wlan_hdd_sysfs_tdls_peers.h>
-#include <wlan_hdd_sysfs_temperature.h>
-#include <wlan_hdd_sysfs_thermal_cfg.h>
-#include <wlan_hdd_sysfs_motion_detection.h>
-#include <wlan_hdd_sysfs_ipa.h>
-#include <wlan_hdd_sysfs_pkt_log.h>
-#include <wlan_hdd_sysfs_policy_mgr.h>
-#include <wlan_hdd_sysfs_dp_aggregation.h>
-#include <wlan_hdd_sysfs_dl_modes.h>
-#include <wlan_hdd_sysfs_swlm.h>
-#include "wma_api.h"
+#if defined(WLAN_SUPPORT_RX_FISA)
+#include "dp_fisa_rx.h"
+#endif
 
 #define MAX_PSOC_ID_SIZE 10
 
@@ -91,27 +54,18 @@ static struct kobject *driver_kobject;
 static struct kobject *fw_kobject;
 static struct kobject *psoc_kobject;
 
-int
-hdd_sysfs_validate_and_copy_buf(char *dest_buf, size_t dest_buf_size,
-				char const *source_buf, size_t source_buf_size)
+#if defined(WLAN_SUPPORT_RX_FISA)
+static inline
+void hdd_rx_skip_fisa(ol_txrx_soc_handle dp_soc, uint32_t value)
 {
-	if (source_buf_size > (dest_buf_size - 1)) {
-		hdd_err_rl("Command length is larger than %zu bytes",
-			   dest_buf_size);
-		return -EINVAL;
-	}
-
-	/* sysfs already provides kernel space buffer so copy from user
-	 * is not needed. Doing this extra copy operation just to ensure
-	 * the local buf is properly null-terminated.
-	 */
-	strlcpy(dest_buf, source_buf, dest_buf_size);
-	/* default 'echo' cmd takes new line character to here */
-	if (dest_buf[source_buf_size - 1] == '\n')
-		dest_buf[source_buf_size - 1] = '\0';
-
-	return 0;
+	dp_rx_skip_fisa(dp_soc, value);
 }
+#else
+static inline
+void hdd_rx_skip_fisa(ol_txrx_soc_handle dp_soc, uint32_t value)
+{
+}
+#endif
 
 static ssize_t __show_driver_version(char *buf)
 {
@@ -278,7 +232,6 @@ static ssize_t __show_device_power_stats(struct hdd_context *hdd_ctx,
 	ret_cnt = osif_request_wait_for_response(request);
 	if (ret_cnt) {
 		hdd_err("Target response timed out Power stats");
-		sme_reset_power_debug_stats_cb(hdd_ctx->mac_handle);
 		ret_cnt = -ETIMEDOUT;
 		goto cleanup;
 	}
@@ -503,7 +456,7 @@ static struct kobj_attribute power_stats_attribute =
 	__ATTR(power_stats, 0444, show_device_power_stats, NULL);
 #endif
 
-static void hdd_sysfs_create_version_interface(struct wlan_objmgr_psoc *psoc)
+void hdd_sysfs_create_version_interface(struct wlan_objmgr_psoc *psoc)
 {
 	int error = 0;
 	uint32_t psoc_id;
@@ -552,7 +505,7 @@ free_fw_kobj:
 	fw_kobject = NULL;
 }
 
-static void hdd_sysfs_destroy_version_interface(void)
+void hdd_sysfs_destroy_version_interface(void)
 {
 	if (psoc_kobject) {
 		kobject_put(psoc_kobject);
@@ -562,8 +515,164 @@ static void hdd_sysfs_destroy_version_interface(void)
 	}
 }
 
+int
+hdd_sysfs_validate_and_copy_buf(char *dest_buf, size_t dest_buf_size,
+				char const *source_buf, size_t source_buf_size)
+{
+	if (source_buf_size > (dest_buf_size - 1)) {
+		hdd_err_rl("Command length is larger than %zu bytes",
+			   dest_buf_size);
+		return -EINVAL;
+	}
+
+	/* sysfs already provides kernel space buffer so copy from user
+	 * is not needed. Doing this extra copy operation just to ensure
+	 * the local buf is properly null-terminated.
+	 */
+	strlcpy(dest_buf, source_buf, dest_buf_size);
+	/* default 'echo' cmd takes new line character to here */
+	if (dest_buf[source_buf_size - 1] == '\n')
+		dest_buf[source_buf_size - 1] = '\0';
+
+	return 0;
+}
+
+static ssize_t
+__hdd_sysfs_dp_aggregation_show(struct hdd_context *hdd_ctx,
+				struct kobj_attribute *attr, char *buf)
+{
+	if (!wlan_hdd_validate_modules_state(hdd_ctx))
+		return -EINVAL;
+
+	hdd_debug("dp_aggregation: %d",
+		  qdf_atomic_read(&hdd_ctx->dp_agg_param.rx_aggregation));
+
+	return 0;
+}
+
+static ssize_t hdd_sysfs_dp_aggregation_show(struct kobject *kobj,
+					     struct kobj_attribute *attr,
+					     char *buf)
+{
+	struct osif_psoc_sync *psoc_sync;
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	ssize_t errno_size;
+	int ret;
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret != 0)
+		return ret;
+
+	errno_size = osif_psoc_sync_op_start(wiphy_dev(hdd_ctx->wiphy),
+					     &psoc_sync);
+	if (errno_size)
+		return errno_size;
+
+	errno_size = __hdd_sysfs_dp_aggregation_show(hdd_ctx, attr, buf);
+
+	osif_psoc_sync_op_stop(psoc_sync);
+
+	return errno_size;
+}
+
+static ssize_t
+__hdd_sysfs_dp_aggregation_store(struct hdd_context *hdd_ctx,
+				 struct kobj_attribute *attr, const char *buf,
+				 size_t count)
+{
+	char buf_local[MAX_SYSFS_USER_COMMAND_SIZE_LENGTH + 1];
+	char *sptr, *token;
+	uint32_t value;
+	int ret;
+	ol_txrx_soc_handle dp_soc = cds_get_context(QDF_MODULE_ID_SOC);
+
+	if (!wlan_hdd_validate_modules_state(hdd_ctx) || !dp_soc)
+		return -EINVAL;
+
+	ret = hdd_sysfs_validate_and_copy_buf(buf_local, sizeof(buf_local),
+					      buf, count);
+
+	if (ret) {
+		hdd_err_rl("invalid input");
+		return ret;
+	}
+
+	sptr = buf_local;
+	token = strsep(&sptr, " ");
+	if (!token)
+		return -EINVAL;
+	if (kstrtou32(token, 0, &value))
+		return -EINVAL;
+
+	hdd_debug("dp_aggregation: %d", value);
+
+	hdd_rx_skip_fisa(dp_soc, value);
+	qdf_atomic_set(&hdd_ctx->dp_agg_param.rx_aggregation, !!value);
+
+	return count;
+}
+
+static ssize_t
+hdd_sysfs_dp_aggregation_store(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char const *buf, size_t count)
+{
+	struct osif_psoc_sync *psoc_sync;
+	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
+	ssize_t errno_size;
+	int ret;
+
+	ret = wlan_hdd_validate_context(hdd_ctx);
+	if (ret != 0)
+		return ret;
+
+	errno_size = osif_psoc_sync_op_start(wiphy_dev(hdd_ctx->wiphy),
+					     &psoc_sync);
+	if (errno_size)
+		return errno_size;
+
+	errno_size = __hdd_sysfs_dp_aggregation_store(hdd_ctx, attr,
+						      buf, count);
+
+	osif_psoc_sync_op_stop(psoc_sync);
+
+	return errno_size;
+}
+
+static struct kobj_attribute dp_aggregation_attribute =
+	__ATTR(dp_aggregation, 0664, hdd_sysfs_dp_aggregation_show,
+	       hdd_sysfs_dp_aggregation_store);
+
+int hdd_sysfs_dp_aggregation_create(void)
+{
+	int error;
+
+	if (!driver_kobject) {
+		hdd_err("could not get driver kobject!");
+		return -EINVAL;
+	}
+
+	error = sysfs_create_file(driver_kobject,
+				  &dp_aggregation_attribute.attr);
+	if (error)
+		hdd_err("could not create dp_aggregation sysfs file");
+
+	return error;
+}
+
+void
+hdd_sysfs_dp_aggregation_destroy(void)
+{
+	if (!driver_kobject) {
+		hdd_err("could not get driver kobject!");
+		return;
+	}
+
+	sysfs_remove_file(driver_kobject, &dp_aggregation_attribute.attr);
+}
+
 #ifdef WLAN_POWER_DEBUG
-static void hdd_sysfs_create_powerstats_interface(void)
+void hdd_sysfs_create_powerstats_interface(void)
 {
 	int error;
 
@@ -577,7 +686,7 @@ static void hdd_sysfs_create_powerstats_interface(void)
 		hdd_err("could not create power_stats sysfs file");
 }
 
-static void hdd_sysfs_destroy_powerstats_interface(void)
+void hdd_sysfs_destroy_powerstats_interface(void)
 {
 	if (!driver_kobject) {
 		hdd_err("could not get driver kobject!");
@@ -585,74 +694,8 @@ static void hdd_sysfs_destroy_powerstats_interface(void)
 	}
 	sysfs_remove_file(driver_kobject, &power_stats_attribute.attr);
 }
-#else
-static void hdd_sysfs_create_powerstats_interface(void)
-{
-}
 
-static void hdd_sysfs_destroy_powerstats_interface(void)
-{
-}
-#endif
-
-static ssize_t
-hdd_sysfs_wakeup_logs_to_console_store(struct kobject *kobj,
-				       struct kobj_attribute *attr,
-				       char const *buf, size_t count)
-{
-	char buf_local[MAX_SYSFS_USER_COMMAND_SIZE_LENGTH + 1];
-	int ret, value;
-	char *sptr, *token;
-
-	ret = hdd_sysfs_validate_and_copy_buf(buf_local, sizeof(buf_local),
-					      buf, count);
-	if (ret) {
-		hdd_err_rl("invalid input");
-		return ret;
-	}
-
-	sptr = buf_local;
-	token = strsep(&sptr, " ");
-	if (!token)
-		return -EINVAL;
-	if (kstrtou32(token, 0, &value))
-		return -EINVAL;
-
-	wma_set_wakeup_logs_to_console(value);
-
-	return count;
-}
-
-static struct kobj_attribute wakeup_logs_to_console_attribute =
-	__ATTR(wakeup_logs_to_console, 0220, NULL,
-	       hdd_sysfs_wakeup_logs_to_console_store);
-
-static void hdd_sysfs_create_wakeup_logs_to_console(void)
-{
-	int error;
-
-	if (!driver_kobject) {
-		hdd_err("could not get driver kobject!");
-		return;
-	}
-
-	error = sysfs_create_file(driver_kobject,
-				  &wakeup_logs_to_console_attribute.attr);
-	if (error)
-		hdd_err("could not create power_stats sysfs file");
-}
-
-static void hdd_sysfs_destroy_wakeup_logs_to_console(void)
-{
-	if (!driver_kobject) {
-		hdd_err("could not get driver kobject!");
-		return;
-	}
-	sysfs_remove_file(driver_kobject,
-			  &wakeup_logs_to_console_attribute.attr);
-}
-
-static void hdd_sysfs_create_driver_root_obj(void)
+void hdd_sysfs_create_driver_root_obj(void)
 {
 	driver_kobject = kobject_create_and_add(DRIVER_NAME, kernel_kobj);
 	if (!driver_kobject) {
@@ -668,7 +711,7 @@ static void hdd_sysfs_create_driver_root_obj(void)
 	}
 }
 
-static void hdd_sysfs_destroy_driver_root_obj(void)
+void hdd_sysfs_destroy_driver_root_obj(void)
 {
 	if (wlan_kobject) {
 		kobject_put(wlan_kobject);
@@ -680,6 +723,7 @@ static void hdd_sysfs_destroy_driver_root_obj(void)
 		driver_kobject = NULL;
 	}
 }
+#endif
 
 #ifdef WLAN_FEATURE_BEACON_RECEPTION_STATS
 static int hdd_sysfs_create_bcn_reception_interface(struct hdd_adapter
@@ -694,220 +738,19 @@ static int hdd_sysfs_create_bcn_reception_interface(struct hdd_adapter
 	return error;
 }
 
+void hdd_sysfs_create_adapter_root_obj(struct hdd_adapter *adapter)
+{
+	hdd_sysfs_create_bcn_reception_interface(adapter);
+}
+
 static void hdd_sysfs_destroy_bcn_reception_interface(struct hdd_adapter
 						      *adapter)
 {
 	device_remove_file(&adapter->dev->dev, &dev_attr_beacon_stats);
 }
 
-#endif
-
-static void
-hdd_sysfs_create_sta_adapter_root_obj(struct hdd_adapter *adapter)
+void hdd_sysfs_destroy_adapter_root_obj(struct hdd_adapter *adapter)
 {
-	hdd_sysfs_create_bcn_reception_interface(adapter);
-	hdd_sysfs_reassoc_create(adapter);
-	hdd_sysfs_crash_inject_create(adapter);
-	hdd_sysfs_suspend_create(adapter);
-	hdd_sysfs_resume_create(adapter);
-	hdd_sysfs_unit_test_target_create(adapter);
-	hdd_sysfs_connect_info_interface_create(adapter);
-	hdd_sysfs_dcm_create(adapter);
-	hdd_sysfs_wowl_add_ptrn_create(adapter);
-	hdd_sysfs_wowl_del_ptrn_create(adapter);
-	hdd_sysfs_tx_stbc_create(adapter);
-	hdd_sysfs_txrx_fw_st_rst_create(adapter);
-	hdd_sysfs_gtx_bw_mask_create(adapter);
-	hdd_sysfs_rts_cts_create(adapter);
-	hdd_sysfs_stats_create(adapter);
-	hdd_sysfs_txrx_fw_stats_create(adapter);
-	hdd_sysfs_txrx_stats_create(adapter);
-	hdd_sysfs_tdls_peers_interface_create(adapter);
-	hdd_sysfs_temperature_create(adapter);
-	hdd_sysfs_motion_detection_create(adapter);
-	hdd_sysfs_range_ext_create(adapter);
-	hdd_sysfs_dl_modes_create(adapter);
-}
-
-static void
-hdd_sysfs_destroy_sta_adapter_root_obj(struct hdd_adapter *adapter)
-{
-	hdd_sysfs_dl_modes_destroy(adapter);
-	hdd_sysfs_range_ext_destroy(adapter);
-	hdd_sysfs_motion_detection_destroy(adapter);
-	hdd_sysfs_temperature_destroy(adapter);
-	hdd_sysfs_tdls_peers_interface_destroy(adapter);
-	hdd_sysfs_txrx_stats_destroy(adapter);
-	hdd_sysfs_txrx_fw_stats_destroy(adapter);
-	hdd_sysfs_stats_destroy(adapter);
-	hdd_sysfs_rts_cts_destroy(adapter);
-	hdd_sysfs_gtx_bw_mask_destroy(adapter);
-	hdd_sysfs_txrx_fw_st_rst_destroy(adapter);
-	hdd_sysfs_tx_stbc_destroy(adapter);
-	hdd_sysfs_wowl_del_ptrn_destroy(adapter);
-	hdd_sysfs_wowl_add_ptrn_destroy(adapter);
-	hdd_sysfs_dcm_destroy(adapter);
-	hdd_sysfs_connect_info_interface_destroy(adapter);
-	hdd_sysfs_unit_test_target_destroy(adapter);
-	hdd_sysfs_resume_destroy(adapter);
-	hdd_sysfs_suspend_destroy(adapter);
-	hdd_sysfs_crash_inject_destroy(adapter);
-	hdd_sysfs_reassoc_destroy(adapter);
 	hdd_sysfs_destroy_bcn_reception_interface(adapter);
 }
-
-static void
-hdd_sysfs_create_sap_adapter_root_obj(struct hdd_adapter *adapter)
-{
-	hdd_sysfs_channel_interface_create(adapter);
-	hdd_sysfs_sta_info_interface_create(adapter);
-	hdd_sysfs_crash_inject_create(adapter);
-	hdd_sysfs_suspend_create(adapter);
-	hdd_sysfs_resume_create(adapter);
-	hdd_sysfs_unit_test_target_create(adapter);
-	hdd_sysfs_modify_acl_create(adapter);
-	hdd_sysfs_connect_info_interface_create(adapter);
-	hdd_sysfs_tx_stbc_create(adapter);
-	hdd_sysfs_txrx_fw_st_rst_create(adapter);
-	hdd_sysfs_gtx_bw_mask_create(adapter);
-	hdd_sysfs_dcm_create(adapter);
-	hdd_sysfs_radar_create(adapter);
-	hdd_sysfs_rts_cts_create(adapter);
-	hdd_sysfs_stats_create(adapter);
-	hdd_sysfs_he_bss_color_create(adapter);
-	hdd_sysfs_txrx_fw_stats_create(adapter);
-	hdd_sysfs_txrx_stats_create(adapter);
-	hdd_sysfs_temperature_create(adapter);
-	hdd_sysfs_range_ext_create(adapter);
-	hdd_sysfs_ipa_create(adapter);
-	hdd_sysfs_dl_modes_create(adapter);
-}
-
-static void
-hdd_sysfs_destroy_sap_adapter_root_obj(struct hdd_adapter *adapter)
-{
-	hdd_sysfs_dl_modes_destroy(adapter);
-	hdd_sysfs_ipa_destroy(adapter);
-	hdd_sysfs_range_ext_destroy(adapter);
-	hdd_sysfs_temperature_destroy(adapter);
-	hdd_sysfs_txrx_stats_destroy(adapter);
-	hdd_sysfs_txrx_fw_stats_destroy(adapter);
-	hdd_sysfs_he_bss_color_destroy(adapter);
-	hdd_sysfs_stats_destroy(adapter);
-	hdd_sysfs_rts_cts_destroy(adapter);
-	hdd_sysfs_radar_destroy(adapter);
-	hdd_sysfs_dcm_destroy(adapter);
-	hdd_sysfs_gtx_bw_mask_destroy(adapter);
-	hdd_sysfs_txrx_fw_st_rst_destroy(adapter);
-	hdd_sysfs_tx_stbc_destroy(adapter);
-	hdd_sysfs_connect_info_interface_destroy(adapter);
-	hdd_sysfs_modify_acl_destroy(adapter);
-	hdd_sysfs_unit_test_target_destroy(adapter);
-	hdd_sysfs_resume_destroy(adapter);
-	hdd_sysfs_suspend_destroy(adapter);
-	hdd_sysfs_crash_inject_destroy(adapter);
-	hdd_sysfs_sta_info_interface_destroy(adapter);
-	hdd_sysfs_channel_interface_destroy(adapter);
-}
-
-static void
-hdd_sysfs_create_monitor_adapter_root_obj(struct hdd_adapter *adapter)
-{
-	hdd_sysfs_monitor_mode_channel_create(adapter);
-}
-
-static void
-hdd_sysfs_destroy_monitor_adapter_root_obj(struct hdd_adapter *adapter)
-{
-	hdd_sysfs_monitor_mode_channel_destroy(adapter);
-}
-
-void hdd_create_sysfs_files(struct hdd_context *hdd_ctx)
-{
-	hdd_sysfs_create_driver_root_obj();
-	hdd_sysfs_create_version_interface(hdd_ctx->psoc);
-	hdd_sysfs_mem_stats_create(wlan_kobject);
-	if  (QDF_GLOBAL_MISSION_MODE == hdd_get_conparam()) {
-		hdd_sysfs_create_powerstats_interface();
-		hdd_sysfs_fw_mode_config_create(driver_kobject);
-		hdd_sysfs_scan_disable_create(driver_kobject);
-		hdd_sysfs_wow_ito_create(driver_kobject);
-		hdd_sysfs_wlan_dbg_create(driver_kobject);
-		hdd_sysfs_scan_config_create(driver_kobject);
-		hdd_sysfs_dp_trace_create(driver_kobject);
-		hdd_sysfs_thermal_cfg_create(driver_kobject);
-		hdd_sysfs_pktlog_create(driver_kobject);
-		hdd_sysfs_pm_cinfo_create(driver_kobject);
-		hdd_sysfs_pm_pcl_create(driver_kobject);
-		hdd_sysfs_pm_dbs_create(driver_kobject);
-		hdd_sysfs_dp_aggregation_create(driver_kobject);
-		hdd_sysfs_dp_swlm_create(driver_kobject);
-		hdd_sysfs_create_wakeup_logs_to_console();
-	}
-}
-
-void hdd_destroy_sysfs_files(void)
-{
-	if  (QDF_GLOBAL_MISSION_MODE == hdd_get_conparam()) {
-		hdd_sysfs_destroy_wakeup_logs_to_console();
-		hdd_sysfs_dp_swlm_destroy(driver_kobject);
-		hdd_sysfs_dp_aggregation_destroy(driver_kobject);
-		hdd_sysfs_pm_dbs_destroy(driver_kobject);
-		hdd_sysfs_pm_pcl_destroy(driver_kobject);
-		hdd_sysfs_pm_cinfo_destroy(driver_kobject);
-		hdd_sysfs_pktlog_destroy(driver_kobject);
-		hdd_sysfs_thermal_cfg_destroy(driver_kobject);
-		hdd_sysfs_dp_trace_destroy(driver_kobject);
-		hdd_sysfs_scan_config_destroy(driver_kobject);
-		hdd_sysfs_wlan_dbg_destroy(driver_kobject);
-		hdd_sysfs_wow_ito_destroy(driver_kobject);
-		hdd_sysfs_scan_disable_destroy(driver_kobject);
-		hdd_sysfs_fw_mode_config_destroy(driver_kobject);
-		hdd_sysfs_destroy_powerstats_interface();
-	}
-	hdd_sysfs_mem_stats_destroy(wlan_kobject);
-	hdd_sysfs_destroy_version_interface();
-	hdd_sysfs_destroy_driver_root_obj();
-}
-
-void hdd_create_adapter_sysfs_files(struct hdd_adapter *adapter)
-{
-	int device_mode = adapter->device_mode;
-
-	switch (device_mode){
-	case QDF_STA_MODE:
-	case QDF_P2P_DEVICE_MODE:
-	case QDF_P2P_CLIENT_MODE:
-		hdd_sysfs_create_sta_adapter_root_obj(adapter);
-		break;
-	case QDF_SAP_MODE:
-		hdd_sysfs_create_sap_adapter_root_obj(adapter);
-		break;
-	case QDF_MONITOR_MODE:
-		hdd_sysfs_create_monitor_adapter_root_obj(adapter);
-		break;
-	default:
-		break;
-	}
-}
-
-void hdd_destroy_adapter_sysfs_files(struct hdd_adapter *adapter)
-{
-	int device_mode = adapter->device_mode;
-
-	switch (device_mode){
-	case QDF_STA_MODE:
-	case QDF_P2P_DEVICE_MODE:
-	case QDF_P2P_CLIENT_MODE:
-		hdd_sysfs_destroy_sta_adapter_root_obj(adapter);
-		break;
-	case QDF_SAP_MODE:
-		hdd_sysfs_destroy_sap_adapter_root_obj(adapter);
-		break;
-	case QDF_MONITOR_MODE:
-		hdd_sysfs_destroy_monitor_adapter_root_obj(adapter);
-		break;
-	default:
-		break;
-	}
-}
+#endif

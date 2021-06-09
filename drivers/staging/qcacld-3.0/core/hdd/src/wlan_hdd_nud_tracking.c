@@ -24,7 +24,6 @@
 #include "wlan_hdd_main.h"
 #include "wlan_blm_ucfg_api.h"
 #include "hdd_dp_cfg.h"
-#include <cdp_txrx_misc.h>
 
 void hdd_nud_set_gateway_addr(struct hdd_adapter *adapter,
 			      struct qdf_mac_addr gw_mac_addr)
@@ -281,7 +280,7 @@ hdd_handle_nud_fail_non_sta(struct hdd_adapter *adapter)
 		  adapter->vdev_id);
 	/* Issue Disconnect */
 	status = wlan_hdd_disconnect(adapter, eCSR_DISCONNECT_REASON_DEAUTH,
-				     REASON_GATEWAY_REACHABILITY_FAILURE);
+				     eSIR_MAC_GATEWAY_REACHABILITY_FAILURE);
 	if (0 != status) {
 		hdd_err("wlan_hdd_disconnect failed, status: %d",
 			status);
@@ -318,7 +317,6 @@ static void __hdd_nud_failure_work(struct hdd_adapter *adapter)
 	struct hdd_context *hdd_ctx;
 	eConnectionState conn_state;
 	int status;
-	void *soc = cds_get_context(QDF_MODULE_ID_SOC);
 
 	hdd_enter();
 
@@ -341,16 +339,6 @@ static void __hdd_nud_failure_work(struct hdd_adapter *adapter)
 	if (adapter->nud_tracking.curr_state != NUD_FAILED) {
 		hdd_debug("Not in NUD_FAILED state");
 		return;
-	}
-
-	if (soc && cdp_cfg_get(soc, cfg_dp_enable_data_stall)) {
-		hdd_dp_err("Data stall due to NUD failure");
-		cdp_post_data_stall_event
-			(soc,
-			 DATA_STALL_LOG_INDICATOR_HOST_DRIVER,
-			 DATA_STALL_LOG_NUD_FAILURE,
-			 OL_TXRX_PDEV_ID, 0XFF,
-			 DATA_STALL_LOG_RECOVERY_TRIGGER_PDR);
 	}
 
 	if (adapter->device_mode == QDF_STA_MODE &&
@@ -504,20 +492,7 @@ static void hdd_nud_filter_netevent(struct neighbour *neigh)
 
 	case NUD_FAILED:
 		hdd_debug("NUD_FAILED [0x%x]", neigh->nud_state);
-		/*
-		 * This condition is to handle the scenario where NUD_FAILED
-		 * events are received without any NUD_PROBE/INCOMPLETE event
-		 * post roaming. Nud state is set to NONE as part of roaming.
-		 * NUD_FAILED is not honored when the curr state is any state
-		 * other than NUD_PROBE/INCOMPLETE so post roaming, nud state
-		 * is moved to NUD_PROBE to honor future NUD_FAILED events.
-		 */
-		if (adapter->nud_tracking.curr_state == NUD_NONE) {
-			hdd_nud_capture_stats(adapter, NUD_PROBE);
-			hdd_nud_set_tracking(adapter, NUD_PROBE, true);
-		} else {
-			hdd_nud_process_failure_event(adapter);
-		}
+		hdd_nud_process_failure_event(adapter);
 		break;
 	default:
 		hdd_debug("NUD Event For Other State [0x%x]",
@@ -599,9 +574,4 @@ void hdd_nud_unregister_netevent_notifier(struct hdd_context *hdd_ctx)
 		if (!ret)
 			hdd_debug("Unregistered netevent notifier");
 	}
-}
-
-void hdd_nud_indicate_roam(struct hdd_adapter *adapter)
-{
-	hdd_nud_set_tracking(adapter, NUD_NONE, false);
 }

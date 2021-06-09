@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -111,11 +111,9 @@ sch_append_addn_ie(struct mac_context *mac_ctx, struct pe_session *session,
 
 	valid_ie = (addn_ielen <= WNI_CFG_PROBE_RSP_BCN_ADDNIE_DATA_LEN &&
 		    addn_ielen && (addn_ielen <= bcn_size_left));
-	if (!valid_ie) {
-		pe_err("addn_ielen %d exceed left %d",
-		       addn_ielen, bcn_size_left);
+
+	if (!valid_ie)
 		return status;
-	}
 
 	qdf_mem_zero(&ext_p2p_ie[0], DOT11F_IE_P2PBEACON_MAX_LEN + 2);
 	/*
@@ -306,6 +304,7 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 	populate_dot11f_ds_params(mac_ctx, &bcn_1->DSParams,
 				  wlan_reg_freq_to_chan(
 				  mac_ctx->pdev, session->curr_op_freq));
+	populate_dot11f_ibss_params(mac_ctx, &bcn_1->IBSSParams, session);
 
 	offset = sizeof(tAniBeaconStruct);
 	ptr = session->pSchBeaconFrameBegin + offset;
@@ -464,23 +463,12 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 		/*
 		populate_dot11f_vht_ext_bss_load( mac_ctx, &bcn2.VHTExtBssLoad);
 		*/
-		populate_dot11f_tx_power_env(mac_ctx,
-					     &bcn_2->transmit_power_env[0],
-					     session->ch_width,
-					     session->curr_op_freq,
-					     &bcn_2->num_transmit_power_env,
-					     false);
-		populate_dot11f_qcn_ie(mac_ctx, session, &bcn_2->qcn_ie,
+		populate_dot11f_vht_tx_power_env(mac_ctx,
+						 &bcn_2->vht_transmit_power_env,
+						 session->ch_width,
+						 session->curr_op_freq);
+		populate_dot11f_qcn_ie(mac_ctx, &bcn_2->qcn_ie,
 				       QCN_IE_ATTR_ID_ALL);
-	}
-
-	if (wlan_reg_is_6ghz_chan_freq(session->curr_op_freq)) {
-		populate_dot11f_tx_power_env(mac_ctx,
-					     &bcn_2->transmit_power_env[0],
-					     session->ch_width,
-					     session->curr_op_freq,
-					     &bcn_2->num_transmit_power_env,
-					     false);
 	}
 
 	if (lim_is_session_he_capable(session)) {
@@ -495,9 +483,9 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 					&bcn_2->bss_color_change);
 	}
 
-	populate_dot11f_ext_cap(mac_ctx, is_vht_enabled, &bcn_2->ExtCap,
-				session);
-
+	if (session->limSystemRole != eLIM_STA_IN_IBSS_ROLE)
+		populate_dot11f_ext_cap(mac_ctx, is_vht_enabled, &bcn_2->ExtCap,
+					session);
 	populate_dot11f_ext_supp_rates(mac_ctx,
 				POPULATE_DOT11F_RATES_OPERATIONAL,
 				&bcn_2->ExtSuppRates, session);
@@ -513,7 +501,6 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 	if (session->limWmeEnabled)
 		populate_dot11f_wmm(mac_ctx, &bcn_2->WMMInfoAp,
 				&bcn_2->WMMParams, &bcn_2->WMMCaps, session);
-
 	if (LIM_IS_AP_ROLE(session)) {
 		if (session->wps_state != SAP_WPS_DISABLED) {
 			populate_dot11f_beacon_wpsi_es(mac_ctx,
@@ -568,16 +555,11 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 					sizeof(tDot11fIEWscProbeRes));
 			}
 		}
+
 	}
 
 	addnie_present = (session->add_ie_params.probeRespBCNDataLen != 0);
 	if (addnie_present) {
-		/*
-		 * Strip HE cap/op from additional IE buffer if any, as they
-		 * should be populated already.
-		 */
-		lim_strip_he_ies_from_add_ies(mac_ctx, session);
-
 		addn_ielen = session->add_ie_params.probeRespBCNDataLen;
 		addn_ie = qdf_mem_malloc(addn_ielen);
 		if (!addn_ie) {
@@ -599,10 +581,12 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 			pe_debug("extcap not extracted");
 		}
 		/* merge extcap IE */
-		if (extcap_present)
+		if (extcap_present &&
+			session->limSystemRole != eLIM_STA_IN_IBSS_ROLE)
 			lim_merge_extcap_struct(&bcn_2->ExtCap,
 						&extracted_extcap,
 						true);
+
 	}
 
 	if (session->vhtCapability && session->gLimOperatingMode.present) {
@@ -735,6 +719,7 @@ lim_update_probe_rsp_template_ie_bitmap_beacon1(struct mac_context *mac,
 
 	}
 
+	/* IBSS params will not be present in the Beacons transmitted by AP */
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -743,9 +728,8 @@ void lim_update_probe_rsp_template_ie_bitmap_beacon2(struct mac_context *mac,
 						     uint32_t *DefProbeRspIeBitmap,
 						     tDot11fProbeResponse *prb_rsp)
 {
-	uint8_t i;
-	uint16_t num_tpe = beacon2->num_transmit_power_env;
-
+	/* IBSS parameter set - will not be present in probe response tx by AP */
+	/* country */
 	if (beacon2->Country.present) {
 		set_probe_rsp_ie_bitmap(DefProbeRspIeBitmap, WLAN_ELEMID_COUNTRY);
 		qdf_mem_copy((void *)&prb_rsp->Country,
@@ -872,17 +856,6 @@ void lim_update_probe_rsp_template_ie_bitmap_beacon2(struct mac_context *mac,
 			     (void *)&beacon2->VHTOperation,
 			     sizeof(beacon2->VHTOperation));
 	}
-
-	for (i = 0; i < num_tpe; i++) {
-		if (beacon2->transmit_power_env[i].present) {
-			set_probe_rsp_ie_bitmap(DefProbeRspIeBitmap,
-						WLAN_ELEMID_VHT_TX_PWR_ENVLP);
-			qdf_mem_copy((void *)&prb_rsp->transmit_power_env[i],
-				     (void *)&beacon2->transmit_power_env[i],
-				     sizeof(beacon2->transmit_power_env[i]));
-		}
-	}
-
 	if (beacon2->VHTExtBssLoad.present) {
 		set_probe_rsp_ie_bitmap(DefProbeRspIeBitmap,
 					WLAN_ELEMID_EXT_BSS_LOAD);
@@ -1086,6 +1059,18 @@ QDF_STATUS sch_process_pre_beacon_ind(struct mac_context *mac,
 	}
 
 	switch (GET_LIM_SYSTEM_ROLE(pe_session)) {
+
+	case eLIM_STA_IN_IBSS_ROLE:
+		/* generate IBSS parameter set */
+		if (pe_session->statypeForBss == STA_ENTRY_SELF)
+			status =
+			    write_beacon_to_memory(mac, (uint16_t) beaconSize,
+						   (uint16_t) beaconSize,
+						   pe_session, reason);
+		else
+			pe_err("can not send beacon for PEER session entry");
+		break;
+
 	case eLIM_AP_ROLE: {
 		uint8_t *ptr =
 			&pe_session->pSchBeaconFrameBegin[pe_session->
