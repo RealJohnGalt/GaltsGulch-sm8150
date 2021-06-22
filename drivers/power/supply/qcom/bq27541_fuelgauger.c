@@ -1116,8 +1116,6 @@ static struct external_battery_gauge bq27541_batt_gauge = {
 #define BATTERY_SOC_UPDATE_MS 1500
 #define LOW_BAT_SOC_UPDATE_MS 1500
 
-#define RESUME_SCHDULE_SOC_UPDATE_WORK_MS 60000
-
 static inline int is_usb_plugged(void)
 {
 	static struct power_supply *psy;
@@ -2092,7 +2090,7 @@ static int bq27541_battery_resume(struct device *dev)
 				&(update_pre_capacity_data.work), msecs_to_jiffies(1000));
 	}
 	schedule_delayed_work(&bq27541_di->battery_soc_work,
-			msecs_to_jiffies(RESUME_SCHDULE_SOC_UPDATE_WORK_MS));
+			msecs_to_jiffies(BATTERY_SOC_UPDATE_MS));
 	return 0;
 }
 
