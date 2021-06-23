@@ -188,15 +188,9 @@ int __weak arch_asym_cpu_priority(int cpu)
 unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
 #endif
 
-/* Migration margins */
-unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
-			[0 ... MAX_MARGIN_LEVELS-1] = 1280}; /* ~20% margin */
-unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
-			[0 ... MAX_MARGIN_LEVELS-1] = 1575}; /* ~35% margin */
-unsigned int sched_capacity_margin_up[NR_CPUS] = {
-			[0 ... NR_CPUS-1] = 1280}; /* ~5% margin */
-unsigned int sched_capacity_margin_down[NR_CPUS] = {
-			[0 ... NR_CPUS-1] = 1575}; /* ~15% margin */
+/* Migration margin */
+unsigned int sched_capacity_margin[NR_CPUS] = {
+			[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
 
 #ifdef CONFIG_SCHED_WALT
 /* 1ms default for 20ms window size scaled to 1024 */
@@ -8280,7 +8274,7 @@ out:
 bool __cpu_overutilized(int cpu, int delta)
 {
 	return (capacity_orig_of(cpu) * 1024) <
-		((cpu_util(cpu) + delta) * sched_capacity_margin_up[cpu]);
+		((cpu_util(cpu) + delta) * sched_capacity_margin[cpu]);
 }
 
 bool cpu_overutilized(int cpu)
@@ -8523,7 +8517,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 			 * fit without making the CPU overutilized.
 			 */
 			spare = capacity_spare_without(cpu_iter, p);
-			if (spare * 1024 < sched_capacity_margin_up[cpu_iter] *
+			if (spare * 1024 < sched_capacity_margin[cpu_iter] *
 							task_util_est(p))
 				continue;
 
@@ -10281,7 +10275,7 @@ static inline bool
 group_smaller_min_cpu_capacity(struct sched_group *sg, struct sched_group *ref)
 {
 	return sg->sgc->min_capacity *
-				sched_capacity_margin_up[group_first_cpu(sg)] <
+				sched_capacity_margin[group_first_cpu(sg)] <
 						ref->sgc->min_capacity * 1024;
 }
 
@@ -10293,7 +10287,7 @@ static inline bool
 group_smaller_max_cpu_capacity(struct sched_group *sg, struct sched_group *ref)
 {
 	return sg->sgc->max_capacity *
-				sched_capacity_margin_up[group_first_cpu(sg)] <
+				sched_capacity_margin[group_first_cpu(sg)] <
 						ref->sgc->max_capacity * 1024;
 }
 
@@ -10729,7 +10723,7 @@ next_group:
 	 */
 	if (lb_sd_parent(env->sd) &&
 	    sds->total_capacity * 1024 < sds->total_util *
-			sched_capacity_margin_up[group_first_cpu(sds->local)])
+			sched_capacity_margin[group_first_cpu(sds->local)])
 		set_sd_overutilized(env->sd->parent);
 }
 
