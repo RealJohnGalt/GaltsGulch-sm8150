@@ -27,31 +27,14 @@
 /**
  * enum scan_mode_6ghz - scan mode for 6GHz
  * @SCAN_MODE_6G_NO_CHANNEL: Remove 6GHz channels in the scan request
- * @SCAN_MODE_6G_PSC_CHANNEL: Scan only 6Ghz PSC channels and non-PSC
- *                            through RNR IE
- * @SCAN_MODE_6G_ALL_CHANNEL: Scan all the 6Ghz channels
- * @SCAN_MODE_6G_RNR_ONLY: Scan the channels (both PSC and non-PSC) found in
- *  RNR-IEs while scanning 2g and 5g bands. Host fills all PSC and non-PSC
- *  channels in the scan request and set the flag FLAG_SCAN_ONLY_IF_RNR_FOUND
- *  for each channel.
- * @SCAN_MODE_6G_PSC_DUTY_CYCLE: Scan the complete PSC channel list for every
- *  duty cycle. For every duty cycle scan, host fills all 6g channels and sets
- *  the flag FLAG_SCAN_ONLY_IF_RNR_FOUND only for non-PSC channels. Rest of the
- *  scans will be done only on RNR channels (PSC and non-PSC).
- * @SCAN_MODE_6G_ALL_DUTY_CYCLE: Scan the complete 6g(PSC and non-PSC) channel
- *  list for every duty cycle. For every duty cycle scan, host fills all 6g
- *  channels and doesn't set the flag FLAG_SCAN_ONLY_IF_RNR_FOUND for any 6g
- *  (PSC/non-PSC) channels. Rest of the scans will be done only on RNR (PSC and
- *  non-PSC channels).
+ * @SCAN_MODE_6G_PSC_CHANNEL: Allow/Add 6Ghz PSC channels to scan request
+ * @SCAN_MODE_6G_ALL_CHANNEL: Allow all the 6Ghz channels
  */
 enum scan_mode_6ghz {
 	SCAN_MODE_6G_NO_CHANNEL,
 	SCAN_MODE_6G_PSC_CHANNEL,
 	SCAN_MODE_6G_ALL_CHANNEL,
-	SCAN_MODE_6G_RNR_ONLY,
-	SCAN_MODE_6G_PSC_DUTY_CYCLE,
-	SCAN_MODE_6G_ALL_DUTY_CYCLE,
-	SCAN_MODE_6G_MAX = SCAN_MODE_6G_ALL_DUTY_CYCLE,
+	SCAN_MODE_6G_MAX = SCAN_MODE_6G_ALL_CHANNEL,
 };
 
 /*
@@ -223,51 +206,6 @@ enum scan_mode_6ghz {
 
 /*
  * <ini>
- * active_max_channel_time_6g_conc - Set max time for active 6G
- * channel scan when associated to AP.
- * @Min: 0
- * @Max: 10000
- * @Default: 40
- *
- * This ini is used to set maximum time in msecs spent in
- * active 6G channel scan
- *
- * Related: None
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_ACTIVE_MAX_6G_CHANNEL_TIME_CONC CFG_INI_UINT(\
-		"active_max_channel_time_6g_conc",\
-		0, 10000, 40,\
-		CFG_VALUE_OR_DEFAULT, "active conc dwell time for 6G channels")
-
-/*
- * <ini>
- * passive_max_channel_time_6g_conc - Set max time for passive 6G
- * channel scan when associated to AP.
- * @Min: 0
- * @Max: 10000
- * @Default: 40
- *
- * This ini is used to set maximum time in msecs spent in
- * passive 6G chan scan
- *
- * Related: None
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_PASSIVE_MAX_6G_CHANNEL_TIME_CONC CFG_INI_UINT(\
-		"passive_max_channel_time_6g_conc",\
-		0, 10000, 40,\
-		CFG_VALUE_OR_DEFAULT,\
-		"passive conc dwell time for 6G channels")
-
-/*
- * <ini>
  * gPassiveMaxChannelTime - Set max channel time for passive scan
  * @Min: 0
  * @Max: 10000
@@ -418,6 +356,31 @@ enum scan_mode_6ghz {
 			"honour_nl_scan_policy_flags",\
 			true, \
 			"honour NL80211 scan policy flags")
+
+/*
+ * <ini>
+ * is_bssid_hint_priority - Set priority for connection with bssid_hint
+ * BSSID.
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * This ini is used to give priority to BSS for connection which comes
+ * as part of bssid_hint
+ *
+ * Related: None
+ *
+ * Supported Feature: STA
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_IS_BSSID_HINT_PRIORITY CFG_INI_UINT(\
+			"is_bssid_hint_priority",\
+			0, 1, 0,\
+			CFG_VALUE_OR_DEFAULT, \
+			"Set priority for connection with bssid_hint")
 
 #ifdef FEATURE_WLAN_SCAN_PNO
 /*
@@ -1072,7 +1035,7 @@ enum scan_mode_6ghz {
  *
  * </ini>
  */
-#ifdef CONFIG_WIFI_EMULATION_WIFI_3_0
+#ifdef QCA_WIFI_NAPIER_EMULATION
 #define CFG_SCAN_AGING_TIME_DEFAULT (90)
 #else
 #define CFG_SCAN_AGING_TIME_DEFAULT (30)
@@ -1290,23 +1253,12 @@ enum scan_mode_6ghz {
  * scan_mode_6ghz - 6ghz Scan mode
  * @Min: 0
  * @Max: 2
- * @Default: 1
+ * @Default: 2
  *
  * Configure the 6Ghz scan mode
  * 0 - Remove 6GHz channels in the scan request
  * 1 - Allow/Add 6Ghz PSC channels to scan request
  * 2 - Allow all the 6Ghz channels
- * 3 - Scan the channels (both PSC and non-PSC) found in RNR-IEs while scanning
- *     2g and 5g bands. Host fills all PSC and non-PSC channels in the scan
- *     request and set the flag FLAG_SCAN_ONLY_IF_RNR_FOUND for each channel.
- * 4 - Scan the complete PSC channel list for every duty cycle. For every
- *     duty cycle scan, host fills all 6g channels and sets the flag
- *     FLAG_SCAN_ONLY_IF_RNR_FOUND only for non-PSC channels. Rest of the scans
- *     will be done only on RNR channels (PSC and non-PSC).
- * 5 - Scan the complete 6g(PSC and non-PSC) channel list for every duty cycle.
- *     For every duty cycle scan, host fills all 6g channels and doesn't set the
- *     flag FLAG_SCAN_ONLY_IF_RNR_FOUND for any 6g (PSC/non-PSC) channels. Rest
- *     of the scans will be done only on RNR (PSC and non-PSC channels).
  *
  * Related: SCAN
  *
@@ -1318,42 +1270,10 @@ enum scan_mode_6ghz {
 			"scan_mode_6ghz", \
 			SCAN_MODE_6G_NO_CHANNEL, \
 			SCAN_MODE_6G_MAX, \
-			PLATFORM_VALUE(SCAN_MODE_6G_PSC_DUTY_CYCLE, \
+			PLATFORM_VALUE(SCAN_MODE_6G_PSC_CHANNEL, \
 				SCAN_MODE_6G_ALL_CHANNEL), \
 			CFG_VALUE_OR_DEFAULT, \
 			"6ghz scan mode")
-
-/*
- * <ini>
- * scan_mode_6ghz_duty_cycle - 6ghz Scan mode duty cycle
- * @Min: 0
- * @Max: 0xFFFF
- * @Default: 4
- *
- * Configure the 6Ghz scan mode duty cycle
- * 0 - No full scan needed, all scans are optimized
- * 1 - No scan optimization, all full scans are considered as it is
- * 2 - Every alternate full scan req is considered as it is without optimization
- * 3 - Every third full scan req is considered as it is without optimization
- * 4 - Every fourth full scan req is considered as it is without optimization
- *
- * This INI is used to disable optimization on full scan requests after every
- * duty cycle and send it as it is to firmware. The optimization is to fill 6ghz
- * channels and scan for only RNR channels based on the ini scan_mode_6ghz.
- *
- * Related: scan_mode_6ghz
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_6GHZ_SCAN_MODE_DUTY_CYCLE CFG_INI_UINT( \
-			"scan_mode_6ghz_duty_cycle", \
-			0, \
-			0xFFFF, \
-			4, \
-			CFG_VALUE_OR_DEFAULT, \
-			"6ghz scan mode duty cycle")
 
 /*
  * <ini>
@@ -1391,13 +1311,12 @@ enum scan_mode_6ghz {
 	CFG(CFG_PASSIVE_MAX_CHANNEL_TIME) \
 	CFG(CFG_ACTIVE_MAX_6G_CHANNEL_TIME) \
 	CFG(CFG_PASSIVE_MAX_6G_CHANNEL_TIME) \
-	CFG(CFG_ACTIVE_MAX_6G_CHANNEL_TIME_CONC) \
-	CFG(CFG_PASSIVE_MAX_6G_CHANNEL_TIME_CONC) \
 	CFG(CFG_SCAN_NUM_PROBES) \
 	CFG(CFG_SCAN_PROBE_REPEAT_TIME) \
 	CFG(CFG_ADAPTIVE_SCAN_DWELL_MODE) \
 	CFG(CFG_ADAPTIVE_SCAN_DWELL_MODE_NC) \
 	CFG(CFG_HONOUR_NL_SCAN_POLICY_FLAGS) \
+	CFG(CFG_IS_BSSID_HINT_PRIORITY) \
 	CFG(CFG_PASSIVE_MAX_CHANNEL_TIME_CONC) \
 	CFG(CFG_ACTIVE_MAX_CHANNEL_TIME_CONC) \
 	CFG(CFG_MAX_REST_TIME_CONC) \
@@ -1413,7 +1332,6 @@ enum scan_mode_6ghz {
 	CFG(CFG_AP_SCAN_BURST_DURATION) \
 	CFG(CFG_ENABLE_SKIP_DFS_IN_P2P_SEARCH) \
 	CFG(CFG_6GHZ_SCAN_MODE) \
-	CFG(CFG_6GHZ_SCAN_MODE_DUTY_CYCLE) \
 	CFG(CFG_SCAN_ALLOW_BSS_WITH_CORRUPTED_IE) \
 	CFG_SCAN_PNO
 

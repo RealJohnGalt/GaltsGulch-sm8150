@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -34,21 +34,14 @@ QDF_STATUS ucfg_fwol_psoc_open(struct wlan_objmgr_psoc *psoc)
 	if (QDF_IS_STATUS_ERROR(status))
 		fwol_err("Failed to initialize FWOL CFG");
 
+	tgt_fwol_register_ev_handler(psoc);
+
 	return status;
 }
 
 void ucfg_fwol_psoc_close(struct wlan_objmgr_psoc *psoc)
 {
 	/* Clear the FWOL CFG Structure */
-}
-
-void ucfg_fwol_psoc_enable(struct wlan_objmgr_psoc *psoc)
-{
-	tgt_fwol_register_ev_handler(psoc);
-}
-
-void ucfg_fwol_psoc_disable(struct wlan_objmgr_psoc *psoc)
-{
 
 	tgt_fwol_unregister_ev_handler(psoc);
 }
@@ -291,21 +284,6 @@ QDF_STATUS ucfg_fwol_get_ani_enabled(struct wlan_objmgr_psoc *psoc,
 	}
 
 	*ani_enabled = fwol_obj->cfg.ani_enabled;
-	return QDF_STATUS_SUCCESS;
-}
-
-static QDF_STATUS ucfg_fwol_get_ilp_config(struct wlan_objmgr_psoc *psoc,
-					   uint32_t *enable_ilp)
-{
-	struct wlan_fwol_psoc_obj *fwol_obj;
-
-	fwol_obj = fwol_get_psoc_obj(psoc);
-	if (!fwol_obj) {
-		fwol_err("Failed to get FWOL obj");
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	*enable_ilp = fwol_obj->cfg.enable_ilp;
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -1005,16 +983,7 @@ QDF_STATUS ucfg_fwol_configure_global_params(struct wlan_objmgr_psoc *psoc,
 					     struct wlan_objmgr_pdev *pdev)
 {
 	QDF_STATUS status;
-	uint32_t enable_ilp;
 	bool value;
-
-	/* Configure ILP feature in FW */
-	status = ucfg_fwol_get_ilp_config(psoc, &enable_ilp);
-	if (QDF_IS_STATUS_ERROR(status))
-		return status;
-	status = fwol_set_ilp_config(pdev, enable_ilp);
-	if (QDF_IS_STATUS_ERROR(status))
-		return status;
 
 	/* Configure HW assist feature in FW */
 	status = ucfg_fwol_get_hw_assist_config(psoc, &value);

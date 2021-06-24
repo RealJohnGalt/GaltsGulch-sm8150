@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -55,6 +55,7 @@ QDF_STATUS pmo_tgt_send_gtk_offload_req(struct wlan_objmgr_vdev *vdev,
 
 	op_gtk_req = qdf_mem_malloc(sizeof(*op_gtk_req));
 	if (!op_gtk_req) {
+		pmo_err("cannot allocate op_gtk_req ");
 		status = QDF_STATUS_E_NOMEM;
 		goto out;
 	}
@@ -129,14 +130,17 @@ QDF_STATUS pmo_tgt_gtk_rsp_evt(struct wlan_objmgr_psoc *psoc,
 		goto out;
 	}
 
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, rsp_param->vdev_id,
-						    WLAN_PMO_ID);
+	vdev = pmo_psoc_get_vdev(psoc, rsp_param->vdev_id);
 	if (!vdev) {
 		pmo_err("vdev is null vdev_id:%d psoc:%pK",
 			rsp_param->vdev_id, psoc);
 		status = QDF_STATUS_E_NULL_VALUE;
 		goto out;
 	}
+
+	status = pmo_vdev_get_ref(vdev);
+	if (QDF_IS_STATUS_ERROR(status))
+		goto out;
 
 	vdev_ctx = pmo_vdev_get_priv(vdev);
 
@@ -166,7 +170,7 @@ QDF_STATUS pmo_tgt_gtk_rsp_evt(struct wlan_objmgr_psoc *psoc,
 	}
 
 dec_ref:
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 out:
 	pmo_exit();
 

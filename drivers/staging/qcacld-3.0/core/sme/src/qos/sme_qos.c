@@ -81,14 +81,6 @@
 /* The Dialog Token field shall be set [...] to a non-zero value */
 #define SME_QOS_MIN_DIALOG_TOKEN         1
 #define SME_QOS_MAX_DIALOG_TOKEN         0xFF
-
-#ifdef WLAN_FEATURE_MSCS
-#define MSCS_USER_PRIORITY               0x07C0
-#define MSCS_STREAM_TIMEOUT              60 /* in sec */
-#define MSCS_TCLAS_CLASSIFIER_MASK       0x5F
-#define MSCS_TCLAS_CLASSIFIER_TYPE       4
-#endif
-
 /* Type declarations */
 /* Enumeration of the various states in the QoS state m/c */
 enum sme_qos_states {
@@ -890,21 +882,6 @@ QDF_STATUS sme_qos_msg_processor(struct mac_context *mac_ctx,
 	return status;
 }
 
-/**
- * sme_qos_process_disconnect_roam_ind() - Delete the existing TSPEC
- * flows when roaming due to disconnect is complete.
- * @mac - Pointer to the global MAC parameter structure.
- * @vdev_id: Vdev id
- *
- * Return: None
- */
-static void
-sme_qos_process_disconnect_roam_ind(struct mac_context *mac,
-				    uint8_t vdev_id)
-{
-	sme_qos_delete_existing_flows(mac, vdev_id);
-}
-
 /*
  * sme_qos_csr_event_ind() - The QoS sub-module in SME expects notifications
  * from CSR when certain events occur as mentioned in sme_qos_csr_event_indType.
@@ -975,10 +952,6 @@ QDF_STATUS sme_qos_csr_event_ind(struct mac_context *mac,
 		status =
 			sme_qos_process_set_key_success_ind(mac, sessionId,
 							    pEvent_info);
-		break;
-	case SME_QOS_CSR_DISCONNECT_ROAM_COMPLETE:
-		sme_qos_process_disconnect_roam_ind(mac, sessionId);
-		status = QDF_STATUS_SUCCESS;
 		break;
 	default:
 		/* Err msg */
@@ -2903,7 +2876,7 @@ sme_qos_ese_save_tspec_response(struct mac_context *mac, uint8_t sessionId,
 	pAddtsRsp->rc = QDF_STATUS_SUCCESS;
 	pAddtsRsp->sessionId = sessionId;
 	pAddtsRsp->rsp.dialogToken = 0;
-	pAddtsRsp->rsp.status = STATUS_SUCCESS;
+	pAddtsRsp->rsp.status = eSIR_MAC_SUCCESS_STATUS;
 	pAddtsRsp->rsp.wmeTspecPresent = pTspec->present;
 	QDF_TRACE(QDF_MODULE_ID_SME, QDF_TRACE_LEVEL_DEBUG,
 		  "%s: Copy Tspec to local data structure ac=%d, tspecIdx=%d",
@@ -3801,7 +3774,7 @@ QDF_STATUS sme_qos_process_ft_reassoc_rsp_ev(struct mac_context *mac_ctx,
 				 csr_conn_info->nAssocRspLength));
 
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
-	if (!MLME_IS_ROAM_SYNCH_IN_PROGRESS(mac_ctx->psoc, sessionid)) {
+	if (!csr_session->roam_synch_in_progress) {
 #endif
 		for (ac = QCA_WLAN_AC_BE; ac < QCA_WLAN_AC_ALL; ac++) {
 			ac_info = &qos_session->ac_info[ac];
@@ -3839,52 +3812,6 @@ QDF_STATUS sme_qos_process_ft_reassoc_rsp_ev(struct mac_context *mac_ctx,
 
 	return status;
 }
-
-#ifdef WLAN_FEATURE_MSCS
-void sme_send_mscs_action_frame(uint8_t vdev_id)
-{
-	struct mscs_req_info *mscs_req;
-	struct sme_qos_sessioninfo *qos_session;
-	struct scheduler_msg msg = {0};
-	QDF_STATUS qdf_status;
-
-	qos_session = &sme_qos_cb.sessionInfo[vdev_id];
-	if (!qos_session) {
-		sme_debug("qos_session is NULL");
-		return;
-	}
-	mscs_req = qdf_mem_malloc(sizeof(*mscs_req));
-	if (!mscs_req)
-		return;
-
-	mscs_req->vdev_id = vdev_id;
-	if (!qos_session->assocInfo.bss_desc) {
-		sme_err("BSS descriptor is NULL so we won't send request to PE");
-		qdf_mem_free(mscs_req);
-		return;
-	}
-	qdf_mem_copy(&mscs_req->bssid.bytes[0],
-		     &qos_session->assocInfo.bss_desc->bssId[0],
-		     sizeof(struct qdf_mac_addr));
-
-	mscs_req->dialog_token = sme_qos_assign_dialog_token();
-	mscs_req->dec.request_type = SCS_REQ_ADD;
-	mscs_req->dec.user_priority_control = MSCS_USER_PRIORITY;
-	mscs_req->dec.stream_timeout = (MSCS_STREAM_TIMEOUT * 1000);
-	mscs_req->dec.tclas_mask.classifier_type = MSCS_TCLAS_CLASSIFIER_TYPE;
-	mscs_req->dec.tclas_mask.classifier_mask = MSCS_TCLAS_CLASSIFIER_MASK;
-
-	msg.type = eWNI_SME_MSCS_REQ;
-	msg.reserved = 0;
-	msg.bodyptr = mscs_req;
-	qdf_status = scheduler_post_message(QDF_MODULE_ID_SME, QDF_MODULE_ID_PE,
-					    QDF_MODULE_ID_PE, &msg);
-	if (QDF_IS_STATUS_ERROR(qdf_status)) {
-		sme_err("Fail to send mscs request to PE");
-		qdf_mem_free(mscs_req);
-	}
-}
-#endif
 
 /**
  * sme_qos_add_ts_req() - send ADDTS request.
@@ -4800,7 +4727,7 @@ static bool sme_qos_ft_handoff_required(struct mac_context *mac,
 	csr_roam_session = CSR_GET_SESSION(mac, session_id);
 
 	if (csr_roam_session &&
-	    MLME_IS_ROAM_SYNCH_IN_PROGRESS(mac->psoc, session_id) &&
+	    csr_roam_session->roam_synch_in_progress &&
 	    csr_roam_is_ese_assoc(mac, session_id) &&
 	    csr_roam_session->connectedInfo.nTspecIeLength)
 		return true;
@@ -4873,7 +4800,7 @@ static QDF_STATUS sme_qos_process_handoff_assoc_req_ev(struct mac_context *mac,
 					  __func__, __LINE__);
 				break;
 			}
-			/* fallthrough */
+
 		case SME_QOS_CLOSED:
 		case SME_QOS_INIT:
 		default:
@@ -6869,9 +6796,8 @@ static QDF_STATUS sme_qos_add_ts_failure_fnp(struct mac_context *mac, tListElem
 		break;
 	case SME_QOS_REASON_MODIFY:
 		flow_info->reason = SME_QOS_REASON_REQ_SUCCESS;
-		/* fallthrough */
 	case SME_QOS_REASON_REQ_SUCCESS:
-		/* fallthrough */
+	/* fallthrough */
 	default:
 		inform_hdd = false;
 		break;

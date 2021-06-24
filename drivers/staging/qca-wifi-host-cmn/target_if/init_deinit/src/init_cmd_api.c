@@ -69,13 +69,12 @@ static uint32_t init_deinit_alloc_host_mem_chunk(struct wlan_objmgr_psoc *psoc,
 		return 0;
 
 	/*
-	 * We have skip smaller chunks memory allocation for TXBF_CV and
-	 * CFR_CAPTURE buffer as Firmware is expecting continuous memory
+	 * We have skip smaller chunks memory allocation for TXBF_CV buffer
+	 * as Firmware is expecting continuous memory
 	 */
 	if (!((num_unit_info & HOST_CONTIGUOUS_MEM_CHUNK_REQUIRED) &&
 	      (req_id == TXBF_CV_POOL0 || req_id == TXBF_CV_POOL1 ||
-	      req_id == TXBF_CV_POOL2 ||
-	      req_id == CFR_CAPTURE_HOST_MEM_REQ_ID))) {
+	      req_id == TXBF_CV_POOL2))) {
 		ichunk = ((num_units * unit_len) >>
 			HOST_MEM_CHUNK_MAX_SIZE_POWER2);
 		if (ichunk)
@@ -286,61 +285,22 @@ QDF_STATUS init_deinit_handle_host_mem_req(
 	return status;
 }
 
-#ifdef FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT
-/**
- * is_num_band_to_mac_required() - host needs to configure MACs or not.
- * @tgt_hdl: Pointer to target handle
- *
- * if num of mac per band is sent by host then FW will not initialize
- * its data structure with its default value. Host either have to set
- * these value as per current HW mode or else these variable should be
- * initialized to 0.
- * Ex - If host is sending default HW mode as DBS in INIT_CMDID and FW
- * doesn't advertise wmi_service_dual_band_simultaneous_support then host
- * must not configure MACs and FW should configure with default values.
- *
- * @return: true if host needs to configure MACs else false
- */
-static bool is_num_band_to_mac_required(struct target_psoc_info *tgt_hdl)
-{
-	struct tgt_info *info;
-	struct wmi_unified *wmi_handle;
-
-	if (!tgt_hdl)
-		return true;
-
-	wmi_handle = target_psoc_get_wmi_hdl(tgt_hdl);
-	info = (&tgt_hdl->info);
-
-	if ((info->hw_modes.num_modes == 1) &&
-	    (info->hw_modes.hw_mode_ids[0] == WMI_HOST_HW_MODE_DBS) &&
-	    !wmi_service_enabled(wmi_handle,
-				 wmi_service_dual_band_simultaneous_support))
-		return false;
-
-	return true;
-}
-#else
-static bool is_num_band_to_mac_required(struct target_psoc_info *tgt_hdl)
-{
-	return true;
-}
-#endif
-
 void init_deinit_derive_band_to_mac_param(
 		struct wlan_objmgr_psoc *psoc,
 		struct target_psoc_info *tgt_hdl,
-		struct wmi_init_cmd_param *init_param)
+		struct wmi_host_pdev_band_to_mac *band_to_mac)
 {
 	uint8_t i;
 	struct wlan_psoc_host_mac_phy_caps *mac_phy_cap;
 	struct wlan_psoc_host_hal_reg_capabilities_ext *reg_cap;
-	struct wmi_host_pdev_band_to_mac *band_to_mac = init_param->band_to_mac;
+	struct tgt_info *info;
 
 	if (!tgt_hdl) {
 		target_if_err("target_psoc_info is null ");
 		return;
 	}
+
+	info = (&tgt_hdl->info);
 
 	reg_cap = ucfg_reg_get_hal_reg_cap(psoc);
 	if (!reg_cap) {
@@ -353,10 +313,6 @@ void init_deinit_derive_band_to_mac_param(
 		target_if_err("mac_phy_cap is NULL");
 		return;
 	}
-	if (is_num_band_to_mac_required(tgt_hdl))
-		init_param->num_band_to_mac =
-			target_psoc_get_num_radios(tgt_hdl);
-
 	for (i = 0; i < target_psoc_get_num_radios(tgt_hdl); i++) {
 		if (mac_phy_cap->supported_bands ==
 			(WMI_HOST_WLAN_5G_CAPABILITY |
@@ -371,17 +327,15 @@ void init_deinit_derive_band_to_mac_param(
 
 		} else if (mac_phy_cap->supported_bands ==
 				WMI_HOST_WLAN_2G_CAPABILITY) {
-			reg_cap[mac_phy_cap->phy_id].low_5ghz_chan = 0;
-			reg_cap[mac_phy_cap->phy_id].high_5ghz_chan = 0;
-
-			if (!init_param->num_band_to_mac)
-				goto next_mac_phy_cap;
-
 			band_to_mac[i].pdev_id = mac_phy_cap->pdev_id;
 			band_to_mac[i].start_freq =
 					reg_cap[i].low_2ghz_chan;
 			band_to_mac[i].end_freq =
 					reg_cap[i].high_2ghz_chan;
+
+			reg_cap[mac_phy_cap->phy_id].low_5ghz_chan = 0;
+			reg_cap[mac_phy_cap->phy_id].high_5ghz_chan = 0;
+
 			target_if_debug("2G radio - pdev_id = %d start_freq = %d end_freq= %d",
 				       band_to_mac[i].pdev_id,
 				       band_to_mac[i].start_freq,
@@ -389,25 +343,20 @@ void init_deinit_derive_band_to_mac_param(
 
 		} else if (mac_phy_cap->supported_bands ==
 					WMI_HOST_WLAN_5G_CAPABILITY) {
-			reg_cap[mac_phy_cap->phy_id].low_2ghz_chan = 0;
-			reg_cap[mac_phy_cap->phy_id].high_2ghz_chan = 0;
-
-			if (!init_param->num_band_to_mac)
-				goto next_mac_phy_cap;
-
 			band_to_mac[i].pdev_id = mac_phy_cap->pdev_id;
 			band_to_mac[i].start_freq =
 						reg_cap[i].low_5ghz_chan;
 			band_to_mac[i].end_freq =
 						reg_cap[i].high_5ghz_chan;
 
+			reg_cap[mac_phy_cap->phy_id].low_2ghz_chan = 0;
+			reg_cap[mac_phy_cap->phy_id].high_2ghz_chan = 0;
+
 			target_if_debug("5G radio -pdev_id = %d start_freq = %d end_freq =%d\n",
 				       band_to_mac[i].pdev_id,
 				       band_to_mac[i].start_freq,
 				       band_to_mac[i].end_freq);
 		}
-
-next_mac_phy_cap:
 		mac_phy_cap++;
 	}
 }
@@ -442,8 +391,11 @@ void init_deinit_prepare_send_init_cmd(
 		if (info->preferred_hw_mode == WMI_HOST_HW_MODE_SINGLE)
 			init_param.hw_mode_id = WMI_HOST_HW_MODE_MAX;
 
+		init_param.num_band_to_mac = target_psoc_get_num_radios(
+								tgt_hdl);
+
 		init_deinit_derive_band_to_mac_param(psoc, tgt_hdl,
-						     &init_param);
+						     init_param.band_to_mac);
 	} else {
 		ret_val = tgt_if_regulatory_modify_freq_range(psoc);
 		if (QDF_IS_STATUS_ERROR(ret_val)) {

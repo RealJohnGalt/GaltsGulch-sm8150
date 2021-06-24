@@ -1,5 +1,6 @@
+
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -81,17 +82,6 @@ wmi_unified_twt_pause_dialog_cmd(wmi_unified_t wmi_handle,
 				 struct wmi_twt_pause_dialog_cmd_param *params);
 
 /**
- * wmi_unified_twt_nudge_dialog_cmd() - Send WMI command to nudge TWT dialog
- * @wmi_handle: wmi handle
- * @params: Parameters to be configured
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS
-wmi_unified_twt_nudge_dialog_cmd(wmi_unified_t wmi_handle,
-				 struct wmi_twt_nudge_dialog_cmd_param *params);
-
-/**
  * wmi_unified_twt_resume_dialog_cmd() - Send WMI command to resume TWT dialog
  * @wmi_handle: wmi handle
  * @params: Parameters to be configured
@@ -170,22 +160,6 @@ QDF_STATUS wmi_extract_twt_add_dialog_comp_event(
 		struct wmi_twt_add_dialog_complete_event_param *params);
 
 /**
- * wmi_extract_twt_add_dialog_comp_additional_params() - Extracts additional
- * twt parameters, as part of add dialog completion event
- * @wmi_hdl: wmi handle
- * @evt_buf: Pointer event buffer
- * @evt_buf_len: length of the add dialog event buffer
- * @idx: index of num_twt_params to extract
- * @additional_params: additional parameters to extract
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS wmi_extract_twt_add_dialog_comp_additional_params(
-		wmi_unified_t wmi_handle, uint8_t *evt_buf,
-		uint32_t evt_buf_len, uint32_t idx,
-		struct wmi_twt_add_dialog_additional_params *additional_params);
-
-/**
  * wmi_extract_twt_del_dialog_comp_event() - Extract WMI event params for TWT
  *                               delete dialog completion event
  * @wmi_hdl: wmi handle
@@ -214,20 +188,6 @@ QDF_STATUS wmi_extract_twt_pause_dialog_comp_event(
 		struct wmi_twt_pause_dialog_complete_event_param *params);
 
 /**
- * wmi_extract_twt_nudge_dialog_comp_event() - Extract WMI event params for TWT
- *                               nudge dialog completion event
- * @wmi_handle: wmi handle
- * @evt_buf: Pointer event buffer
- * @params: Parameters to extract
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS wmi_extract_twt_nudge_dialog_comp_event(
-		wmi_unified_t wmi_handle,
-		uint8_t *evt_buf,
-		struct wmi_twt_nudge_dialog_complete_event_param *params);
-
-/**
  * wmi_extract_twt_resume_dialog_comp_event() - Extract WMI event params for TWT
  *                               resume dialog completion event
  * @wmi_handle: wmi handle
@@ -240,20 +200,6 @@ QDF_STATUS wmi_extract_twt_resume_dialog_comp_event(
 		wmi_unified_t wmi_handle,
 		uint8_t *evt_buf,
 		struct wmi_twt_resume_dialog_complete_event_param *params);
-
-/**
- * wmi_extract_twt_notify_event() - Extract WMI event params for TWT
- *                                  notify event
- * @wmi_handle: wmi handle
- * @evt_buf: Pointer event buffer
- * @params: Parameters to extract
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS wmi_extract_twt_notify_event(
-		wmi_unified_t wmi_handle,
-		uint8_t *evt_buf,
-		struct wmi_twt_notify_event_param *params);
 
 #ifdef WLAN_SUPPORT_BCAST_TWT
 /**
@@ -284,38 +230,6 @@ QDF_STATUS wmi_extract_twt_btwt_remove_sta_comp_event(
 		uint8_t *evt_buf,
 		struct wmi_twt_btwt_remove_sta_complete_event_param *params);
 #endif
-
-/**
- * wmi_extract_twt_session_stats_event() - Extract WMI event params for TWT
- *                               session stats event
- * @wmi_handle: wmi handle
- * @evt_buf: Pointer event buffer
- * @params: Parameters to extract
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS wmi_extract_twt_session_stats_event(
-		wmi_unified_t wmi_handle,
-		uint8_t *evt_buf,
-		struct wmi_twt_session_stats_event_param *params);
-
-/**
- * wmi_extract_twt_session_stats_data() - Extract one TWT session from TWT
- *                               session stats event
- * @wmi_handle: wmi handle
- * @evt_buf: Pointer event buffer
- * @params: Parameters to extract
- * @session: Session struct to save one TWT session
- * @idx: TWT session index
- *
- * Return: QDF_STATUS_SUCCESS on success and QDF_STATUS_E_FAILURE for failure
- */
-QDF_STATUS wmi_extract_twt_session_stats_data(
-		wmi_unified_t wmi_handle,
-		uint8_t *evt_buf,
-		struct wmi_twt_session_stats_event_param *params,
-		struct wmi_host_twt_session_stats_info *session,
-		uint32_t idx);
 
 #ifdef WLAN_SUPPORT_TWT
 void wmi_twt_attach_tlv(struct wmi_unified *wmi_handle);

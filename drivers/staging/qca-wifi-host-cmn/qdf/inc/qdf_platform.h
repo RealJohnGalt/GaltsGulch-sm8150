@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -126,24 +126,6 @@ void qdf_register_is_driver_unloading_callback(
 				qdf_is_driver_unloading_callback callback);
 
 /**
- * qdf_is_driver_state_module_stop_callback() - callback to get driver state is
- * module stop or not
- *
- * Return: true if driver state is module stop else false
- */
-typedef bool (*qdf_is_driver_state_module_stop_callback)(void);
-
-/**
- * qdf_register_is_driver_state_module_stop_callback() - driver state is
- * module stop or not
- * @callback:  driver state module stop callback
- *
- * Return: None
- */
-void qdf_register_is_driver_state_module_stop_callback(
-			qdf_is_driver_state_module_stop_callback callback);
-
-/**
  * qdf_register_self_recovery_callback() - register self recovery callback
  * @callback:  self recovery callback
  *
@@ -191,13 +173,6 @@ void qdf_register_recovering_state_query_callback(
  * Return: true if driver is unloading else false
  */
 bool qdf_is_driver_unloading(void);
-
-/**
- * qdf_is_driver_state_module_stop() - get driver state is module stop or not
- *
- * Return: true if driver state is module stop else false
- */
-bool qdf_is_driver_state_module_stop(void);
 
 /**
  * qdf_is_recovering() - get driver recovering in progress status
@@ -275,12 +250,10 @@ void qdf_register_drv_connected_callback(qdf_is_drv_connected_callback
 /**
  * qdf_check_state_before_panic() - API to check if FW is down
  * or driver is in recovery before calling assert
- * @func: Caller function pointer used for debug info
- * @line: Caller function line number
  *
  * Return: none
  */
-void qdf_check_state_before_panic(const char *func, const uint32_t line);
+void qdf_check_state_before_panic(void);
 
 /**
  * qdf_is_drv_supported_callback() - callback to query if drv is supported
@@ -308,5 +281,55 @@ bool qdf_is_drv_supported(void);
  */
 void qdf_register_drv_supported_callback(qdf_is_drv_supported_callback
 					 is_drv_supported);
-#endif /*_QDF_PLATFORM_H*/
 
+typedef void (*qdf_recovery_reason_update_callback)(enum qdf_hang_reason
+						    reason);
+
+/**
+ * qdf_register_recovery_reason_update() - Register callback to update recovery
+ *                                         reason
+ * @qdf_recovery_reason_update_callback: callback to update recovery reason
+ *
+ * Return: none
+ */
+void qdf_register_recovery_reason_update(qdf_recovery_reason_update_callback
+					 callback);
+
+/**
+ * qdf_recovery_reason_update() - update recovery reason
+ * @reason: recovery reason
+ *
+ * Return: none
+ */
+void qdf_recovery_reason_update(enum qdf_hang_reason reason);
+
+/**
+ * qdf_bus_reg_dump() - callback for getting bus specific register dump
+ * @dev: Bus specific device
+ * @buf: Hang event buffer in which the data will be populated
+ * @len: length of data to be populated in the hang event buffer
+ *
+ * Return: none
+ */
+typedef void (*qdf_bus_reg_dump)(struct device *dev, uint8_t *buf,
+				 uint32_t len);
+
+/**
+ * qdf_register_get_bus_reg_dump() - Register callback to update bus register
+ *                                   dump
+ * @qdf_bus_reg_dump: callback to update bus register dump
+ *
+ * Return: none
+ */
+void qdf_register_get_bus_reg_dump(qdf_bus_reg_dump callback);
+
+/**
+ * qdf_get_bus_reg_dump() - Get the register dump for the bus
+ * @dev: device
+ * @buffer: buffer for hang data
+ * @len: len of hang data
+ *
+ * Return: none
+ */
+void qdf_get_bus_reg_dump(struct device *dev, uint8_t *buf, uint32_t len);
+#endif /*_QDF_PLATFORM_H*/

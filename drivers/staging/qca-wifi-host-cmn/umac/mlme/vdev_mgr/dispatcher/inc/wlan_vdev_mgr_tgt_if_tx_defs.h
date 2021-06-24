@@ -27,6 +27,16 @@
 
 #include <qdf_nbuf.h>
 
+/**
+ * struct mac_ssid - mac ssid structure
+ * @length: ssid length
+ * @mac_ssid: ssid
+ */
+struct mlme_mac_ssid {
+	uint8_t length;
+	uint8_t mac_ssid[WLAN_SSID_MAX_LEN];
+} qdf_packed;
+
 /** slot time long */
 #define WLAN_MLME_VDEV_SLOT_TIME_LONG   0x1
 /** slot time short */
@@ -137,39 +147,6 @@ struct sta_ps_params {
 };
 
 /**
- * struct rnr_bss_tbtt_info_param: Reported Vdev info
- * @bss_mac: Mac address
- * @beacon_intval: Beacon interval of reported AP
- * @opclass: Channel Opclass
- * @chan_idx: Channel number
- * @next_qtime_tbtt_high: Tbtt higher 32bit
- * @next_qtime_tbtt_low: Tbtt lower 32bit
- */
-struct rnr_bss_tbtt_info_param {
-	uint8_t bss_mac[QDF_MAC_ADDR_SIZE];
-	uint32_t beacon_intval;
-	uint32_t opclass;
-	uint32_t chan_idx;
-	uint32_t next_qtime_tbtt_high;
-	uint32_t next_qtime_tbtt_low;
-};
-
-/**
- * struct rnr_tbtt_multisoc_sync_param - Params to
- * sync tbtt with non self SoCs timers
- * @pdev_id: Host pdev_id
- * @rnr_vap_count: Count of Vap to be included in WMI cmd
- * @cmd_type: Set/Get tbtt sync info
- * @rnr_bss_tbtt: Reported AP Vap info
- */
-struct rnr_tbtt_multisoc_sync_param {
-	uint32_t pdev_id;
-	uint8_t rnr_vap_count;
-	uint8_t cmd_type;
-	struct rnr_bss_tbtt_info_param *rnr_bss_tbtt;
-};
-
-/**
  * struct tbttoffset_params - Tbttoffset event params
  * @vdev_id: Virtual AP device identifier
  * @tbttoffset : Tbttoffset for the virtual AP device
@@ -194,11 +171,6 @@ struct tbttoffset_params {
  * @ext_csa_switch_count_offset: ECSA switch count offset in beacon frame
  * @esp_ie_offset: ESP IE offset in beacon frame
  * @mu_edca_ie_offset: Mu EDCA IE offset in beacon frame
- * @ema_params: The 4 octets in this field respectively indicate
- *     ema_beacon_profile_periodicity, ema_beacon_tmpl_idx,
- *     ema_first_tmpl and ema_last_tmpl in the order of low
- *     to high
- * @enable_bigtk: enable bigtk or not
  * @frm: beacon template parameter
  */
 struct beacon_tmpl_params {
@@ -211,8 +183,6 @@ struct beacon_tmpl_params {
 	uint32_t ext_csa_switch_count_offset;
 	uint32_t esp_ie_offset;
 	uint32_t mu_edca_ie_offset;
-	uint32_t ema_params;
-	bool enable_bigtk;
 	uint8_t *frm;
 };
 
@@ -361,7 +331,6 @@ struct config_fils_params {
  * @lower32: Lower 32 bits in the 1st 64-bit value
  * @higher32: Higher 32 bits in the 1st 64-bit value
  * @lower32_2: Lower 32 bits in the 2nd 64-bit value
- * @higher32_2: Higher 32 bits in the 2nd 64-bit value
  */
 struct config_ratemask_params {
 	uint8_t vdev_id;
@@ -369,7 +338,6 @@ struct config_ratemask_params {
 	uint32_t lower32;
 	uint32_t higher32;
 	uint32_t lower32_2;
-	uint32_t higher32_2;
 };
 
 /**
@@ -388,8 +356,7 @@ struct set_custom_aggr_size_params {
 		 tx_aggr_size_disable:1,
 		 rx_aggr_size_disable:1,
 		 tx_ac_enable:1,
-		 aggr_ba_enable:1,
-		 reserved:25;
+		 reserved:26;
 };
 
 /**
@@ -451,8 +418,6 @@ struct vdev_scan_nac_rssi_params {
  * @channel_param: Channel params required by target.
  * @bcn_tx_rate_code: Beacon tx rate code.
  * @ldpc_rx_enabled: Enable/Disable LDPC RX for this vdev
- * @mbssid_flags: MBSSID flags to FW
- * @vdevid_trans: Tx VDEV ID
  */
 struct vdev_start_params {
 	uint8_t vdev_id;
@@ -462,7 +427,7 @@ struct vdev_start_params {
 	uint32_t disable_hw_ack;
 	bool hidden_ssid;
 	bool pmf_enabled;
-	struct wlan_ssid ssid;
+	struct mlme_mac_ssid ssid;
 	uint32_t num_noa_descriptors;
 	uint32_t preferred_rx_streams;
 	uint32_t preferred_tx_streams;
@@ -472,8 +437,6 @@ struct vdev_start_params {
 	struct mlme_channel_param channel;
 	enum mlme_bcn_tx_rate_code bcn_tx_rate_code;
 	bool ldpc_rx_enabled;
-	uint32_t mbssid_flags;
-	uint8_t vdevid_trans;
 };
 
 /**
@@ -498,7 +461,6 @@ struct vdev_set_params {
  * @pdev_id: pdev id on pdev for this vdev
  * @mbssid_flags: MBSS IE flags indicating vdev type
  * @vdevid_trans: id of transmitting vdev for MBSS IE
- * @special_vdev_mode: indicates special vdev mode
  */
 struct vdev_create_params {
 	uint8_t vdev_id;
@@ -509,7 +471,6 @@ struct vdev_create_params {
 	uint32_t pdev_id;
 	uint32_t mbssid_flags;
 	uint8_t vdevid_trans;
-	bool special_vdev_mode;
 };
 
 /**
@@ -560,25 +521,6 @@ struct vdev_down_params {
  */
 struct peer_delete_all_params {
 	uint8_t vdev_id;
-};
-
-#define AC_MAX 4
-#define WMI_MUEDCA_PARAM_MASK 0xff
-/**
- * struct muedca_params - MU-EDCA parameters
- * @muedca_ecwmin: CWmin in exponential form
- * @muedca_ecwmax: CWmax in exponential form
- * @muedca_aifsn:  AIFSN parameter
- * @muedca_acm:    ACM parameter
- * @muedca_timer:  MU EDCA timer value
- */
-struct muedca_params {
-	uint32_t pdev_id;
-	uint8_t muedca_ecwmin[AC_MAX];      /* CWmin in exponential form */
-	uint8_t muedca_ecwmax[AC_MAX];      /* CWmax in exponential form */
-	uint8_t muedca_aifsn[AC_MAX];       /* AIFSN parameter */
-	uint8_t muedca_acm[AC_MAX];         /* ACM parameter */
-	uint8_t muedca_timer[AC_MAX];       /* MU EDCA timer value */
 };
 
 #endif /* __WLAN_VDEV_MGR_TX_OPS_DEFS_H__ */

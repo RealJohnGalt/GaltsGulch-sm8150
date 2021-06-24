@@ -279,15 +279,15 @@ void qdf_cpumask_setall(qdf_cpu_mask *dstp)
 
 qdf_export_symbol(qdf_cpumask_setall);
 
-bool qdf_cpumask_empty(const qdf_cpu_mask *srcp)
+bool qdf_cpumask_empty(const struct cpumask *srcp)
 {
 	return cpumask_empty(srcp);
 }
 
 qdf_export_symbol(qdf_cpumask_empty);
 
-void qdf_cpumask_copy(qdf_cpu_mask *dstp,
-		      const qdf_cpu_mask *srcp)
+void qdf_cpumask_copy(struct cpumask *dstp,
+		      const struct cpumask *srcp)
 {
 	return cpumask_copy(dstp, srcp);
 }

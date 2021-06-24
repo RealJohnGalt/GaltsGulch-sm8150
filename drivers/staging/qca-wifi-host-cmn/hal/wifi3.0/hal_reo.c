@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -455,7 +455,7 @@ inline int hal_reo_cmd_queue_stats(hal_ring_handle_t  hal_ring_hdl,
 			      cmd->u.stats_params.clear);
 
 	if (hif_pm_runtime_get(hal_soc->hif_handle,
-			       RTPM_ID_HAL_REO_CMD, true) == 0) {
+			       RTPM_ID_HAL_REO_CMD) == 0) {
 		hal_srng_access_end(hal_soc_hdl, hal_ring_hdl);
 		hif_pm_runtime_put(hal_soc->hif_handle,
 				   RTPM_ID_HAL_REO_CMD);
@@ -539,7 +539,8 @@ inline int hal_reo_cmd_flush_cache(hal_ring_handle_t hal_ring_hdl,
 	if (cp->block_use_after_flush) {
 		index = hal_find_zero_bit(hal_soc->reo_res_bitmap);
 		if (index > 3) {
-			qdf_print("No blocking resource available!");
+			qdf_print("%s, No blocking resource available!",
+				  __func__);
 			hal_srng_access_end(hal_soc, hal_ring_hdl);
 			return -EBUSY;
 		}
@@ -589,10 +590,10 @@ inline int hal_reo_cmd_flush_cache(hal_ring_handle_t hal_ring_hdl,
 		BLOCK_CACHE_USAGE_AFTER_FLUSH, cp->block_use_after_flush);
 
 	HAL_DESC_SET_FIELD(reo_desc, REO_FLUSH_CACHE_2, FLUSH_ENTIRE_CACHE,
-		cp->flush_entire_cache);
+		cp->flush_all);
 
 	if (hif_pm_runtime_get(hal_soc->hif_handle,
-			       RTPM_ID_HAL_REO_CMD, true) == 0) {
+			       RTPM_ID_HAL_REO_CMD) == 0) {
 		hal_srng_access_end(hal_soc_hdl, hal_ring_hdl);
 		hif_pm_runtime_put(hal_soc->hif_handle,
 				   RTPM_ID_HAL_REO_CMD);
@@ -623,7 +624,8 @@ inline int hal_reo_cmd_unblock_cache(hal_ring_handle_t hal_ring_hdl,
 		index = hal_find_one_bit(hal_soc->reo_res_bitmap);
 		if (index > 3) {
 			hal_srng_access_end(hal_soc, hal_ring_hdl);
-			qdf_print("No blocking resource to unblock!");
+			qdf_print("%s: No blocking resource to unblock!",
+				  __func__);
 			return -EBUSY;
 		}
 	}
@@ -916,7 +918,7 @@ inline int hal_reo_cmd_update_rx_queue(hal_ring_handle_t hal_ring_hdl,
 		PN_127_96, p->pn_127_96);
 
 	if (hif_pm_runtime_get(hal_soc->hif_handle,
-			       RTPM_ID_HAL_REO_CMD, false) == 0) {
+			       RTPM_ID_HAL_REO_CMD) == 0) {
 		hal_srng_access_end(hal_soc_hdl, hal_ring_hdl);
 		hif_pm_runtime_put(hal_soc->hif_handle,
 				   RTPM_ID_HAL_REO_CMD);

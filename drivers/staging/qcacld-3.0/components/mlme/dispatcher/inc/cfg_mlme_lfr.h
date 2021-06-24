@@ -322,6 +322,36 @@
 
 /*
  * <ini>
+ * gFirstScanBucketThreshold - Set first scan bucket
+ * threshold
+ * @Min: -50
+ * @Max: -30
+ * @Default: -30
+ *
+ * This ini will configure the first scan bucket
+ * threshold to the mentioned value and all the AP's which
+ * have RSSI under this threshold will fall under this
+ * bucket. This configuration item used to tweak and
+ * test the input for internal algorithm.
+ *
+ * Related: None
+ *
+ * Supported Feature: Scan
+ *
+ * Usage: Internal
+ *
+ * </ini>
+ */
+#define CFG_LFR_FIRST_SCAN_BUCKET_THRESHOLD CFG_INI_INT( \
+	"gFirstScanBucketThreshold", \
+	-50, \
+	-30, \
+	-30, \
+	CFG_VALUE_OR_DEFAULT, \
+	"Set first scan bucket")
+
+/*
+ * <ini>
  * gtraffic_threshold - Dense traffic threshold
  * @Min: 0
  * @Max: 0xffffffff
@@ -1252,34 +1282,6 @@
 
 /*
  * <ini>
- * bg_rssi_threshold - To set RSSI Threshold for BG scan roaming
- * @Min: 0
- * @Max: 100
- * @Default: 5
- *
- * This INI is used to set the value of rssi threshold to trigger roaming
- * after background scan. To trigger roam after bg scan, value of rssi of
- * candidate AP should be higher by this threshold than the rssi of the
- * currrently associated AP.
- *
- * Related: RoamRssiDiff
- *
- * Supported Feature: Roaming
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_LFR_ROAM_BG_RSSI_TH CFG_INI_UINT( \
-	"bg_rssi_threshold", \
-	0, \
-	100, \
-	5, \
-	CFG_VALUE_OR_DEFAULT, \
-	"Enable roam based on rssi after BG scan")
-
-/*
- * <ini>
  * gWESModeEnabled - Enable WES mode
  * @Min: 0
  * @Max: 1
@@ -1665,6 +1667,30 @@
 	20, \
 	CFG_VALUE_OR_DEFAULT, \
 	"Final beacon miss count")
+
+/*
+ * <ini>
+ * gRoamBeaconRssiWeight - Set beacon miss weight
+ * @Min: 5
+ * @Max: 16
+ * @Default: 14
+ *
+ * This ini controls how many beacons' RSSI values will be used to calculate
+ * the average value of RSSI.
+ *
+ * Related: None
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_LFR_ROAM_BEACON_RSSI_WEIGHT CFG_INI_UINT( \
+	"gRoamBeaconRssiWeight", \
+	0, \
+	16, \
+	14, \
+	CFG_VALUE_OR_DEFAULT, \
+	"Beacon miss weight")
 
 /*
  * <ini>
@@ -2430,13 +2456,9 @@
  * <ini>
  * roam_triggers - Bitmap of roaming triggers. Setting this to
  * zero will disable roaming altogether for the STA interface.
- * ESS report element of beacon explores BSS information, for roaming station
- * uses it to consider next AP to roam. ROAM_TRIGGER_REASON_ESS_RSSI bit is
- * to enable/disable roam trigger for ESS RSSI reason. This bit of ini is also
- * used for WFA certification.
  * @Min: 0
  * @Max: 0xFFFFFFFF
- * @Default: 0x3FFFF
+ * @Default: 0xFFFF
  *
  * ROAM_TRIGGER_REASON_PER         BIT 1
  * ROAM_TRIGGER_REASON_BMISS       BIT 2
@@ -2453,16 +2475,13 @@
  * ROAM_TRIGGER_REASON_DEAUTH      BIT 13
  * ROAM_TRIGGER_REASON_IDLE        BIT 14
  * ROAM_TRIGGER_REASON_STA_KICKOUT BIT 15
- * ROAM_TRIGGER_REASON_ESS_RSSI    BIT 16
- * ROAM_TRIGGER_REASON_WTC_BTM     BIT 17
- * ROAM_TRIGGER_REASON_PMK_TIMEOUT BIT 18
- * ROAM_TRIGGER_REASON_MAX         BIT 19
+ * ROAM_TRIGGER_REASON_MAX     BIT 16
  *
  * Related: none
  *
  * Supported Feature: Roaming
  *
- * Usage: External
+ * Usage: Internal
  *
  * </ini>
  */
@@ -2470,7 +2489,7 @@
 			"roam_triggers", \
 			0, \
 			0xFFFFFFFF, \
-			0x7FFFF, \
+			0xFFFF, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Bitmap of roaming triggers")
 
@@ -2505,36 +2524,6 @@
 		CFG_VALUE_OR_DEFAULT, \
 		"disable roam on STA iface if one of the iface mentioned in default is in connected state")
 
-/*
- * <ini>
- * enable_dual_sta_roam_offload - Enable roaming offload on both interfaces
- * for STA + STA
- * @Min: 0 - Dual STA Roam offload Disabled
- * @Max: 1 - Dual STA Roam offload Enabled
- * @Default: 1
- *
- * Enabling this ini will:
- *  a) Enforce the STA + STA connection be DBS if the hw is capable.
- *  b) Enable Roam Scan Offload on both the STA vdev.
- *  c) Enable firmware to support sequential roaming on both STA vdev
- *     if the firmware is capable of dual sta roaming.
- *
- * Related: None.
- *
- * Supported Feature: ROAM
- *
- * Usage: External
- *
- * </ini>
- */
-#define CFG_ENABLE_DUAL_STA_ROAM_OFFLOAD CFG_INI_UINT( \
-		"enable_dual_sta_roam_offload", \
-		false, \
-		true, \
-		true, \
-		CFG_VALUE_OR_DEFAULT, \
-		"Enable roam on both STA vdev")
-
 #define ROAM_OFFLOAD_ALL \
 	CFG(CFG_LFR3_ROAMING_OFFLOAD) \
 	CFG(CFG_LFR3_ENABLE_SELF_BSS_ROAM) \
@@ -2547,7 +2536,6 @@
 	CFG(CFG_LFR_IDLE_ROAM_BAND) \
 	CFG(CFG_ROAM_TRIGGER_BITMAP) \
 	CFG(CFG_STA_DISABLE_ROAM) \
-	CFG(CFG_ENABLE_DUAL_STA_ROAM_OFFLOAD) \
 
 #else
 #define ROAM_OFFLOAD_ALL
@@ -2865,6 +2853,7 @@
 	CFG(CFG_LFR_EARLY_STOP_SCAN_ENABLE) \
 	CFG(CFG_LFR_EARLY_STOP_SCAN_MIN_THRESHOLD) \
 	CFG(CFG_LFR_EARLY_STOP_SCAN_MAX_THRESHOLD) \
+	CFG(CFG_LFR_FIRST_SCAN_BUCKET_THRESHOLD) \
 	CFG(CFG_LFR_ROAM_DENSE_TRAFFIC_THRESHOLD) \
 	CFG(CFG_LFR_ROAM_DENSE_RSSI_THRE_OFFSET) \
 	CFG(CFG_LFR_ROAM_DENSE_MIN_APS) \
@@ -2899,7 +2888,6 @@
 	CFG(CFG_LFR_MAWC_FEATURE_ENABLED) \
 	CFG(CFG_LFR_FAST_TRANSITION_ENABLED) \
 	CFG(CFG_LFR_ROAM_RSSI_DIFF) \
-	CFG(CFG_LFR_ROAM_BG_RSSI_TH) \
 	CFG(CFG_LFR_ENABLE_WES_MODE) \
 	CFG(CFG_LFR_ROAM_SCAN_OFFLOAD_ENABLED) \
 	CFG(CFG_LFR_NEIGHBOR_SCAN_CHANNEL_LIST) \
@@ -2914,6 +2902,7 @@
 	CFG(CFG_LFR_EMPTY_SCAN_REFRESH_PERIOD) \
 	CFG(CFG_LFR_ROAM_BMISS_FIRST_BCNT) \
 	CFG(CFG_LFR_ROAM_BMISS_FINAL_BCNT) \
+	CFG(CFG_LFR_ROAM_BEACON_RSSI_WEIGHT) \
 	CFG(CFG_LFR_ROAMING_DFS_CHANNEL) \
 	CFG(CFG_LFR_ROAM_SCAN_HI_RSSI_MAXCOUNT) \
 	CFG(CFG_LFR_ROAM_SCAN_HI_RSSI_DELTA) \

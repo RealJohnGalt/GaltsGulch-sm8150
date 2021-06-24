@@ -31,9 +31,8 @@
 #include <wlan_spectral_ucfg_api.h>
 #include <wlan_cfg80211_spectral.h>
 #include <spectral_ioctl.h>
-#include <wlan_objmgr_vdev_obj.h>
 
-const struct nla_policy spectral_scan_policy[
+static const struct nla_policy spectral_scan_policy[
 		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_SCAN_COUNT] = {
 							.type = NLA_U32},
@@ -83,8 +82,6 @@ const struct nla_policy spectral_scan_policy[
 							.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY] = {
 							.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY_2] = {
-							.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_MODE] = {
 							.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_DMA_RING_DEBUG] = {
@@ -115,8 +112,7 @@ static void wlan_spectral_intit_config(struct spectral_config *config_req)
 	config_req->ss_bin_scale =       SPECTRAL_PHYERR_PARAM_NOVAL;
 	config_req->ss_dbm_adj =         SPECTRAL_PHYERR_PARAM_NOVAL;
 	config_req->ss_chn_mask =        SPECTRAL_PHYERR_PARAM_NOVAL;
-	config_req->ss_frequency.cfreq1 = SPECTRAL_PHYERR_PARAM_NOVAL;
-	config_req->ss_frequency.cfreq2 = SPECTRAL_PHYERR_PARAM_NOVAL;
+	config_req->ss_frequency =       SPECTRAL_PHYERR_PARAM_NOVAL;
 }
 
 /**
@@ -192,7 +188,6 @@ convert_spectral_err_code_internal_to_nl
 #ifdef DIRECT_BUF_RX_DEBUG
 QDF_STATUS wlan_cfg80211_spectral_scan_dma_debug_config(
 	struct wlan_objmgr_pdev *pdev,
-	struct wlan_objmgr_vdev *vdev,
 	struct nlattr **tb,
 	enum spectral_scan_mode sscan_mode)
 {
@@ -234,7 +229,6 @@ QDF_STATUS wlan_cfg80211_spectral_scan_dma_debug_config(
 #else
 QDF_STATUS wlan_cfg80211_spectral_scan_dma_debug_config(
 	struct wlan_objmgr_pdev *pdev,
-	struct wlan_objmgr_vdev *vdev,
 	struct nlattr **tb,
 	enum spectral_scan_mode sscan_mode)
 {
@@ -244,7 +238,6 @@ QDF_STATUS wlan_cfg80211_spectral_scan_dma_debug_config(
 
 int wlan_cfg80211_spectral_scan_config_and_start(struct wiphy *wiphy,
 						 struct wlan_objmgr_pdev *pdev,
-						 struct wlan_objmgr_vdev *vdev,
 						 const void *data,
 						 int data_len)
 {
@@ -352,13 +345,8 @@ int wlan_cfg80211_spectral_scan_config_and_start(struct wiphy *wiphy,
 		   [QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_SHORT_REPORT]);
 
 	if (tb[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY])
-		config_req.ss_frequency.cfreq1 = nla_get_u32(tb
+		config_req.ss_frequency = nla_get_u32(tb
 		   [QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY]);
-
-	config_req.ss_frequency.cfreq2 = 0;
-	if (tb[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY_2])
-		config_req.ss_frequency.cfreq2 = nla_get_u32(tb
-		   [QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY_2]);
 
 	if (tb[QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_MODE]) {
 		status = convert_spectral_mode_nl_to_internal(nla_get_u32(tb
@@ -396,16 +384,11 @@ int wlan_cfg80211_spectral_scan_config_and_start(struct wiphy *wiphy,
 	}
 
 	status = wlan_cfg80211_spectral_scan_dma_debug_config(
-			pdev, vdev, tb, sscan_mode);
+			pdev, tb, sscan_mode);
 	if (QDF_IS_STATUS_ERROR(status)) {
 		status = QDF_STATUS_E_INVAL;
 		goto free_skb_return_os_status;
 	}
-
-	if (vdev)
-		sscan_req.vdev_id = wlan_vdev_get_id(vdev);
-	else
-		sscan_req.vdev_id = WLAN_INVALID_VDEV_ID;
 
 	if (CONFIG_REQUESTED(scan_req_type)) {
 		sscan_req.ss_mode = sscan_mode;
@@ -489,7 +472,6 @@ free_skb_return_os_status:
 
 int wlan_cfg80211_spectral_scan_stop(struct wiphy *wiphy,
 				     struct wlan_objmgr_pdev *pdev,
-				     struct wlan_objmgr_vdev *vdev,
 				     const void *data,
 				     int data_len)
 {
@@ -558,7 +540,6 @@ int wlan_cfg80211_spectral_scan_stop(struct wiphy *wiphy,
 
 int wlan_cfg80211_spectral_scan_get_config(struct wiphy *wiphy,
 					   struct wlan_objmgr_pdev *pdev,
-					   struct wlan_objmgr_vdev *vdev,
 					   const void *data,
 					   int data_len)
 {
@@ -664,11 +645,7 @@ int wlan_cfg80211_spectral_scan_get_config(struct wiphy *wiphy,
 			sconfig->ss_short_report) ||
 	    nla_put_u32(skb,
 			QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY,
-			sconfig->ss_frequency.cfreq1) ||
-	    nla_put_u32(skb,
-			QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CONFIG_FREQUENCY_2,
-			sconfig->ss_frequency.cfreq2))
-
+			sconfig->ss_frequency))
 		goto fail;
 
 	sscan_req.ss_mode = sscan_mode;
@@ -689,7 +666,6 @@ fail:
 
 int wlan_cfg80211_spectral_scan_get_cap(struct wiphy *wiphy,
 					struct wlan_objmgr_pdev *pdev,
-					struct wlan_objmgr_vdev *vdev,
 					const void *data,
 					int data_len)
 {
@@ -799,37 +775,6 @@ int wlan_cfg80211_spectral_scan_get_cap(struct wiphy *wiphy,
 		if (ret)
 			goto fail;
 	}
-
-	if (nla_put_u32(
-		skb,
-		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_NUM_DETECTORS_20_MHZ,
-		scaps->num_detectors_20mhz))
-		goto fail;
-
-	if (nla_put_u32(
-		skb,
-		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_NUM_DETECTORS_40_MHZ,
-		scaps->num_detectors_40mhz))
-		goto fail;
-
-	if (nla_put_u32(
-		skb,
-		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_NUM_DETECTORS_80_MHZ,
-		scaps->num_detectors_80mhz))
-		goto fail;
-
-	if (nla_put_u32(
-		skb,
-		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_NUM_DETECTORS_160_MHZ,
-		scaps->num_detectors_160mhz))
-		goto fail;
-
-	if (nla_put_u32(
-		skb,
-		QCA_WLAN_VENDOR_ATTR_SPECTRAL_SCAN_CAP_NUM_DETECTORS_80P80_MHZ,
-		scaps->num_detectors_80p80mhz))
-		goto fail;
-
 	wlan_cfg80211_qal_devcfg_send_response((qdf_nbuf_t)skb);
 
 	return 0;
@@ -841,7 +786,6 @@ fail:
 
 int wlan_cfg80211_spectral_scan_get_diag_stats(struct wiphy *wiphy,
 					       struct wlan_objmgr_pdev *pdev,
-					       struct wlan_objmgr_vdev *vdev,
 					       const void *data,
 					       int data_len)
 {
@@ -893,7 +837,6 @@ int wlan_cfg80211_spectral_scan_get_diag_stats(struct wiphy *wiphy,
 
 int wlan_cfg80211_spectral_scan_get_status(struct wiphy *wiphy,
 					   struct wlan_objmgr_pdev *pdev,
-					   struct wlan_objmgr_vdev *vdev,
 					   const void *data,
 					   int data_len)
 {

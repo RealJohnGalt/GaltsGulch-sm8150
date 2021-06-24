@@ -123,11 +123,13 @@ typedef struct last_processed_frame {
  * struct lim_max_tx_pwr_attr - List of tx powers from various sources
  * @reg_max: power from regulatory database
  * @ap_tx_power: local power constraint adjusted value
+ * @ini_tx_power: Max tx power from ini config
  * @frequency: current operating frequency for which above powers are defined
  */
 struct lim_max_tx_pwr_attr {
 	int8_t reg_max;
 	int8_t ap_tx_power;
+	uint8_t ini_tx_power;
 	uint32_t frequency;
 };
 
@@ -137,6 +139,7 @@ bool lim_is_valid_frame(last_processed_msg *last_processed_frm,
 void lim_update_last_processed_frame(last_processed_msg *last_processed_frm,
 		uint8_t *pRxPacketInfo);
 
+char *lim_dot11_reason_str(uint16_t reasonCode);
 char *lim_mlm_state_str(tLimMlmStates state);
 char *lim_sme_state_str(tLimSmeStates state);
 char *lim_msg_str(uint32_t msgType);
@@ -153,22 +156,9 @@ QDF_STATUS lim_send_set_max_tx_power_req(struct mac_context *mac,
 		struct pe_session *pe_session);
 
 /**
- * lim_get_num_pwr_levels() - Utility to get number of tx power levels
- * @is_psd: PSD power check
- * @ch_width: BSS channel bandwidth
- *
- * This function is used to get the number of tx power levels based on
- * channel bandwidth and psd power.
- *
- * Return: number of tx power levels
- */
-uint32_t lim_get_num_pwr_levels(bool is_psd,
-				enum phy_ch_width ch_width);
-
-/**
  * lim_get_max_tx_power() - Utility to get maximum tx power
  * @mac: mac handle
- * @mlme_obj: pointer to struct containing list of tx powers
+ * @attr: pointer to buffer containing list of tx powers
  *
  * This function is used to get the maximum possible tx power from the list
  * of tx powers mentioned in @attr.
@@ -176,22 +166,7 @@ uint32_t lim_get_num_pwr_levels(bool is_psd,
  * Return: Max tx power
  */
 uint8_t lim_get_max_tx_power(struct mac_context *mac,
-			     struct vdev_mlme_obj *mlme_obj);
-/**
- * lim_calculate_tpc() - Utility to get maximum tx power
- * @mac: mac handle
- * @session: PE Session Entry
- * @is_pwr_constraint_absolute: If local power constraint is an absolute
- * value or an offset value.
- *
- * This function is used to get the maximum possible tx power from the list
- * of tx powers mentioned in @attr.
- *
- * Return: None
- */
-void lim_calculate_tpc(struct mac_context *mac,
-		       struct pe_session *session,
-		       bool is_pwr_constraint_absolute);
+			     struct lim_max_tx_pwr_attr *attr);
 
 /* AID pool management functions */
 void lim_init_peer_idxpool(struct mac_context *, struct pe_session *);
@@ -345,13 +320,16 @@ uint8_t lim_is_null_ssid(tSirMacSSid *pSsid);
 void lim_stop_tx_and_switch_channel(struct mac_context *mac, uint8_t sessionId);
 
 /**
- * lim_process_channel_switch() - Process chanel switch
+ * lim_process_channel_switch_timeout() - Process chanel switch timeout
  * @mac: pointer to Global MAC structure
- * @vdev_id: Vdev on which CSA is happening
  *
  * Return: none
  */
-void lim_process_channel_switch(struct mac_context *mac, uint8_t vdev_id);
+void lim_process_channel_switch_timeout(struct mac_context *);
+QDF_STATUS lim_start_channel_switch(struct mac_context *mac,
+		struct pe_session *pe_session);
+void lim_update_channel_switch(struct mac_context *, tpSirProbeRespBeacon,
+		struct pe_session *pe_session);
 
 /**
  * lim_switch_primary_channel() - switch primary channel of session
@@ -396,6 +374,8 @@ void lim_update_sta_run_time_ht_capability(struct mac_context *mac,
 		tDot11fIEHTCaps *pHTCaps);
 void lim_update_sta_run_time_ht_info(struct mac_context *mac,
 		tDot11fIEHTInfo *pRcvdHTInfo,
+		struct pe_session *pe_session);
+void lim_cancel_dot11h_channel_switch(struct mac_context *mac,
 		struct pe_session *pe_session);
 
 /**
@@ -629,6 +609,30 @@ void lim_process_ap_mlm_del_bss_rsp(struct mac_context *mac,
 void lim_process_ap_mlm_del_sta_rsp(struct mac_context *mac,
 		struct scheduler_msg *limMsgQ,
 		struct pe_session *pe_session);
+
+#ifdef QCA_IBSS_SUPPORT
+/**
+ * lim_is_ibss_session_active() - API to check IBSS session active
+ * @mac: Pointer to Global MAC structure
+ *
+ * Return: Pointer to active IBSS pe_session else NULL
+ */
+struct pe_session *lim_is_ibss_session_active(struct mac_context *mac);
+#else
+/**
+ * lim_is_ibss_session_active() - API to check IBSS session active
+ * @mac: Pointer to Global MAC structure
+ *
+ * This function is dummy.
+ *
+ * Return: NULL
+ */
+static inline
+struct pe_session *lim_is_ibss_session_active(struct mac_context *mac)
+{
+	return NULL;
+}
+#endif
 
 /**
  * ch_width_in_mhz() - API to get channel space in MHz
@@ -929,18 +933,6 @@ QDF_STATUS lim_strip_extcap_update_struct(struct mac_context *mac_ctx,
 void lim_merge_extcap_struct(tDot11fIEExtCap *dst, tDot11fIEExtCap *src,
 		bool add);
 
-/**
- * lim_strip_he_ies_from_add_ies() - This function strip HE IE from add_ie
- * @mac_ctx: pointer to mac context
- * @pe_session: pointer to PE session
- *
- * This API is to strip HE IE from add_ie
- *
- * Return: none
- */
-void lim_strip_he_ies_from_add_ies(struct mac_context *mac_ctx,
-				   struct pe_session *session);
-
 #ifdef WLAN_FEATURE_11W
 /**
  * lim_del_pmf_sa_query_timer() - This function deletes SA query timer
@@ -1090,17 +1082,14 @@ void lim_intersect_ap_he_caps(struct pe_session *session, struct bss_params *add
 
 /**
  * lim_intersect_sta_he_caps() - Intersect STA capability with SAP capability
- * @mac_ctx: pointer to the MAC context
  * @assoc_req: pointer to assoc request
  * @session: pointer to PE session
  * @sta_ds: pointer to STA dph hash table entry
  *
  * Return: None
  */
-void lim_intersect_sta_he_caps(struct mac_context *mac_ctx,
-			       tpSirAssocReq assoc_req,
-			       struct pe_session *session,
-			       tpDphHashNode sta_ds);
+void lim_intersect_sta_he_caps(tpSirAssocReq assoc_req, struct pe_session *session,
+		tpDphHashNode sta_ds);
 
 /**
  * lim_add_he_cap() - Copy HE capability into Add sta params
@@ -1144,10 +1133,12 @@ void lim_add_bss_he_cfg(struct bss_params *add_bss, struct pe_session *session);
 /**
  * lim_copy_bss_he_cap() - Copy HE capability into PE session from start bss
  * @session: pointer to PE session
+ * @sme_start_bss_req: pointer to start BSS request
  *
  * Return: None
  */
-void lim_copy_bss_he_cap(struct pe_session *session);
+void lim_copy_bss_he_cap(struct pe_session *session,
+			 struct start_bss_req *sme_start_bss_req);
 
 /**
  * lim_update_he_6gop_assoc_resp() - Update HE 6GHz op info to BSS params
@@ -1164,10 +1155,12 @@ void lim_update_he_6gop_assoc_resp(struct bss_params *pAddBssParams,
  * lim_copy_join_req_he_cap() - Copy HE capability to PE session from Join req
  * and update as per bandwidth supported
  * @session: pointer to PE session
+ * @sme_join_req: pointer to SME join request
  *
  * Return: None
  */
-void lim_copy_join_req_he_cap(struct pe_session *session);
+void lim_copy_join_req_he_cap(struct pe_session *session,
+			      struct join_req *sme_join_req);
 
 /**
  * lim_log_he_6g_cap() - Print HE 6G cap IE
@@ -1222,21 +1215,7 @@ void lim_log_he_bss_color(struct mac_context *mac,
 void lim_log_he_cap(struct mac_context *mac, tDot11fIEhe_cap *he_cap);
 
 /**
- * lim_check_he_80_mcs11_supp() - Check whether MCS 0-11 rates are supported
- * @session: pointer to PE session
- * @he_cap: pointer to HE capabilities
- *
- * Return: true if MCS 0-11 rates are supported
- */
-bool lim_check_he_80_mcs11_supp(struct pe_session *session,
-				       tDot11fIEhe_cap *he_cap);
-
-void lim_check_and_force_he_ldpc_cap(struct pe_session *session,
-				     tDot11fIEhe_cap *he_cap);
-
-/**
  * lim_update_stads_he_caps() - Copy HE capability into STA DPH hash table entry
- * @mac_ctx: pointer to mac context
  * @sta_ds: pointer to sta dph hash table entry
  * @assoc_rsp: pointer to assoc response
  * @session_entry: pointer to PE session
@@ -1244,8 +1223,7 @@ void lim_check_and_force_he_ldpc_cap(struct pe_session *session,
  *
  * Return: None
  */
-void lim_update_stads_he_caps(struct mac_context *mac_ctx,
-			      tpDphHashNode sta_ds, tpSirAssocRsp assoc_rsp,
+void lim_update_stads_he_caps(tpDphHashNode sta_ds, tpSirAssocRsp assoc_rsp,
 			      struct pe_session *session_entry,
 			      tSchBeaconStruct *beacon);
 
@@ -1472,18 +1450,13 @@ static inline void lim_intersect_ap_he_caps(struct pe_session *session,
 	return;
 }
 
-static inline void lim_intersect_sta_he_caps(struct mac_context *mac_ctx,
-					     tpSirAssocReq assoc_req,
-					     struct pe_session *session,
-					     tpDphHashNode sta_ds)
+static inline void lim_intersect_sta_he_caps(tpSirAssocReq assoc_req,
+		struct pe_session *session, tpDphHashNode sta_ds)
 {
 }
 
-static inline void lim_update_stads_he_caps(struct mac_context *mac_ctx,
-					    tpDphHashNode sta_ds,
-					    tpSirAssocRsp assoc_rsp,
-					    struct pe_session *session_entry,
-					    tSchBeaconStruct *beacon)
+static inline void lim_update_stads_he_caps(tpDphHashNode sta_ds, tpSirAssocRsp assoc_rsp,
+		struct pe_session *session_entry, tSchBeaconStruct *beacon)
 {
 	return;
 }
@@ -1499,11 +1472,13 @@ static inline void lim_decide_he_op(struct mac_context *mac_ctx,
 }
 
 static inline
-void lim_copy_bss_he_cap(struct pe_session *session)
+void lim_copy_bss_he_cap(struct pe_session *session,
+			 struct start_bss_req *sme_start_bss_req)
 {
 }
 
-static inline void lim_copy_join_req_he_cap(struct pe_session *session)
+static inline void lim_copy_join_req_he_cap(struct pe_session *session,
+			struct join_req *sme_join_req)
 {
 }
 
@@ -1691,23 +1666,6 @@ void lim_send_dfs_chan_sw_ie_update(struct mac_context *mac_ctx,
  * Return None
  */
 void lim_process_ap_ecsa_timeout(void *session);
-
-/**
- * lim_send_csa_tx_complete() - send csa tx complete event when beacon
- * count decremented to zero
- *
- * @vdev_id - vdev_id
- * Return None
- */
-void lim_send_csa_tx_complete(uint8_t vdev_id);
-
-/**
- * lim_is_csa_tx_pending() - check id csa tx ind not sent
- *
- * @vdev_id - vdev_id
- * Return - true if csa tx ind is not sent else false
- */
-bool lim_is_csa_tx_pending(uint8_t vdev_id);
 
 /**
  * lim_send_stop_bss_failure_resp() -send failure delete bss resp to sme
@@ -2170,48 +2128,4 @@ static inline void lim_ap_check_6g_compatible_peer(
 	struct mac_context *mac_ctx, struct pe_session *session)
 {}
 #endif
-
-/**
- * enum max_tx_power_interpretation
- * @LOCAL_EIRP: Local power interpretation
- * @LOCAL_EIRP_PSD: Local PSD power interpretation
- * @REGULATORY_CLIENT_EIRP: Regulatory power interpretation
- * @REGULATORY_CLIENT_EIRP_PSD: Regulatory PSD power interpretation
- */
-enum max_tx_power_interpretation {
-	LOCAL_EIRP = 0,
-	LOCAL_EIRP_PSD,
-	REGULATORY_CLIENT_EIRP,
-	REGULATORY_CLIENT_EIRP_PSD,
-};
-
-/**
- * lim_parse_tpe_ie() - get the power info from the TPE IE
- * @mac_ctx: mac context
- * @session: pe session
- * @tpe_ies: list of TPE IEs
- * @num_tpe_ies: number of TPE IEs in list
- * @he_op: HE OP IE
- * @has_tpe_updated: flag set to true only if the TPE values have changed
- *
- * Return: void
- */
-void lim_parse_tpe_ie(struct mac_context *mac, struct pe_session *session,
-		      tDot11fIEtransmit_power_env *tpe_ies,
-		      uint8_t num_tpe_ies, tDot11fIEhe_op *he_op,
-		      bool *has_tpe_updated);
-
-/**
- * lim_process_tpe_ie_from_beacon() - get the TPE IE from the BSS descriptor
- * @mac_ctx: mac context
- * @session: pe session
- * @bss_desc: pointer to BSS descriptor
- * @has_tpe_updated: flag set to true only if the TPE values have changed
- *
- * Return: void
- */
-void lim_process_tpe_ie_from_beacon(struct mac_context *mac,
-				    struct pe_session *session,
-				    struct bss_description *bss_desc,
-				    bool *has_tpe_updated);
 #endif /* __LIM_UTILS_H */

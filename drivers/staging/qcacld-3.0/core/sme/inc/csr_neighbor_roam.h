@@ -27,7 +27,6 @@
 #define CSR_NEIGHBOR_ROAM_H
 
 #include "sme_api.h"
-#include "wlan_cm_roam_api.h"
 
 #define ROAM_AP_AGE_LIMIT_MS                     10000
 
@@ -58,6 +57,7 @@ typedef struct sCsrNeighborRoamCfgParams {
 	uint8_t nRoamRescanRssiDiff;
 	uint8_t nRoamBmissFirstBcnt;
 	uint8_t nRoamBmissFinalBcnt;
+	uint8_t nRoamBeaconRssiWeight;
 	uint8_t delay_before_vdev_stop;
 	uint32_t hi_rssi_scan_max_count;
 	uint32_t hi_rssi_scan_rssi_delta;
@@ -67,7 +67,6 @@ typedef struct sCsrNeighborRoamCfgParams {
 	uint32_t full_roam_scan_period;
 	bool enable_scoring_for_roam;
 	uint8_t roam_rssi_diff;
-	uint8_t bg_rssi_threshold;
 	uint16_t roam_scan_home_away_time;
 	uint8_t roam_scan_n_probes;
 	uint32_t roam_scan_inactivity_time;
@@ -152,6 +151,7 @@ typedef struct sCsrNeighborRoamControlInfo {
 	tCsrHandoffRequest handoffReqInfo;
 	uint8_t currentRoamBmissFirstBcnt;
 	uint8_t currentRoamBmissFinalBcnt;
+	uint8_t currentRoamBeaconRssiWeight;
 	uint8_t last_sent_cmd;
 	struct scan_result_list *scan_res_lfr2_roam_ap;
 	bool roam_control_enable;
@@ -209,6 +209,62 @@ QDF_STATUS csr_neighbor_roam_merge_channel_lists(struct mac_context *mac,
 		uint8_t outputNumOfChannels,
 		uint8_t *pMergedOutputNumOfChannels);
 void csr_roam_reset_roam_params(struct mac_context *mac_ptr);
+#define ROAM_SCAN_OFFLOAD_START                     1
+#define ROAM_SCAN_OFFLOAD_STOP                      2
+#define ROAM_SCAN_OFFLOAD_RESTART                   3
+#define ROAM_SCAN_OFFLOAD_UPDATE_CFG                4
+#define ROAM_SCAN_OFFLOAD_ABORT_SCAN                5
+
+#define REASON_CONNECT                              1
+#define REASON_CHANNEL_LIST_CHANGED                 2
+#define REASON_LOOKUP_THRESH_CHANGED                3
+#define REASON_DISCONNECTED                         4
+#define REASON_RSSI_DIFF_CHANGED                    5
+#define REASON_ESE_INI_CFG_CHANGED                  6
+#define REASON_NEIGHBOR_SCAN_REFRESH_PERIOD_CHANGED 7
+#define REASON_VALID_CHANNEL_LIST_CHANGED           8
+#define REASON_FLUSH_CHANNEL_LIST                   9
+#define REASON_EMPTY_SCAN_REF_PERIOD_CHANGED        10
+#define REASON_PREAUTH_FAILED_FOR_ALL               11
+#define REASON_NO_CAND_FOUND_OR_NOT_ROAMING_NOW     12
+#define REASON_NPROBES_CHANGED                      13
+#define REASON_HOME_AWAY_TIME_CHANGED               14
+#define REASON_OS_REQUESTED_ROAMING_NOW             15
+#define REASON_SCAN_CH_TIME_CHANGED                 16
+#define REASON_SCAN_HOME_TIME_CHANGED               17
+#define REASON_OPPORTUNISTIC_THRESH_DIFF_CHANGED    18
+#define REASON_ROAM_RESCAN_RSSI_DIFF_CHANGED        19
+#define REASON_ROAM_BMISS_FIRST_BCNT_CHANGED        20
+#define REASON_ROAM_BMISS_FINAL_BCNT_CHANGED        21
+#define REASON_ROAM_BEACON_RSSI_WEIGHT_CHANGED      22
+#define REASON_ROAM_DFS_SCAN_MODE_CHANGED           23
+#define REASON_ROAM_ABORT_ROAM_SCAN                 24
+#define REASON_ROAM_EXT_SCAN_PARAMS_CHANGED         25
+#define REASON_ROAM_SET_SSID_ALLOWED                26
+#define REASON_ROAM_SET_FAVORED_BSSID               27
+#define REASON_ROAM_GOOD_RSSI_CHANGED               28
+#define REASON_ROAM_SET_BLACKLIST_BSSID             29
+#define REASON_ROAM_SCAN_HI_RSSI_MAXCOUNT_CHANGED   30
+#define REASON_ROAM_SCAN_HI_RSSI_DELTA_CHANGED      31
+#define REASON_ROAM_SCAN_HI_RSSI_DELAY_CHANGED      32
+#define REASON_ROAM_SCAN_HI_RSSI_UB_CHANGED         33
+#define REASON_CONNECT_IES_CHANGED                  34
+#define REASON_ROAM_SCAN_STA_ROAM_POLICY_CHANGED    35
+#define REASON_ROAM_SYNCH_FAILED                    36
+#define REASON_ROAM_PSK_PMK_CHANGED                 37
+#define REASON_ROAM_STOP_ALL                        38
+#define REASON_SUPPLICANT_DISABLED_ROAMING          39
+#define REASON_CTX_INIT                             40
+#define REASON_FILS_PARAMS_CHANGED                  41
+#define REASON_SME_ISSUED                           42
+#define REASON_DRIVER_ENABLED                       43
+#define REASON_ROAM_FULL_SCAN_PERIOD_CHANGED        44
+#define REASON_SCORING_CRITERIA_CHANGED             45
+#define REASON_SUPPLICANT_INIT_ROAMING              46
+#define REASON_SUPPLICANT_DE_INIT_ROAMING           47
+#define REASON_DRIVER_DISABLED                      48
+#define REASON_ROAM_CONTROL_CONFIG_RESTORED         49
+#define REASON_ROAM_CONTROL_CONFIG_ENABLED          50
 
 #if defined(WLAN_FEATURE_HOST_ROAM) || defined(WLAN_FEATURE_ROAM_OFFLOAD)
 QDF_STATUS csr_roam_offload_scan(struct mac_context *mac, uint8_t sessionId,
@@ -226,6 +282,17 @@ QDF_STATUS csr_roam_offload_scan(struct mac_context *mac, uint8_t sessionId,
 QDF_STATUS csr_post_roam_state_change(struct mac_context *mac, uint8_t vdev_id,
 				      enum roam_offload_state state,
 				      uint8_t reason);
+
+/**
+ * csr_post_rso_stop() - Post RSO stop message to WMA
+ * @mac: mac context
+ * @vdev_id: vdev id
+ * @reason: reason for requesting RSO stop
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+csr_post_rso_stop(struct mac_context *mac, uint8_t vdev_id, uint16_t reason);
 
 /**
  * csr_enable_roaming_on_connected_sta() - Enable roaming on other connected
@@ -264,6 +331,12 @@ QDF_STATUS csr_post_roam_state_change(struct mac_context *mac, uint8_t vdev_id,
 	return QDF_STATUS_E_NOSUPPORT;
 }
 
+static inline
+csr_post_rso_stop(struct mac_context *mac, uint8_t vdev_id, uint16_t reason)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+
 static inline QDF_STATUS
 csr_enable_roaming_on_connected_sta(struct mac_context *mac, uint8_t vdev_id)
 {
@@ -281,17 +354,15 @@ csr_roam_update_cfg(struct mac_context *mac, uint8_t vdev_id, uint8_t reason)
  * csr_get_roam_enabled_sta_sessionid() - get the session id of the sta on which
  * roaming is enabled.
  * @mac_ctx:  pointer to global mac structure
- * @vdev_id: vdev id of the requestor
  *
- * The function checks if any sta(other than the provided vdev_id) is present
- * and has roaming enabled and return the session id of the sta with roaming
- * enabled else if roaming is not enabled on any STA return
- * WLAN_UMAC_VDEV_ID_MAX.
+ * The function check if any sta is present and has roaming enabled and return
+ * the session id of the sta with roaming enabled else if roaming is not enabled
+ * on any STA return WLAN_UMAC_VDEV_ID_MAX
  *
  * Return: session id of STA on which roaming is enabled
  */
-uint8_t csr_get_roam_enabled_sta_sessionid(struct mac_context *mac_ctx,
-					   uint8_t vdev_id);
+uint8_t csr_get_roam_enabled_sta_sessionid(
+	struct mac_context *mac_ctx);
 
 #if defined(WLAN_FEATURE_FILS_SK)
 /**

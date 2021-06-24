@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -114,7 +114,7 @@ static uint32_t nbuf_tx_data[QDF_NBUF_TX_PKT_STATE_MAX];
 static qdf_atomic_t nbuf_count;
 #endif
 
-#if defined(NBUF_MEMORY_DEBUG) || defined(QDF_NBUF_GLOBAL_COUNT)
+#if defined(NBUF_MEMORY_DEBUG)
 static bool is_initial_mem_debug_disabled;
 #endif
 
@@ -395,12 +395,7 @@ qdf_export_symbol(__qdf_nbuf_count_get);
 void __qdf_nbuf_count_inc(qdf_nbuf_t nbuf)
 {
 	int num_nbuf = 1;
-	qdf_nbuf_t ext_list;
-
-	if (qdf_likely(is_initial_mem_debug_disabled))
-		return;
-
-	ext_list = qdf_nbuf_get_ext_list(nbuf);
+	qdf_nbuf_t ext_list = qdf_nbuf_get_ext_list(nbuf);
 
 	/* Take care to account for frag_list */
 	while (ext_list) {
@@ -423,9 +418,6 @@ void __qdf_nbuf_count_dec(__qdf_nbuf_t nbuf)
 {
 	qdf_nbuf_t ext_list;
 	int num_nbuf;
-
-	if (qdf_likely(is_initial_mem_debug_disabled))
-		return;
 
 	if (qdf_nbuf_get_users(nbuf) > 1)
 		return;
@@ -593,37 +585,6 @@ skb_alloc:
 #endif
 qdf_export_symbol(__qdf_nbuf_alloc);
 
-__qdf_nbuf_t __qdf_nbuf_alloc_no_recycler(size_t size, int reserve, int align,
-					  const char *func, uint32_t line)
-{
-	qdf_nbuf_t nbuf;
-	unsigned long offset;
-
-	if (align)
-		size += (align - 1);
-
-	nbuf = alloc_skb(size, GFP_ATOMIC);
-	if (!nbuf)
-		goto ret_nbuf;
-
-	memset(nbuf->cb, 0x0, sizeof(nbuf->cb));
-
-	skb_reserve(nbuf, reserve);
-
-	if (align) {
-		offset = ((unsigned long)nbuf->data) % align;
-		if (offset)
-			skb_reserve(nbuf, align - offset);
-	}
-
-	qdf_nbuf_count_inc(nbuf);
-
-ret_nbuf:
-	return nbuf;
-}
-
-qdf_export_symbol(__qdf_nbuf_alloc_no_recycler);
-
 /**
  * __qdf_nbuf_free() - free the nbuf its interrupt safe
  * @skb: Pointer to network buffer
@@ -636,16 +597,7 @@ void __qdf_nbuf_free(struct sk_buff *skb)
 	if (pld_nbuf_pre_alloc_free(skb))
 		return;
 
-	/**
-	 * Decrement global frag counter only when last user of nbuf
-	 * does free so as to avoid decrementing count on every free
-	 * expect the last one in case where nbuf has multiple users
-	 */
-	if (qdf_nbuf_get_users(skb) == 1)
-		qdf_frag_count_dec(qdf_nbuf_get_nr_frags(skb));
-
 	qdf_nbuf_count_dec(skb);
-	qdf_mem_skb_dec(skb->truesize);
 	if (nbuf_free_cb)
 		nbuf_free_cb(skb);
 	else
@@ -672,12 +624,9 @@ struct qdf_nbuf_event {
 	uint32_t line;
 	enum qdf_nbuf_event_type type;
 	uint64_t timestamp;
-	qdf_dma_addr_t iova;
 };
 
-#ifndef QDF_NBUF_HISTORY_SIZE
 #define QDF_NBUF_HISTORY_SIZE 4096
-#endif
 static qdf_atomic_t qdf_nbuf_history_index;
 static struct qdf_nbuf_event qdf_nbuf_history[QDF_NBUF_HISTORY_SIZE];
 
@@ -704,10 +653,6 @@ qdf_nbuf_history_add(qdf_nbuf_t nbuf, const char *func, uint32_t line,
 	event->line = line;
 	event->type = type;
 	event->timestamp = qdf_get_log_timestamp();
-	if (type == QDF_NBUF_MAP || type == QDF_NBUF_UNMAP)
-		event->iova = QDF_NBUF_CB_PADDR(nbuf);
-	else
-		event->iova = 0;
 }
 #endif /* NBUF_MEMORY_DEBUG */
 
@@ -729,10 +674,18 @@ static void qdf_nbuf_map_tracking_deinit(void)
 static QDF_STATUS
 qdf_nbuf_track_map(qdf_nbuf_t nbuf, const char *func, uint32_t line)
 {
+	QDF_STATUS status;
+
 	if (is_initial_mem_debug_disabled)
 		return QDF_STATUS_SUCCESS;
 
-	return qdf_tracker_track(&qdf_nbuf_map_tracker, nbuf, func, line);
+	status = qdf_tracker_track(&qdf_nbuf_map_tracker, nbuf, func, line);
+	if (QDF_IS_STATUS_ERROR(status))
+		return status;
+
+	qdf_nbuf_history_add(nbuf, func, line, QDF_NBUF_MAP);
+
+	return QDF_STATUS_SUCCESS;
 }
 
 static void
@@ -763,13 +716,10 @@ QDF_STATUS qdf_nbuf_map_debug(qdf_device_t osdev,
 		return status;
 
 	status = __qdf_nbuf_map(osdev, buf, dir);
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		qdf_nbuf_untrack_map(buf, func, line);
-	} else {
-		if (!is_initial_mem_debug_disabled)
-			qdf_nbuf_history_add(buf, func, line, QDF_NBUF_MAP);
+	else
 		qdf_net_buf_debug_update_map_node(buf, func, line);
-	}
 
 	return status;
 }
@@ -802,13 +752,10 @@ QDF_STATUS qdf_nbuf_map_single_debug(qdf_device_t osdev,
 		return status;
 
 	status = __qdf_nbuf_map_single(osdev, buf, dir);
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		qdf_nbuf_untrack_map(buf, func, line);
-	} else {
-		if (!is_initial_mem_debug_disabled)
-			qdf_nbuf_history_add(buf, func, line, QDF_NBUF_MAP);
+	else
 		qdf_net_buf_debug_update_map_node(buf, func, line);
-	}
 
 	return status;
 }
@@ -842,13 +789,10 @@ QDF_STATUS qdf_nbuf_map_nbytes_debug(qdf_device_t osdev,
 		return status;
 
 	status = __qdf_nbuf_map_nbytes(osdev, buf, dir, nbytes);
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		qdf_nbuf_untrack_map(buf, func, line);
-	} else {
-		if (!is_initial_mem_debug_disabled)
-			qdf_nbuf_history_add(buf, func, line, QDF_NBUF_MAP);
+	else
 		qdf_net_buf_debug_update_map_node(buf, func, line);
-	}
 
 	return status;
 }
@@ -883,13 +827,10 @@ QDF_STATUS qdf_nbuf_map_nbytes_single_debug(qdf_device_t osdev,
 		return status;
 
 	status = __qdf_nbuf_map_nbytes_single(osdev, buf, dir, nbytes);
-	if (QDF_IS_STATUS_ERROR(status)) {
+	if (QDF_IS_STATUS_ERROR(status))
 		qdf_nbuf_untrack_map(buf, func, line);
-	} else {
-		if (!is_initial_mem_debug_disabled)
-			qdf_nbuf_history_add(buf, func, line, QDF_NBUF_MAP);
+	else
 		qdf_net_buf_debug_update_map_node(buf, func, line);
-	}
 
 	return status;
 }
@@ -2191,8 +2132,37 @@ bool __qdf_nbuf_is_bcast_pkt(qdf_nbuf_t nbuf)
 qdf_export_symbol(__qdf_nbuf_is_bcast_pkt);
 
 #ifdef NBUF_MEMORY_DEBUG
+#define QDF_NET_BUF_TRACK_MAX_SIZE    (1024)
+
+/**
+ * struct qdf_nbuf_track_t - Network buffer track structure
+ *
+ * @p_next: Pointer to next
+ * @net_buf: Pointer to network buffer
+ * @func_name: Function name
+ * @line_num: Line number
+ * @size: Size
+ * @map_func_name: nbuf mapping function name
+ * @map_line_num: mapping function line number
+ * @unmap_func_name: nbuf unmapping function name
+ * @unmap_line_num: mapping function line number
+ * @is_nbuf_mapped: indicate mapped/unmapped nbuf
+ */
+struct qdf_nbuf_track_t {
+	struct qdf_nbuf_track_t *p_next;
+	qdf_nbuf_t net_buf;
+	char func_name[QDF_MEM_FUNC_NAME_SIZE];
+	uint32_t line_num;
+	size_t size;
+	char map_func_name[QDF_MEM_FUNC_NAME_SIZE];
+	uint32_t map_line_num;
+	char unmap_func_name[QDF_MEM_FUNC_NAME_SIZE];
+	uint32_t unmap_line_num;
+	bool is_nbuf_mapped;
+};
 
 static spinlock_t g_qdf_net_buf_track_lock[QDF_NET_BUF_TRACK_MAX_SIZE];
+typedef struct qdf_nbuf_track_t QDF_NBUF_TRACK;
 
 static QDF_NBUF_TRACK *gp_qdf_net_buf_track_tbl[QDF_NET_BUF_TRACK_MAX_SIZE];
 static struct kmem_cache *nbuf_tracking_cache;
@@ -2203,7 +2173,6 @@ static uint32_t qdf_net_buf_track_used_list_count;
 static uint32_t qdf_net_buf_track_max_used;
 static uint32_t qdf_net_buf_track_max_free;
 static uint32_t qdf_net_buf_track_max_allocated;
-static uint32_t qdf_net_buf_track_fail_count;
 
 /**
  * update_max_used() - update qdf_net_buf_track_max_used tracking variable
@@ -2502,7 +2471,8 @@ void qdf_net_buf_debug_exit(void)
 			qdf_info("SKB buf memory Leak@ Func %s, @Line %d, size %zu, nbuf %pK",
 				 p_prev->func_name, p_prev->line_num,
 				 p_prev->size, p_prev->net_buf);
-			qdf_info("SKB leak map %s, line %d, unmap %s line %d mapped=%d",
+			qdf_info(
+				 "SKB leak map %s, line %d, unmap %s line %d mapped=%d",
 				 p_prev->map_func_name,
 				 p_prev->map_line_num,
 				 p_prev->unmap_func_name,
@@ -2599,22 +2569,14 @@ void qdf_net_buf_debug_add_node(qdf_nbuf_t net_buf, size_t size,
 			qdf_str_lcopy(p_node->func_name, func_name,
 				      QDF_MEM_FUNC_NAME_SIZE);
 			p_node->line_num = line_num;
-			p_node->is_nbuf_mapped = false;
-			p_node->map_line_num = 0;
-			p_node->unmap_line_num = 0;
-			p_node->map_func_name[0] = '\0';
-			p_node->unmap_func_name[0] = '\0';
 			p_node->size = size;
-			p_node->time = qdf_get_log_timestamp();
 			qdf_mem_skb_inc(size);
 			p_node->p_next = gp_qdf_net_buf_track_tbl[i];
 			gp_qdf_net_buf_track_tbl[i] = p_node;
-		} else {
-			qdf_net_buf_track_fail_count++;
+		} else
 			qdf_print(
 				  "Mem alloc failed ! Could not track skb from %s %d of size %zu",
 				  func_name, line_num, size);
-		}
 	}
 
 	spin_unlock_irqrestore(&g_qdf_net_buf_track_lock[i], irq_flag);
@@ -2672,6 +2634,8 @@ void qdf_net_buf_debug_update_map_node(qdf_nbuf_t net_buf,
 	spin_unlock_irqrestore(&g_qdf_net_buf_track_lock[i], irq_flag);
 }
 
+qdf_export_symbol(qdf_net_buf_debug_update_map_node);
+
 void qdf_net_buf_debug_update_unmap_node(qdf_nbuf_t net_buf,
 					 const char *func_name,
 					 uint32_t line_num)
@@ -2696,6 +2660,8 @@ void qdf_net_buf_debug_update_unmap_node(qdf_nbuf_t net_buf,
 	}
 	spin_unlock_irqrestore(&g_qdf_net_buf_track_lock[i], irq_flag);
 }
+
+qdf_export_symbol(qdf_net_buf_debug_update_unmap_node);
 
 /**
  * qdf_net_buf_debug_delete_node() - remove skb from debug hash table
@@ -2746,12 +2712,9 @@ done:
 		qdf_mem_skb_dec(p_node->size);
 		qdf_nbuf_track_free(p_node);
 	} else {
-		if (qdf_net_buf_track_fail_count) {
-			qdf_print("Untracked net_buf free: %pK with tracking failures count: %u",
-				  net_buf, qdf_net_buf_track_fail_count);
-		} else
-			QDF_MEMDEBUG_PANIC("Unallocated buffer ! Double free of net_buf %pK ?",
-					   net_buf);
+		qdf_print("Unallocated buffer ! Double free of net_buf %pK ?",
+			  net_buf);
+		QDF_BUG(0);
 	}
 }
 qdf_export_symbol(qdf_net_buf_debug_delete_node);
@@ -2846,36 +2809,9 @@ qdf_nbuf_t qdf_nbuf_alloc_debug(qdf_device_t osdev, qdf_size_t size,
 }
 qdf_export_symbol(qdf_nbuf_alloc_debug);
 
-qdf_nbuf_t qdf_nbuf_alloc_no_recycler_debug(size_t size, int reserve, int align,
-					    const char *func, uint32_t line)
-{
-	qdf_nbuf_t nbuf;
-
-	if (is_initial_mem_debug_disabled)
-		return __qdf_nbuf_alloc_no_recycler(size, reserve, align, func,
-						    line);
-
-	nbuf = __qdf_nbuf_alloc_no_recycler(size, reserve, align, func, line);
-
-	/* Store SKB in internal QDF tracking table */
-	if (qdf_likely(nbuf)) {
-		qdf_net_buf_debug_add_node(nbuf, size, func, line);
-		qdf_nbuf_history_add(nbuf, func, line, QDF_NBUF_ALLOC);
-	} else {
-		qdf_nbuf_history_add(nbuf, func, line, QDF_NBUF_ALLOC_FAILURE);
-	}
-
-	return nbuf;
-}
-
-qdf_export_symbol(qdf_nbuf_alloc_no_recycler_debug);
-
 void qdf_nbuf_free_debug(qdf_nbuf_t nbuf, const char *func, uint32_t line)
 {
 	qdf_nbuf_t ext_list;
-	qdf_frag_t p_frag;
-	uint32_t num_nr_frags;
-	uint32_t idx = 0;
 
 	if (qdf_unlikely(!nbuf))
 		return;
@@ -2890,18 +2826,6 @@ void qdf_nbuf_free_debug(qdf_nbuf_t nbuf, const char *func, uint32_t line)
 	qdf_nbuf_panic_on_free_if_mapped(nbuf, func, line);
 	qdf_net_buf_debug_delete_node(nbuf);
 	qdf_nbuf_history_add(nbuf, func, line, QDF_NBUF_FREE);
-
-	/* Take care to delete the debug entries for frags */
-	num_nr_frags = qdf_nbuf_get_nr_frags(nbuf);
-
-	qdf_assert_always(num_nr_frags <= QDF_NBUF_MAX_FRAGS);
-
-	while (idx < num_nr_frags) {
-		p_frag = qdf_nbuf_get_frag_addr(nbuf, idx);
-		if (qdf_likely(p_frag))
-			qdf_frag_debug_refcount_dec(p_frag, func, line);
-		idx++;
-	}
 
 	/* Take care to delete the debug entries for frag_list */
 	ext_list = qdf_nbuf_get_ext_list(nbuf);
@@ -2921,10 +2845,6 @@ qdf_export_symbol(qdf_nbuf_free_debug);
 
 qdf_nbuf_t qdf_nbuf_clone_debug(qdf_nbuf_t buf, const char *func, uint32_t line)
 {
-	uint32_t num_nr_frags;
-	uint32_t idx = 0;
-	qdf_frag_t p_frag;
-
 	qdf_nbuf_t cloned_buf = __qdf_nbuf_clone(buf);
 
 	if (is_initial_mem_debug_disabled)
@@ -2932,18 +2852,6 @@ qdf_nbuf_t qdf_nbuf_clone_debug(qdf_nbuf_t buf, const char *func, uint32_t line)
 
 	if (qdf_unlikely(!cloned_buf))
 		return NULL;
-
-	/* Take care to update the debug entries for frags */
-	num_nr_frags = qdf_nbuf_get_nr_frags(cloned_buf);
-
-	qdf_assert_always(num_nr_frags <= QDF_NBUF_MAX_FRAGS);
-
-	while (idx < num_nr_frags) {
-		p_frag = qdf_nbuf_get_frag_addr(cloned_buf, idx);
-		if (qdf_likely(p_frag))
-			qdf_frag_debug_refcount_inc(p_frag, func, line);
-		idx++;
-	}
 
 	/* Store SKB in internal QDF tracking table */
 	qdf_net_buf_debug_add_node(cloned_buf, 0, func, line);
@@ -2992,58 +2900,6 @@ qdf_nbuf_copy_expand_debug(qdf_nbuf_t buf, int headroom, int tailroom,
 }
 
 qdf_export_symbol(qdf_nbuf_copy_expand_debug);
-
-qdf_nbuf_t
-qdf_nbuf_unshare_debug(qdf_nbuf_t buf, const char *func_name,
-		       uint32_t line_num)
-{
-	qdf_nbuf_t unshared_buf;
-	qdf_frag_t p_frag;
-	uint32_t num_nr_frags;
-	uint32_t idx = 0;
-
-	if (is_initial_mem_debug_disabled)
-		return __qdf_nbuf_unshare(buf);
-
-	/* Take care to delete the debug entries for frags */
-	num_nr_frags = qdf_nbuf_get_nr_frags(buf);
-
-	while (idx < num_nr_frags) {
-		p_frag = qdf_nbuf_get_frag_addr(buf, idx);
-		if (qdf_likely(p_frag))
-			qdf_frag_debug_refcount_dec(p_frag, func_name,
-						    line_num);
-		idx++;
-	}
-
-	unshared_buf = __qdf_nbuf_unshare(buf);
-
-	if (qdf_likely(buf != unshared_buf)) {
-		qdf_net_buf_debug_delete_node(buf);
-
-		if (unshared_buf)
-			qdf_net_buf_debug_add_node(unshared_buf, 0,
-						   func_name, line_num);
-	}
-
-	if (unshared_buf) {
-		/* Take care to add the debug entries for frags */
-		num_nr_frags = qdf_nbuf_get_nr_frags(unshared_buf);
-
-		idx = 0;
-		while (idx < num_nr_frags) {
-			p_frag = qdf_nbuf_get_frag_addr(unshared_buf, idx);
-			if (qdf_likely(p_frag))
-				qdf_frag_debug_refcount_inc(p_frag, func_name,
-							    line_num);
-			idx++;
-		}
-	}
-
-	return unshared_buf;
-}
-
-qdf_export_symbol(qdf_nbuf_unshare_debug);
 
 #endif /* NBUF_MEMORY_DEBUG */
 
@@ -3243,6 +3099,7 @@ static inline void __qdf_nbuf_fill_tso_cmn_seg_info(
 
 	curr_seg->seg.tso_flags.syn = tso_cmn_info->tcphdr->syn;
 	curr_seg->seg.tso_flags.rst = tso_cmn_info->tcphdr->rst;
+	curr_seg->seg.tso_flags.psh = tso_cmn_info->tcphdr->psh;
 	curr_seg->seg.tso_flags.ack = tso_cmn_info->tcphdr->ack;
 	curr_seg->seg.tso_flags.urg = tso_cmn_info->tcphdr->urg;
 	curr_seg->seg.tso_flags.ece = tso_cmn_info->tcphdr->ece;
@@ -3335,7 +3192,7 @@ uint32_t __qdf_nbuf_get_tso_info(qdf_device_t osdev, struct sk_buff *skb,
 	if (unlikely(dma_mapping_error(osdev->dev,
 					tso_frag_paddr))) {
 		qdf_err("DMA mapping error!");
-		qdf_assert_always(0);
+		qdf_assert(0);
 		return 0;
 	}
 	TSO_DEBUG("%s[%d] skb frag len %d tso frag len %d\n", __func__,
@@ -3354,10 +3211,6 @@ uint32_t __qdf_nbuf_get_tso_info(qdf_device_t osdev, struct sk_buff *skb,
 
 		__qdf_nbuf_fill_tso_cmn_seg_info(curr_seg,
 						 &tso_cmn_info);
-
-		/* If TCP PSH flag is set, set it in the last or only segment */
-		if (num_seg == 1)
-			curr_seg->seg.tso_flags.psh = tso_cmn_info.tcphdr->psh;
 
 		if (unlikely(skb_proc == 0))
 			return tso_info->num_segs;
@@ -3384,8 +3237,6 @@ uint32_t __qdf_nbuf_get_tso_info(qdf_device_t osdev, struct sk_buff *skb,
 				tso_cmn_info.tcp_seq_num += tso_frag_len;
 				curr_seg->seg.tso_frags[i].paddr =
 					tso_frag_paddr;
-
-				qdf_assert_always(curr_seg->seg.tso_frags[i].paddr);
 			}
 
 			TSO_DEBUG("%s[%d] frag %d frag len %d total_len %u vaddr %pK\n",
@@ -3470,7 +3321,7 @@ uint32_t __qdf_nbuf_get_tso_info(qdf_device_t osdev, struct sk_buff *skb,
 			if (unlikely(dma_mapping_error(osdev->dev,
 							tso_frag_paddr))) {
 				qdf_err("DMA mapping error!");
-				qdf_assert_always(0);
+				qdf_assert(0);
 				return 0;
 			}
 		}
@@ -3868,6 +3719,73 @@ __qdf_nbuf_dmamap_destroy(qdf_device_t osdev, __qdf_dma_map_t dmap)
 }
 qdf_export_symbol(__qdf_nbuf_dmamap_destroy);
 
+/**
+ * __qdf_nbuf_map_nbytes_single() - map nbytes
+ * @osdev: os device
+ * @buf: buffer
+ * @dir: direction
+ * @nbytes: number of bytes
+ *
+ * Return: QDF_STATUS
+ */
+#ifdef A_SIMOS_DEVHOST
+QDF_STATUS __qdf_nbuf_map_nbytes_single(
+		qdf_device_t osdev, struct sk_buff *buf,
+		 qdf_dma_dir_t dir, int nbytes)
+{
+	qdf_dma_addr_t paddr;
+
+	QDF_NBUF_CB_PADDR(buf) = paddr = buf->data;
+	return QDF_STATUS_SUCCESS;
+}
+qdf_export_symbol(__qdf_nbuf_map_nbytes_single);
+#else
+QDF_STATUS __qdf_nbuf_map_nbytes_single(
+		qdf_device_t osdev, struct sk_buff *buf,
+		 qdf_dma_dir_t dir, int nbytes)
+{
+	qdf_dma_addr_t paddr;
+
+	/* assume that the OS only provides a single fragment */
+	QDF_NBUF_CB_PADDR(buf) = paddr =
+		dma_map_single(osdev->dev, buf->data,
+			nbytes, __qdf_dma_dir_to_os(dir));
+	return dma_mapping_error(osdev->dev, paddr) ?
+		QDF_STATUS_E_FAULT : QDF_STATUS_SUCCESS;
+}
+qdf_export_symbol(__qdf_nbuf_map_nbytes_single);
+#endif
+/**
+ * __qdf_nbuf_unmap_nbytes_single() - unmap nbytes
+ * @osdev: os device
+ * @buf: buffer
+ * @dir: direction
+ * @nbytes: number of bytes
+ *
+ * Return: none
+ */
+#if defined(A_SIMOS_DEVHOST)
+void
+__qdf_nbuf_unmap_nbytes_single(
+	qdf_device_t osdev, struct sk_buff *buf, qdf_dma_dir_t dir, int nbytes)
+{
+}
+qdf_export_symbol(__qdf_nbuf_unmap_nbytes_single);
+
+#else
+void
+__qdf_nbuf_unmap_nbytes_single(
+	qdf_device_t osdev, struct sk_buff *buf, qdf_dma_dir_t dir, int nbytes)
+{
+	if (0 ==  QDF_NBUF_CB_PADDR(buf)) {
+		qdf_err("ERROR: NBUF mapped physical address is NULL");
+		return;
+	}
+	dma_unmap_single(osdev->dev, QDF_NBUF_CB_PADDR(buf),
+			nbytes, __qdf_dma_dir_to_os(dir));
+}
+qdf_export_symbol(__qdf_nbuf_unmap_nbytes_single);
+#endif
 /**
  * __qdf_nbuf_map_nbytes() - get the dma map of the nbuf
  * @osdev: os device
@@ -4338,8 +4256,6 @@ qdf_nbuf_update_radiotap_he_mu_other_flags(struct mon_rx_status *rx_status,
 	return rtap_len;
 }
 
-#define IEEE80211_RADIOTAP_TX_STATUS 0
-#define IEEE80211_RADIOTAP_RETRY_COUNT 1
 
 /**
  * This is the length for radiotap, combined length
@@ -4358,11 +4274,6 @@ qdf_nbuf_update_radiotap_he_mu_other_flags(struct mon_rx_status *rx_status,
 #define RADIOTAP_AMPDU_STATUS_LEN (8 + 3)
 #define RADIOTAP_VENDOR_NS_LEN \
 	(sizeof(struct qdf_radiotap_vendor_ns_ath) + 1)
-/* This is Radio Tap Header Extension Length.
- * 4 Bytes for Extended it_present bit map +
- * 4 bytes padding for alignment
- */
-#define RADIOTAP_HEADER_EXT_LEN (2 * sizeof(uint32_t))
 #define RADIOTAP_HEADER_LEN (sizeof(struct ieee80211_radiotap_header) + \
 				RADIOTAP_FIXED_HEADER_LEN + \
 				RADIOTAP_HT_FLAGS_LEN + \
@@ -4371,8 +4282,7 @@ qdf_nbuf_update_radiotap_he_mu_other_flags(struct mon_rx_status *rx_status,
 				RADIOTAP_HE_FLAGS_LEN + \
 				RADIOTAP_HE_MU_FLAGS_LEN + \
 				RADIOTAP_HE_MU_OTHER_FLAGS_LEN + \
-				RADIOTAP_VENDOR_NS_LEN + \
-				RADIOTAP_HEADER_EXT_LEN)
+				RADIOTAP_VENDOR_NS_LEN)
 
 #define IEEE80211_RADIOTAP_HE 23
 #define IEEE80211_RADIOTAP_HE_MU	24
@@ -4431,14 +4341,6 @@ unsigned int qdf_nbuf_update_radiotap(struct mon_rx_status *rx_status,
 	uint32_t rtap_len = rtap_hdr_len;
 	uint8_t length = rtap_len;
 	struct qdf_radiotap_vendor_ns_ath *radiotap_vendor_ns_ath;
-	uint32_t *rtap_ext = NULL;
-
-	/* Adding Extended Header space */
-	if (rx_status->add_rtap_ext) {
-		rtap_hdr_len += RADIOTAP_HEADER_EXT_LEN;
-		rtap_len = rtap_hdr_len;
-	}
-	length = rtap_len;
 
 	/* IEEE80211_RADIOTAP_TSFT              __le64       microseconds*/
 	rthdr->it_present = (1 << IEEE80211_RADIOTAP_TSFT);
@@ -4622,20 +4524,6 @@ unsigned int qdf_nbuf_update_radiotap(struct mon_rx_status *rx_status,
 				cpu_to_le32(rx_status->ppdu_timestamp);
 	rtap_len += sizeof(*radiotap_vendor_ns_ath);
 
-	/* Add Extension to Radiotap Header & corresponding data */
-	if (rx_status->add_rtap_ext) {
-		rthdr->it_present |= cpu_to_le32(1 << IEEE80211_RADIOTAP_EXT);
-		rtap_ext = (uint32_t *)&rthdr->it_present;
-		rtap_ext++;
-		*rtap_ext = cpu_to_le32(1 << IEEE80211_RADIOTAP_TX_STATUS);
-		*rtap_ext |= cpu_to_le32(1 << IEEE80211_RADIOTAP_RETRY_COUNT);
-
-		rtap_buf[rtap_len] = rx_status->tx_status;
-		rtap_len += 1;
-		rtap_buf[rtap_len] = rx_status->tx_retry_cnt;
-		rtap_len += 1;
-	}
-
 	rthdr->it_len = cpu_to_le16(rtap_len);
 	rthdr->it_present = cpu_to_le32(rthdr->it_present);
 
@@ -4753,7 +4641,6 @@ qdf_export_symbol(qdf_nbuf_init_fast);
  */
 void __qdf_nbuf_mod_init(void)
 {
-	is_initial_mem_debug_disabled = qdf_mem_debug_config_get();
 	qdf_atomic_init(&nbuf_count);
 	qdf_debugfs_create_atomic(NBUF_DEBUGFS_NAME, S_IRUSR, NULL, &nbuf_count);
 }
@@ -4767,207 +4654,3 @@ void __qdf_nbuf_mod_exit(void)
 {
 }
 #endif
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
-QDF_STATUS __qdf_nbuf_move_frag_page_offset(__qdf_nbuf_t nbuf, uint8_t idx,
-					    int offset)
-{
-	unsigned int frag_offset;
-	skb_frag_t *frag;
-
-	if (qdf_unlikely(idx >= __qdf_nbuf_get_nr_frags(nbuf)))
-		return QDF_STATUS_E_FAILURE;
-
-	frag = &skb_shinfo(nbuf)->frags[idx];
-	frag_offset = skb_frag_off(frag);
-
-	frag_offset += offset;
-	skb_frag_off_set(frag, frag_offset);
-
-	__qdf_nbuf_trim_add_frag_size(nbuf, idx, -(offset), 0);
-
-	return QDF_STATUS_SUCCESS;
-}
-
-#else
-QDF_STATUS __qdf_nbuf_move_frag_page_offset(__qdf_nbuf_t nbuf, uint8_t idx,
-					    int offset)
-{
-	uint16_t frag_offset;
-	skb_frag_t *frag;
-
-	if (qdf_unlikely(idx >= __qdf_nbuf_get_nr_frags(nbuf)))
-		return QDF_STATUS_E_FAILURE;
-
-	frag = &skb_shinfo(nbuf)->frags[idx];
-	frag_offset = frag->page_offset;
-
-	frag_offset += offset;
-	frag->page_offset = frag_offset;
-
-	__qdf_nbuf_trim_add_frag_size(nbuf, idx, -(offset), 0);
-
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
-qdf_export_symbol(__qdf_nbuf_move_frag_page_offset);
-
-void __qdf_nbuf_add_rx_frag(__qdf_frag_t buf, __qdf_nbuf_t nbuf,
-			    int offset, int frag_len,
-			    unsigned int truesize, bool take_frag_ref)
-{
-	struct page *page;
-	int frag_offset;
-	uint8_t nr_frag;
-
-	nr_frag = __qdf_nbuf_get_nr_frags(nbuf);
-
-	page = virt_to_head_page(buf);
-	frag_offset = buf - page_address(page);
-
-	skb_add_rx_frag(nbuf, nr_frag, page,
-			(frag_offset + offset),
-			frag_len, truesize);
-
-	if (unlikely(take_frag_ref)) {
-		qdf_frag_count_inc(QDF_NBUF_FRAG_DEBUG_COUNT_ONE);
-		skb_frag_ref(nbuf, nr_frag);
-	}
-}
-
-qdf_export_symbol(__qdf_nbuf_add_rx_frag);
-
-#ifdef NBUF_FRAG_MEMORY_DEBUG
-
-QDF_STATUS qdf_nbuf_move_frag_page_offset_debug(qdf_nbuf_t nbuf, uint8_t idx,
-						int offset, const char *func,
-						uint32_t line)
-{
-	QDF_STATUS result;
-	qdf_frag_t p_fragp, n_fragp;
-
-	p_fragp = qdf_nbuf_get_frag_addr(nbuf, idx);
-	result = __qdf_nbuf_move_frag_page_offset(nbuf, idx, offset);
-
-	n_fragp = qdf_nbuf_get_frag_addr(nbuf, idx);
-
-	/*
-	 * Update frag address in frag debug tracker
-	 * when frag offset is successfully changed in skb
-	 */
-	if (result == QDF_STATUS_SUCCESS)
-		qdf_frag_debug_update_addr(p_fragp, n_fragp, func, line);
-
-	return result;
-}
-
-qdf_export_symbol(qdf_nbuf_move_frag_page_offset_debug);
-
-void qdf_nbuf_add_rx_frag_debug(qdf_frag_t buf, qdf_nbuf_t nbuf,
-				int offset, int frag_len,
-				unsigned int truesize, bool take_frag_ref,
-				const char *func, uint32_t line)
-{
-	qdf_frag_t fragp;
-	uint32_t num_nr_frags;
-
-	__qdf_nbuf_add_rx_frag(buf, nbuf, offset,
-			       frag_len, truesize, take_frag_ref);
-
-	num_nr_frags = qdf_nbuf_get_nr_frags(nbuf);
-
-	qdf_assert_always(num_nr_frags <= QDF_NBUF_MAX_FRAGS);
-
-	fragp = qdf_nbuf_get_frag_addr(nbuf, num_nr_frags - 1);
-
-	/* Update frag address in frag debug tracking table */
-	if (fragp != buf)
-		qdf_frag_debug_update_addr(buf, fragp, func, line);
-
-	/* Update frag refcount in frag debug tracking table */
-	qdf_frag_debug_refcount_inc(fragp, func, line);
-}
-
-qdf_export_symbol(qdf_nbuf_add_rx_frag_debug);
-
-void qdf_net_buf_debug_acquire_frag(qdf_nbuf_t buf, const char *func,
-				    uint32_t line)
-{
-	uint32_t num_nr_frags;
-	uint32_t idx = 0;
-	qdf_frag_t p_frag;
-
-	if (qdf_unlikely(!buf))
-		return;
-
-	/* Take care to update the refcount in the debug entries for frags */
-	num_nr_frags = qdf_nbuf_get_nr_frags(buf);
-
-	qdf_assert_always(num_nr_frags <= QDF_NBUF_MAX_FRAGS);
-
-	while (idx < num_nr_frags) {
-		p_frag = qdf_nbuf_get_frag_addr(buf, idx);
-		if (qdf_likely(p_frag))
-			qdf_frag_debug_refcount_inc(p_frag, func, line);
-		idx++;
-	}
-}
-
-qdf_export_symbol(qdf_net_buf_debug_acquire_frag);
-
-void qdf_net_buf_debug_release_frag(qdf_nbuf_t buf, const char *func,
-				    uint32_t line)
-{
-	uint32_t num_nr_frags;
-	uint32_t idx = 0;
-	qdf_frag_t p_frag;
-
-	if (qdf_unlikely(!buf))
-		return;
-
-	/**
-	 * Decrement refcount for frag debug nodes only when last user
-	 * of nbuf calls this API so as to avoid decrementing refcount
-	 * on every call expect the last one in case where nbuf has multiple
-	 * users
-	 */
-	if (qdf_nbuf_get_users(buf) > 1)
-		return;
-
-	/* Take care to update the refcount in the debug entries for frags */
-	num_nr_frags = qdf_nbuf_get_nr_frags(buf);
-
-	qdf_assert_always(num_nr_frags <= QDF_NBUF_MAX_FRAGS);
-
-	while (idx < num_nr_frags) {
-		p_frag = qdf_nbuf_get_frag_addr(buf, idx);
-		if (qdf_likely(p_frag))
-			qdf_frag_debug_refcount_dec(p_frag, func, line);
-		idx++;
-	}
-}
-
-qdf_export_symbol(qdf_net_buf_debug_release_frag);
-#endif /* NBUF_FRAG_MEMORY_DEBUG */
-
-#ifdef MEMORY_DEBUG
-void qdf_nbuf_acquire_track_lock(uint32_t index,
-				 unsigned long irq_flag)
-{
-	spin_lock_irqsave(&g_qdf_net_buf_track_lock[index],
-			  irq_flag);
-}
-
-void qdf_nbuf_release_track_lock(uint32_t index,
-				 unsigned long irq_flag)
-{
-	spin_unlock_irqrestore(&g_qdf_net_buf_track_lock[index],
-			       irq_flag);
-}
-
-QDF_NBUF_TRACK *qdf_nbuf_get_track_tbl(uint32_t index)
-{
-	return gp_qdf_net_buf_track_tbl[index];
-}
-#endif /* MEMORY_DEBUG */

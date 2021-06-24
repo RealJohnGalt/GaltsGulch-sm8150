@@ -761,18 +761,6 @@ QDF_STATUS utils_dfs_mark_leaking_chan_for_freq(struct wlan_objmgr_pdev *pdev,
 						uint8_t temp_ch_lst_sz,
 						uint16_t *temp_ch_lst);
 #endif
-
-/**
- * utils_dfs_can_ignore_radar_event() - check whether to skip radar event
- * processing
- * @pdev: Pointer to pdev structure.
- *
- * This function will check with policy mgr to process radar event or not based
- * on current concurrency mode and dfs policy.
- *
- * Return: true - ignore radar event processing, otherwise false.
- */
-bool utils_dfs_can_ignore_radar_event(struct wlan_objmgr_pdev *pdev);
 #else
 #ifdef CONFIG_CHAN_NUM_API
 static inline QDF_STATUS utils_dfs_mark_leaking_ch
@@ -794,11 +782,6 @@ static inline QDF_STATUS utils_dfs_mark_leaking_chan_for_freq
 	return QDF_STATUS_SUCCESS;
 }
 #endif
-static inline bool
-utils_dfs_can_ignore_radar_event(struct wlan_objmgr_pdev *pdev)
-{
-	return false;
-}
 #endif
 /**
  * utils_get_dfsdomain() - Get DFS domain.
@@ -822,29 +805,16 @@ uint16_t utils_dfs_get_cur_rd(struct wlan_objmgr_pdev *pdev);
  * @is_spoof_check_failed: pointer containing the status.
  *
  * Return: QDF_STATUS.
-
- * utils_dfs_is_spoof_done() - get spoof check status.
- * @pdev: pdev ptr
- *
- * Return: True if dfs_spoof_test_done is set.
  */
 #if defined(WLAN_DFS_PARTIAL_OFFLOAD) && defined(HOST_DFS_SPOOF_TEST)
 QDF_STATUS utils_dfs_is_spoof_check_failed(struct wlan_objmgr_pdev *pdev,
 					   bool *is_spoof_check_failed);
-
-bool utils_dfs_is_spoof_done(struct wlan_objmgr_pdev *pdev);
 #else
 static inline
 QDF_STATUS utils_dfs_is_spoof_check_failed(struct wlan_objmgr_pdev *pdev,
 					   bool *is_spoof_check_failed)
 {
 	return QDF_STATUS_SUCCESS;
-}
-
-static inline
-bool utils_dfs_is_spoof_done(struct wlan_objmgr_pdev *pdev)
-{
-	return true;
 }
 #endif
 
@@ -990,65 +960,4 @@ void utils_dfs_deliver_event(struct wlan_objmgr_pdev *pdev, uint16_t freq,
  * Return: None.
  */
 void utils_dfs_reset_dfs_prevchan(struct wlan_objmgr_pdev *pdev);
-
-#ifdef QCA_SUPPORT_AGILE_DFS
-/**
- * utils_dfs_agile_sm_deliver_evt() - API to post events to DFS Agile SM.
- * @pdev: Pointer to DFS pdev object.
- * @event: Event to be posted to DFS AGILE SM.
- *
- * Return: None.
- */
-void utils_dfs_agile_sm_deliver_evt(struct wlan_objmgr_pdev *pdev,
-				    enum dfs_agile_sm_evt event);
-#else
-static inline
-void utils_dfs_agile_sm_deliver_evt(struct wlan_objmgr_pdev *pdev,
-				    enum dfs_agile_sm_evt event)
-{
-}
-#endif/*QCA_SUPPORT_AGILE_DFS*/
-
-#ifdef QCA_SUPPORT_ADFS_RCAC
-/**
- * utils_dfs_get_rcac_channel() - Get the completed Rolling CAC channel if
- *                                available.
- * @pdev: Pointer to DFS pdev object.
- * @ch_params: current channel params.
- * @target_chan: Pointer to target_chan freq.
- *
- * Return: QDF_STATUS.
- */
-QDF_STATUS utils_dfs_get_rcac_channel(struct wlan_objmgr_pdev *pdev,
-				      struct ch_params *chan_params,
-				      qdf_freq_t *target_chan_freq);
-#else
-static inline
-QDF_STATUS utils_dfs_get_rcac_channel(struct wlan_objmgr_pdev *pdev,
-				      struct ch_params *chan_params,
-				      qdf_freq_t *target_chan_freq)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif /* QCA_SUPPORT_ADFS_RCAC */
-
-#ifdef ATH_SUPPORT_ZERO_CAC_DFS
-/**
- * utils_dfs_precac_status_for_channel() - API to find the preCAC status
- * of the given channel.
- * @pdev: Pointer to DFS pdev object.
- * @deschan: Pointer to desired channel of wlan_channel structure.
- */
-enum precac_status_for_chan
-utils_dfs_precac_status_for_channel(struct wlan_objmgr_pdev *pdev,
-				    struct wlan_channel *deschan);
-#else
-static inline enum precac_status_for_chan
-utils_dfs_precac_status_for_channel(struct wlan_objmgr_pdev *pdev,
-				    struct wlan_channel *deschan)
-{
-	return DFS_INVALID_PRECAC_STATUS;
-}
-#endif
-
 #endif /* _WLAN_DFS_UTILS_API_H_ */

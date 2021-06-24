@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -30,7 +30,7 @@
  */
 void hif_dummy_bus_prevent_linkdown(struct hif_softc *scn, bool flag)
 {
-	hif_debug("wlan: %s pcie power collapse ignored",
+	HIF_DBG("wlan: %s pcie power collapse ignored",
 			(flag ? "disable" : "enable"));
 }
 
@@ -168,13 +168,13 @@ int hif_dummy_bus_configure(struct hif_softc *hif_sc)
  * @config: configuration value to set
  * @config_len: configuration length
  *
- * Return: QDF_STATUS_SUCCESS for success
+ * Return: 0 for success
  */
 QDF_STATUS
 hif_dummy_get_config_item(struct hif_softc *hif_sc,
 		     int opcode, void *config, uint32_t config_len)
 {
-	return QDF_STATUS_SUCCESS;
+	return 0;
 }
 
 /**
@@ -357,7 +357,8 @@ int hif_dummy_bus_reset_resume(struct hif_softc *hif_ctx)
 
 int hif_dummy_map_ce_to_irq(struct hif_softc *scn, int ce_id)
 {
-	hif_err("hif_map_ce_to_irq is not implemented on this platform");
+	HIF_ERROR("%s: hif_map_ce_to_irq is not implemented on this platform",
+		  __func__);
 	QDF_BUG(0);
 	return -(1);
 }
@@ -383,29 +384,10 @@ void hif_dummy_config_irq_affinity(struct hif_softc *scn)
  * @data: hang event data buffer
  * @offset: offset at which data needs to be written
  *
- * Return: None
+ * Return: bool
  */
-void hif_dummy_log_bus_info(struct hif_softc *scn, uint8_t *data,
+bool hif_dummy_log_bus_info(struct hif_softc *scn, uint8_t *data,
 			    unsigned int *offset)
 {
-}
-
-/**
- * hif_dummy_enable_grp_irqs - dummy call
- * @scn: hif context
- * Return: EOPNOTSUPP
- */
-int hif_dummy_enable_grp_irqs(struct hif_softc *scn)
-{
-	return -EOPNOTSUPP;
-}
-
-/**
- * hif_dummy_disable_grp_irqs - dummy call
- * @scn: hif context
- * Return: EOPNOTSUPP
- */
-int hif_dummy_disable_grp_irqs(struct hif_softc *scn)
-{
-	return -EOPNOTSUPP;
+	return false;
 }

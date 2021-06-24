@@ -43,7 +43,7 @@
 	"gRuntimePMDelay", \
 	100, \
 	10000, \
-	2000, \
+	500, \
 	CFG_VALUE_OR_DEFAULT, \
 	"Set runtime pm's inactivity timer")
 

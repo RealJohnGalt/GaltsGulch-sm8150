@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -71,7 +71,7 @@ int hif_snoc_dump_registers(struct hif_softc *hif_ctx)
 
 	status = hif_dump_ce_registers(scn);
 	if (status)
-		hif_err("Dump CE Registers Failed");
+		HIF_ERROR("%s: Dump CE Registers Failed", __func__);
 
 	return 0;
 }
@@ -79,7 +79,7 @@ int hif_snoc_dump_registers(struct hif_softc *hif_ctx)
 void hif_snoc_display_stats(struct hif_softc *hif_ctx)
 {
 	if (!hif_ctx) {
-		hif_err("hif_ctx null");
+		HIF_ERROR("%s, hif_ctx null", __func__);
 		return;
 	}
 	hif_display_ce_stats(hif_ctx);
@@ -90,7 +90,7 @@ void hif_snoc_clear_stats(struct hif_softc *hif_ctx)
 	struct HIF_CE_state *hif_state = HIF_GET_CE_STATE(hif_ctx);
 
 	if (!hif_state) {
-		hif_err("hif_ctx null");
+		HIF_ERROR("%s, hif_ctx null", __func__);
 		return;
 	}
 	hif_clear_ce_stats(hif_state);
@@ -135,7 +135,7 @@ static QDF_STATUS hif_snoc_get_soc_info(struct hif_softc *scn)
 
 	ret = pld_get_soc_info(scn->qdf_dev->dev, &soc_info);
 	if (ret < 0) {
-		hif_err("pld_get_soc_info error = %d", ret);
+		HIF_ERROR("%s: pld_get_soc_info error = %d", __func__, ret);
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -167,7 +167,8 @@ int hif_snoc_bus_configure(struct hif_softc *scn)
 
 	ret = hif_wlan_enable(scn);
 	if (ret) {
-		hif_err("hif_wlan_enable error = %d", ret);
+		HIF_ERROR("%s: hif_wlan_enable error = %d",
+				__func__, ret);
 		return ret;
 	}
 
@@ -180,9 +181,8 @@ int hif_snoc_bus_configure(struct hif_softc *scn)
 		goto unconfig_ce;
 
 	scn->wake_irq = pld_get_irq(scn->qdf_dev->dev, wake_ce_id);
-	scn->wake_irq_type = HIF_PM_CE_WAKE;
 
-	hif_info("expecting wake from ce %d, irq %d",
+	HIF_INFO(FL("expecting wake from ce %d, irq %d"),
 		 wake_ce_id, scn->wake_irq);
 
 	return 0;
@@ -232,20 +232,19 @@ static int hif_set_dma_coherent_mask(qdf_device_t osdev)
 
 	if (false == hif_get_ipa_present())
 		return qdf_set_dma_coherent_mask(osdev->dev,
-					DMA_COHERENT_MASK_DEFAULT);
+					DMA_COHERENT_MASK_IPA_VER_3_AND_ABOVE);
 
 	if (hif_get_ipa_hw_type() < IPA_HW_v3_0)
 		addr_bits = DMA_COHERENT_MASK_BELOW_IPA_VER_3;
 	else
-		addr_bits = DMA_COHERENT_MASK_DEFAULT;
+		addr_bits = DMA_COHERENT_MASK_IPA_VER_3_AND_ABOVE;
 
 	return qdf_set_dma_coherent_mask(osdev->dev, addr_bits);
 }
 #else
 static int hif_set_dma_coherent_mask(qdf_device_t osdev)
 {
-	return qdf_set_dma_coherent_mask(osdev->dev,
-					DMA_COHERENT_MASK_DEFAULT);
+	return qdf_set_dma_coherent_mask(osdev->dev, 37);
 }
 #endif
 
@@ -268,28 +267,31 @@ QDF_STATUS hif_snoc_enable_bus(struct hif_softc *ol_sc,
 	int target_type;
 
 	if (!ol_sc) {
-		hif_err("hif_ctx is NULL");
+		HIF_ERROR("%s: hif_ctx is NULL", __func__);
 		return QDF_STATUS_E_NOMEM;
 	}
 
 	ret = hif_set_dma_coherent_mask(ol_sc->qdf_dev);
 	if (ret) {
-		hif_err("Failed to set dma mask error = %d", ret);
-		return qdf_status_from_os_return(ret);
+		HIF_ERROR("%s: failed to set dma mask error = %d",
+				__func__, ret);
+		return ret;
 	}
 
 	ret = qdf_device_init_wakeup(ol_sc->qdf_dev, true);
 	if (ret == -EEXIST)
-		hif_warn("device_init_wakeup already done");
+		HIF_WARN("%s: device_init_wakeup already done",
+				__func__);
 	else if (ret) {
-		hif_err("device_init_wakeup: err= %d", ret);
-		return qdf_status_from_os_return(ret);
+		HIF_ERROR("%s: device_init_wakeup: err= %d",
+				__func__, ret);
+		return ret;
 	}
 
 	ret = hif_snoc_get_target_type(ol_sc, dev, bdev, bid,
 			&hif_type, &target_type);
 	if (ret < 0) {
-		hif_err("Invalid device id/revision_id");
+		HIF_ERROR("%s: invalid device id/revision_id", __func__);
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -301,8 +303,8 @@ QDF_STATUS hif_snoc_enable_bus(struct hif_softc *ol_sc,
 	/* the bus should remain on durring suspend for snoc */
 	hif_vote_link_up(GET_HIF_OPAQUE_HDL(ol_sc));
 
-	hif_debug("X - hif_type = 0x%x, target_type = 0x%x",
-		  hif_type, target_type);
+	HIF_DBG("%s: X - hif_type = 0x%x, target_type = 0x%x",
+		  __func__, hif_type, target_type);
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -324,7 +326,7 @@ void hif_snoc_disable_bus(struct hif_softc *scn)
 
 	ret = qdf_device_init_wakeup(scn->qdf_dev, false);
 	if (ret)
-		hif_err("device_init_wakeup: err %d", ret);
+		HIF_ERROR("%s: device_init_wakeup: err %d", __func__, ret);
 }
 
 /**
@@ -389,7 +391,7 @@ QDF_STATUS hif_snoc_setup_wakeup_sources(struct hif_softc *scn, bool enable)
 		ret = disable_irq_wake(scn->wake_irq);
 
 	if (ret) {
-		hif_err("Fail to setup wake IRQ!");
+		HIF_ERROR("%s: Fail to setup wake IRQ!", __func__);
 		return QDF_STATUS_E_RESOURCES;
 	}
 

@@ -66,7 +66,7 @@ enum napi_decision_vector {
  */
 static int hif_rxthread_napi_poll(struct napi_struct *napi, int budget)
 {
-	hif_err("This napi_poll should not be polled as we don't schedule it");
+	HIF_ERROR("This napi_poll should not be polled as we don't schedule it");
 	QDF_ASSERT(0);
 	return 0;
 }
@@ -156,13 +156,14 @@ int hif_napi_create(struct hif_opaque_softc   *hif_ctx,
 
 		rc = hif_napi_cpu_init(hif_ctx);
 		if (rc != 0 && rc != -EALREADY) {
-			hif_err("NAPI_initialization failed(rc=%d)", rc);
+			HIF_ERROR("NAPI_initialization failed,. %d", rc);
 			rc = napid->ce_map;
 			goto hnc_err;
 		} else
 			rc = 0;
 
-		hif_debug("NAPI structures initialized, rc=%d", rc);
+		HIF_DBG("%s: NAPI structures initialized, rc=%d",
+			 __func__, rc);
 	}
 	for (i = 0; i < hif->ce_count; i++) {
 		ce_state = hif->ce_id_to_state[i];
@@ -198,7 +199,8 @@ int hif_napi_create(struct hif_opaque_softc   *hif_ctx,
 		napii->irq   = pld_get_irq(hif->qdf_dev->dev, i);
 
 		if (napii->irq < 0)
-			hif_warn("bad IRQ value for CE %d: %d", i, napii->irq);
+			HIF_WARN("%s: bad IRQ value for CE %d: %d",
+				 __func__, i, napii->irq);
 
 		init_dummy_netdev(&(napii->netdev));
 
@@ -225,12 +227,13 @@ int hif_napi_create(struct hif_opaque_softc   *hif_ctx,
 		 * protection as there should be no-one around yet
 		 */
 		napid->ce_map |= (0x01 << i);
-		hif_debug("NAPI id %d created for pipe %d", napii->id, i);
+		HIF_DBG("%s: NAPI id %d created for pipe %d", __func__,
+			 napii->id, i);
 	}
 
 	/* no ces registered with the napi */
 	if (!ce_srng_based(hif) && napid->ce_map == 0) {
-		hif_warn("no napis created for copy engines");
+		HIF_WARN("%s: no napis created for copy engines", __func__);
 		rc = -EFAULT;
 		goto napii_free;
 	}
@@ -264,7 +267,7 @@ void hif_napi_rx_offld_flush_cb_register(struct hif_opaque_softc *hif_hdl,
 	struct qca_napi_info *napii;
 
 	if (!scn) {
-		hif_err("hif_state NULL!");
+		HIF_ERROR("%s: hif_state NULL!", __func__);
 		QDF_ASSERT(0);
 		return;
 	}
@@ -275,7 +278,7 @@ void hif_napi_rx_offld_flush_cb_register(struct hif_opaque_softc *hif_hdl,
 		if (ce_state && (ce_state->htt_rx_data)) {
 			napii = napid->napis[i];
 			napii->offld_flush_cb = offld_flush_handler;
-			hif_debug("Registering offload for ce_id %d NAPI callback for %d flush_cb %pK",
+			HIF_DBG("Registering offload for ce_id %d NAPI callback for %d flush_cb %pK\n",
 				i, napii->id, napii->offld_flush_cb);
 		}
 	}
@@ -290,7 +293,7 @@ void hif_napi_rx_offld_flush_cb_deregister(struct hif_opaque_softc *hif_hdl)
 	struct qca_napi_info *napii;
 
 	if (!scn) {
-		hif_err("hif_state NULL!");
+		HIF_ERROR("%s: hif_state NULL!", __func__);
 		QDF_ASSERT(0);
 		return;
 	}
@@ -300,8 +303,8 @@ void hif_napi_rx_offld_flush_cb_deregister(struct hif_opaque_softc *hif_hdl)
 		ce_state = scn->ce_id_to_state[i];
 		if (ce_state && (ce_state->htt_rx_data)) {
 			napii = napid->napis[i];
-			hif_debug("deRegistering offld for ce_id %d NAPI callback for %d flush_cb %pK",
-				 i, napii->id, napii->offld_flush_cb);
+			HIF_DBG("deRegistering offld for ce_id %d NAPI callback for %d flush_cb %pK\n",
+				i, napii->id, napii->offld_flush_cb);
 			/* Not required */
 			napii->offld_flush_cb = NULL;
 		}
@@ -339,13 +342,15 @@ int hif_napi_destroy(struct hif_opaque_softc *hif_ctx,
 	NAPI_DEBUG("-->(id=%d, force=%d)", id, force);
 
 	if (0 == (hif->napi_data.state & HIF_NAPI_INITED)) {
-		hif_err("NAPI not initialized or entry %d not created", id);
+		HIF_ERROR("%s: NAPI not initialized or entry %d not created",
+			  __func__, id);
 		rc = -EINVAL;
 	} else if (0 == (hif->napi_data.ce_map & (0x01 << ce))) {
-		hif_err("NAPI instance %d (pipe %d) not created", id, ce);
+		HIF_ERROR("%s: NAPI instance %d (pipe %d) not created",
+			  __func__, id, ce);
 		if (hif->napi_data.napis[ce])
-			hif_err("memory allocated but ce_map not set %d (pipe %d)",
-				id, ce);
+			HIF_ERROR("%s: memory allocated but ce_map not set %d (pipe %d)",
+				  __func__, id, ce);
 		rc = -EINVAL;
 	} else {
 		struct qca_napi_data *napid;
@@ -355,7 +360,8 @@ int hif_napi_destroy(struct hif_opaque_softc *hif_ctx,
 		napii = napid->napis[ce];
 		if (!napii) {
 			if (napid->ce_map & (0x01 << ce))
-				hif_err("napii & ce_map out of sync(ce %d)", ce);
+				HIF_ERROR("%s: napii & ce_map out of sync(ce %d)",
+					  __func__, ce);
 			return -EINVAL;
 		}
 
@@ -363,10 +369,12 @@ int hif_napi_destroy(struct hif_opaque_softc *hif_ctx,
 		if (hif->napi_data.state == HIF_NAPI_CONF_UP) {
 			if (force) {
 				napi_disable(&(napii->napi));
-				hif_debug("NAPI entry %d force disabled", id);
+				HIF_DBG("%s: NAPI entry %d force disabled",
+					 __func__, id);
 				NAPI_DEBUG("NAPI %d force disabled", id);
 			} else {
-				hif_err("Cannot destroy active NAPI %d", id);
+				HIF_ERROR("%s: Cannot destroy active NAPI %d",
+					  __func__, id);
 				rc = -EPERM;
 			}
 		}
@@ -387,7 +395,7 @@ int hif_napi_destroy(struct hif_opaque_softc *hif_ctx,
 			napid->napis[ce] = NULL;
 			napii->scale  = 0;
 			qdf_mem_free(napii);
-			hif_debug("NAPI %d destroyed", id);
+			HIF_DBG("%s: NAPI %d destroyed\n", __func__, id);
 
 			/* if there are no active instances and
 			 * if they are all destroyed,
@@ -400,7 +408,8 @@ int hif_napi_destroy(struct hif_opaque_softc *hif_ctx,
 				qdf_spinlock_destroy(&(napid->lock));
 				memset(napid,
 				       0, sizeof(struct qca_napi_data));
-				hif_debug("no NAPI instances. Zapped");
+				HIF_DBG("%s: no NAPI instances. Zapped.",
+					 __func__);
 			}
 		}
 	}
@@ -530,21 +539,26 @@ int hif_napi_event(struct hif_opaque_softc *hif_ctx, enum qca_napi_event event,
 	case NAPI_EVT_INT_STATE: {
 		int on = (data != ((void *)0));
 
-		hif_debug("recved evnt: STATE_CMD %d; v = %d (state=0x%0x)",
-			 event, on, prev_state);
+		HIF_DBG("%s: recved evnt: STATE_CMD %d; v = %d (state=0x%0x)",
+			 __func__, event,
+			 on, prev_state);
 		if (on)
 			if (prev_state & HIF_NAPI_CONF_UP) {
-				hif_debug("Duplicate NAPI conf ON msg");
+				HIF_DBG("%s: duplicate NAPI conf ON msg",
+					 __func__);
 			} else {
-				hif_debug("Setting state to ON");
+				HIF_DBG("%s: setting state to ON",
+					 __func__);
 				napid->state |= HIF_NAPI_CONF_UP;
 			}
 		else /* off request */
 			if (prev_state & HIF_NAPI_CONF_UP) {
-				hif_debug("Setting state to OFF");
+				HIF_DBG("%s: setting state to OFF",
+				 __func__);
 				napid->state &= ~HIF_NAPI_CONF_UP;
 			} else {
-				hif_debug("Duplicate NAPI conf OFF msg");
+				HIF_DBG("%s: duplicate NAPI conf OFF msg",
+					 __func__);
 			}
 		break;
 	}
@@ -628,8 +642,8 @@ int hif_napi_event(struct hif_opaque_softc *hif_ctx, enum qca_napi_event event,
 		break;
 	}
 	default: {
-		hif_err("Unknown event: %d (data=0x%0lx)",
-			event, (unsigned long) data);
+		HIF_ERROR("%s: unknown event: %d (data=0x%0lx)",
+			  __func__, event, (unsigned long) data);
 		break;
 	} /* default */
 	}; /* switch */
@@ -687,7 +701,8 @@ int hif_napi_event(struct hif_opaque_softc *hif_ctx, enum qca_napi_event event,
 			}
 		}
 	} else {
-		hif_debug("no change in hif napi state (still %d)", prev_state);
+		HIF_DBG("%s: no change in hif napi state (still %d)",
+			 __func__, prev_state);
 	}
 
 	NAPI_DEBUG("<--[rc=%d]", rc);
@@ -765,7 +780,8 @@ bool hif_napi_schedule(struct hif_opaque_softc *hif_ctx, int ce_id)
 
 	napii = scn->napi_data.napis[ce_id];
 	if (qdf_unlikely(!napii)) {
-		hif_err("scheduling unallocated napi (ce:%d)", ce_id);
+		HIF_ERROR("%s, scheduling unallocated napi (ce:%d)",
+			      __func__, ce_id);
 		qdf_atomic_dec(&scn->active_tasklet_cnt);
 		return false;
 	}
@@ -824,7 +840,8 @@ bool hif_napi_correct_cpu(struct qca_napi_info *napi_info)
 			irq_modify_status(napi_info->irq, 0, IRQ_NO_BALANCING);
 
 			if (rc)
-				hif_err("Setting irq affinity hint: %d", rc);
+				HIF_ERROR("error setting irq affinity hint: %d",
+					  rc);
 			else
 				napi_info->stats[cpu].cpu_corrected++;
 		}
@@ -885,7 +902,7 @@ int hif_napi_poll(struct hif_opaque_softc *hif_ctx,
 	struct CE_state *ce_state = NULL;
 
 	if (unlikely(!hif)) {
-		hif_err("hif context is NULL");
+		HIF_ERROR("%s: hif context is NULL", __func__);
 		QDF_ASSERT(0);
 		goto out;
 	}
@@ -919,10 +936,10 @@ int hif_napi_poll(struct hif_opaque_softc *hif_ctx,
 				(QCA_NAPI_BUDGET / QCA_NAPI_NUM_BUCKETS);
 		if (bucket >= QCA_NAPI_NUM_BUCKETS) {
 			bucket = QCA_NAPI_NUM_BUCKETS - 1;
-			hif_err("Bad bucket#(%d) > QCA_NAPI_NUM_BUCKETS(%d)"
-				" normalized %d, napi budget %d",
-				bucket, QCA_NAPI_NUM_BUCKETS,
-				normalized, QCA_NAPI_BUDGET);
+			HIF_ERROR("Bad bucket#(%d) > QCA_NAPI_NUM_BUCKETS(%d)"
+					" normalized %d, napi budget %d",
+					bucket, QCA_NAPI_NUM_BUCKETS,
+					normalized, QCA_NAPI_BUDGET);
 		}
 		napi_info->stats[cpu].napi_budget_uses[bucket]++;
 	} else {
@@ -1658,7 +1675,7 @@ static inline void hif_napi_bl_irq(struct qca_napi_data *napid, bool bl_flag)
 		else
 			irq_modify_status(napii->irq,
 					  IRQ_NO_BALANCING, 0);
-		hif_debug("bl_flag %d CE %d", bl_flag, i);
+		HIF_DBG("%s: bl_flag %d CE %d", __func__, bl_flag, i);
 	}
 }
 

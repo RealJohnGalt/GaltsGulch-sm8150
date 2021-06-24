@@ -23,13 +23,6 @@
 #include "sir_api.h"
 #include "target_if.h"
 
-/* Number of bits to shift on HE MCS 12 13 MAP to get the desired map */
-#define WMA_MCS_12_13_MAP_L80 16
-#define WMA_MCS_12_13_MAP_G80 8
-
-/* Mask to fill tx and rx mcs rate maps to be sent to the FW */
-#define WMA_MCS_12_13_PEER_RATE_MAP 0x00ff0000
-
 #ifdef WLAN_FEATURE_11AX
 /**
  * wma_print_he_cap() - Print HE capabilities
@@ -325,11 +318,13 @@ static inline bool wma_is_peer_he_capable(tpAddStaParams params)
 static inline void wma_set_he_vdev_param(struct wma_txrx_node *intr,
 			WMI_VDEV_PARAM param_id, uint32_t value)
 {
+	WMA_LOGI(FL("Unable to update WMI_VDEV_PARAM: %0x"), param_id);
 }
 
 static inline uint32_t wma_get_he_vdev_param(struct wma_txrx_node *intr,
 					     WMI_VDEV_PARAM param_id)
 {
+	WMA_LOGI(FL("Unable to update WMI_VDEV_PARAM: %0x"), param_id);
 	return 0;
 }
 

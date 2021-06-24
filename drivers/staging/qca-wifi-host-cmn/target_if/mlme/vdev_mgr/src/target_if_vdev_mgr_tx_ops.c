@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -70,26 +70,14 @@ target_if_vdev_mgr_rsp_timer_stop(struct wlan_objmgr_psoc *psoc,
 		 * This is triggered from timer expiry case only for
 		 * which timer stop is not required
 		 */
-		if (vdev_rsp->timer_status == QDF_STATUS_E_TIMEOUT) {
-			if (clear_bit == DELETE_RESPONSE_BIT) {
-				qdf_atomic_set(&vdev_rsp->rsp_timer_inuse, 0);
-				vdev_rsp->psoc = NULL;
-			}
-		} else {
-			if (clear_bit == DELETE_RESPONSE_BIT) {
-				txops->psoc_vdev_rsp_timer_deinit(psoc,
-								  vdev_rsp->vdev_id);
-			} else {
-				qdf_timer_stop(&vdev_rsp->rsp_timer);
-			}
-		}
+		if (vdev_rsp->timer_status != QDF_STATUS_E_TIMEOUT)
+			qdf_timer_stop(&vdev_rsp->rsp_timer);
 
-		/*
-		 * Reset the timer_status to clear any error state. As this
-		 * variable is persistent, any leftover error status can cause
-		 * undesirable effects.
-		 */
 		vdev_rsp->timer_status = QDF_STATUS_SUCCESS;
+		if (clear_bit == DELETE_RESPONSE_BIT)
+			txops->psoc_vdev_rsp_timer_deinit(psoc,
+							  vdev_rsp->vdev_id);
+
 		/*
 		 * Releasing reference taken at the time of
 		 * starting response timer
@@ -479,9 +467,6 @@ static QDF_STATUS target_if_vdev_mgr_start_send(
 		else
 			target_if_vdev_mgr_rsp_timer_stop(psoc, vdev_rsp,
 							  START_RESPONSE_BIT);
-	} else {
-		target_if_vdev_start_link_handler(vdev,
-						  param->is_restart);
 	}
 	return status;
 }
@@ -625,8 +610,6 @@ static QDF_STATUS target_if_vdev_mgr_stop_send(
 		target_if_vdev_mgr_rsp_timer_stop(psoc, vdev_rsp,
 						  STOP_RESPONSE_BIT);
 		target_if_wake_lock_timeout_release(psoc, STOP_WAKELOCK);
-	} else {
-		target_if_vdev_stop_link_handler(vdev);
 	}
 	return status;
 }
@@ -895,9 +878,6 @@ static int32_t target_if_vdev_mgr_multi_vdev_restart_get_ref(
 						psoc,
 						wlan_vdev_get_id(tvdev));
 		if (!vdev_rsp) {
-			wlan_objmgr_vdev_release_ref(tvdev,
-						     WLAN_VDEV_TARGET_IF_ID);
-			vdev_list[vdev_idx] = NULL;
 			mlme_err("VDEV_%d PSOC_%d No vdev rsp timer",
 				 vdev_idx, wlan_psoc_get_id(psoc));
 			return last_vdev_idx;
@@ -922,7 +902,7 @@ static void target_if_vdev_mgr_multi_vdev_restart_rel_ref(
 	struct wlan_objmgr_psoc *psoc;
 	struct wlan_objmgr_vdev *tvdev;
 	struct wlan_lmac_if_mlme_rx_ops *rx_ops;
-	int32_t vdev_idx;
+	uint32_t vdev_idx;
 	struct vdev_response_timer *vdev_rsp;
 
 	psoc = wlan_pdev_get_psoc(pdev);
@@ -980,12 +960,6 @@ static QDF_STATUS target_if_vdev_mgr_multiple_vdev_restart_req_cmd(
 	wmi_handle = get_wmi_unified_hdl_from_pdev(pdev);
 	if (!wmi_handle) {
 		mlme_err("PDEV WMI Handle is NULL!");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	if (param->num_vdevs > WLAN_UMAC_PDEV_MAX_VDEVS) {
-		mlme_err("param->num_vdevs: %u exceed the limit",
-			 param->num_vdevs);
 		return QDF_STATUS_E_INVAL;
 	}
 

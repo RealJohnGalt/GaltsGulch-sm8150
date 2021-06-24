@@ -2019,7 +2019,7 @@ QDF_STATUS target_if_deinit_dbr_ring(struct wlan_objmgr_pdev *pdev,
 QDF_STATUS target_if_direct_buf_rx_register_events(
 				struct wlan_objmgr_psoc *psoc)
 {
-	QDF_STATUS ret;
+	int ret;
 
 	if (!psoc || !GET_WMI_HDL_FROM_PSOC(psoc)) {
 		direct_buf_rx_err("psoc or psoc->tgt_if_handle is null");
@@ -2032,7 +2032,7 @@ QDF_STATUS target_if_direct_buf_rx_register_events(
 			target_if_direct_buf_rx_rsp_event_handler,
 			WMI_RX_UMAC_CTX);
 
-	if (QDF_IS_STATUS_ERROR(ret))
+	if (ret)
 		direct_buf_rx_debug("event handler not supported, ret=%d", ret);
 
 	return QDF_STATUS_SUCCESS;

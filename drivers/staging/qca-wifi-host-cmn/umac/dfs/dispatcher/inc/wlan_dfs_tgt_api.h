@@ -47,20 +47,19 @@
  *                         1). Segment ID,
  *                         2). Chirp information (is chirp or non chirp),
  *                         3). Frequency offset.
- *                         4). Detector ID.
  *
  * The packed argument structure is:
  *
- * ------------------------------32 bits arg----------------------------
+ * ------------------------------32 bits arg-------------------------
  *
- * ------------19 bits-------|--2 bits-|-------8 bits------|1 bit|2 bits|
- * ______________________________________________________________________
- *|                          |   | |   | | | | | | | | | | |     |   |   |
- *|------19 Unused bits------| x | | x |x|x|x| |x|x|x|x| |x|  x  | x | x |
- *|__________________________|___|_|___|_|_|_|_|_|_|_|_|_|_|_____|___|___|
+ * ------------21 bits-------------|-------8 bits------|1 bit|2 bits|
+ * __________________________________________________________________
+ *|                                | | | | | | | | | | |     |   |   |
+ *|---------21 Unused bits---------|x|x|x| |x|x|x|x| |x|  x  | x | x |
+ *|________________________________|_|_|_|_|_|_|_|_|_|_|_____|___|___|
  *
- *                           |_________|___________________|_____|_______|
- *                              det.ID     freq.offset      Chirp  seg.ID
+ *                                 |___________________|_____|_______|
+ *                                   freq.offset        Chirp  segID
  *
  * @DFS_UNIT_TEST_NUM_ARGS:     Number of arguments for bangradar unit test
  *                              command.
@@ -75,14 +74,9 @@ enum {
 	DFS_MAX_NUM_UNIT_TEST_ARGS = DFS_UNIT_TEST_NUM_ARGS
 };
 
-#define SEG_ID_SHIFT         0
-#define IS_CHIRP_SHIFT       2
-#define FREQ_OFF_SHIFT       3
-#define DET_ID_SHIFT        11
-#define SEG_ID_MASK       0x03
-#define IS_CHIRP_MASK     0x01
-#define FREQ_OFFSET_MASK  0xFF
-#define DET_ID_MASK       0x03
+#define SEG_ID_SIZE 2
+#define IS_CHIRP_SIZE 1
+#define MASK 0xFF
 
 /**
  * struct dfs_emulate_bang_radar_test_cmd - Unit test command structure to send
@@ -103,18 +97,14 @@ struct dfs_emulate_bang_radar_test_cmd {
  * @vdev_id: Physical device identifier
  * @chan_freq: Channel number
  * @chan_width: Channel Width
- * @center_freq1 : For 20/40/80/160Mhz, it is the center of the corresponding
- * band. For 80P80/165MHz, it is the center of the left 80MHz.
- * @center_freq2 : It is valid and non-zero only for 80P80/165MHz. It indicates
- * the Center Frequency of the right 80MHz segment.
+ * @center_freq: Center channel number
  * @ocac_status: off channel cac status
  */
 struct vdev_adfs_complete_status {
 	uint32_t vdev_id;
 	uint32_t chan_freq;
 	uint32_t chan_width;
-	uint32_t center_freq1;
-	uint32_t center_freq2;
+	uint32_t center_freq;
 	uint32_t ocac_status;
 };
 
@@ -155,7 +145,6 @@ QDF_STATUS tgt_dfs_set_current_channel(struct wlan_objmgr_pdev *pdev,
  * @dfs_ch_mhz_freq_seg1:  Channel center frequency of primary segment in MHZ.
  * @dfs_ch_mhz_freq_seg2:  Channel center frequency of secondary segment in MHZ
  *                         applicable only for 80+80MHZ mode of operation.
- * @is_channel_updated: Boolean to represent channel update.
  */
 #ifdef CONFIG_CHAN_FREQ_API
 QDF_STATUS
@@ -167,8 +156,7 @@ tgt_dfs_set_current_channel_for_freq(struct wlan_objmgr_pdev *pdev,
 				     uint8_t dfs_ch_vhtop_ch_freq_seg1,
 				     uint8_t dfs_ch_vhtop_ch_freq_seg2,
 				     uint16_t dfs_ch_mhz_freq_seg1,
-				     uint16_t dfs_ch_mhz_freq_seg2,
-				     bool *is_channel_updated);
+				     uint16_t dfs_ch_mhz_freq_seg2);
 #endif
 
 /**
@@ -639,6 +627,8 @@ void tgt_dfs_deinit_tmp_psoc_nol(struct wlan_objmgr_pdev *pdev);
  * tgt_dfs_save_dfs_nol_in_psoc() - Save NOL data of given pdev.
  * @pdev: Pointer to pdev object.
  * @pdev_id: The pdev ID which will have the NOL data.
+ * @low_5ghz_freq: The low 5GHz frequency value of the target pdev id.
+ * @high_5ghz_freq: The high 5GHz frequency value of the target pdev id.
  *
  * Based on the frequency of the NOL channel, copy it to the target pdev_id
  * structure in psoc.
@@ -646,22 +636,20 @@ void tgt_dfs_deinit_tmp_psoc_nol(struct wlan_objmgr_pdev *pdev);
  * Return: void.
  */
 void tgt_dfs_save_dfs_nol_in_psoc(struct wlan_objmgr_pdev *pdev,
-				  uint8_t pdev_id);
+				  uint8_t pdev_id,
+				  uint16_t low_5ghz_freq,
+				  uint16_t high_5ghz_freq);
 
 /**
  * tgt_dfs_reinit_nol_from_psoc_copy() - Reinit saved NOL data to corresponding
  * pdevs.
  * @pdev: Pointer to pdev object.
  * @pdev_id: pdev_id of the given pdev.
- * @low_5ghz_freq: The low 5GHz frequency value of the target pdev id.
- * @high_5ghz_freq: The high 5GHz frequency value of the target pdev id.
  *
  * Return: void.
  */
 void tgt_dfs_reinit_nol_from_psoc_copy(struct wlan_objmgr_pdev *pdev,
-				       uint8_t pdev_id,
-				       uint16_t low_5ghz_freq,
-				       uint16_t high_5ghz_freq);
+				       uint8_t pdev_id);
 
 /**
  * tgt_dfs_reinit_precac_lists() - Reinit preCAC lists.

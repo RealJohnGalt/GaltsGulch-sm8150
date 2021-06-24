@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -148,7 +148,7 @@ int ce_send_fast(struct CE_handle *copyeng, qdf_nbuf_t msdu,
 	 * sure there is no PCIe link access.
 	 */
 	if (hif_pm_runtime_get(hif_hdl,
-			       RTPM_ID_CE_SEND_FAST, false) != 0)
+			       RTPM_ID_CE_SEND_FAST) != 0)
 		ok_to_send = false;
 
 	if (ok_to_send) {
@@ -484,8 +484,8 @@ more_data:
 		if (more_comp_cnt++ < CE_TXRX_COMP_CHECK_THRESHOLD) {
 			goto more_data;
 		} else {
-			hif_err("Potential infinite loop detected during Rx processing nentries_mask:0x%x sw read_idx:0x%x hw read_idx:0x%x",
-				  nentries_mask,
+			HIF_ERROR("%s:Potential infinite loop detected during Rx processing nentries_mask:0x%x sw read_idx:0x%x hw read_idx:0x%x",
+				  __func__, nentries_mask,
 				  ce_state->dest_ring->sw_index,
 				  CE_DEST_RING_READ_IDX_GET(scn, ctrl_addr));
 		}
@@ -522,7 +522,7 @@ static inline bool ce_is_fastpath_enabled(struct hif_softc *scn)
 }
 #endif /* WLAN_FEATURE_FASTPATH */
 
-static QDF_STATUS
+static int
 ce_send_nolock_legacy(struct CE_handle *copyeng,
 		      void *per_transfer_context,
 		      qdf_dma_addr_t buffer,
@@ -531,7 +531,7 @@ ce_send_nolock_legacy(struct CE_handle *copyeng,
 		      uint32_t flags,
 		      uint32_t user_flags)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
 	uint32_t ctrl_addr = CE_state->ctrl_addr;
@@ -622,12 +622,12 @@ ce_send_nolock_legacy(struct CE_handle *copyeng,
 	return status;
 }
 
-static QDF_STATUS
+static int
 ce_sendlist_send_legacy(struct CE_handle *copyeng,
 			void *per_transfer_context,
 			struct ce_sendlist *sendlist, unsigned int transfer_id)
 {
-	QDF_STATUS status = QDF_STATUS_E_NOMEM;
+	int status = -ENOMEM;
 	struct ce_sendlist_s *sl = (struct ce_sendlist_s *)sendlist;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
@@ -706,13 +706,13 @@ ce_sendlist_send_legacy(struct CE_handle *copyeng,
  * @per_recv_context: virtual address of the nbuf
  * @buffer: physical address of the nbuf
  *
- * Return: QDF_STATUS_SUCCESS if the buffer is enqueued
+ * Return: 0 if the buffer is enqueued
  */
-static QDF_STATUS
+static int
 ce_recv_buf_enqueue_legacy(struct CE_handle *copyeng,
 			   void *per_recv_context, qdf_dma_addr_t buffer)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_state *CE_state = (struct CE_state *)copyeng;
 	struct CE_ring_state *dest_ring = CE_state->dest_ring;
 	uint32_t ctrl_addr = CE_state->ctrl_addr;
@@ -728,7 +728,7 @@ ce_recv_buf_enqueue_legacy(struct CE_handle *copyeng,
 
 	if (Q_TARGET_ACCESS_BEGIN(scn) < 0) {
 		qdf_spin_unlock_bh(&CE_state->ce_index_lock);
-		return QDF_STATUS_E_IO;
+		return -EIO;
 	}
 
 	if ((CE_RING_DELTA(nentries_mask, write_index, sw_index - 1) > 0) ||
@@ -802,7 +802,7 @@ ce_recv_entries_done_nolock_legacy(struct hif_softc *scn,
 	return CE_RING_DELTA(nentries_mask, sw_index, read_index);
 }
 
-static QDF_STATUS
+static int
 ce_completed_recv_next_nolock_legacy(struct CE_state *CE_state,
 				     void **per_CE_contextp,
 				     void **per_transfer_contextp,
@@ -811,7 +811,7 @@ ce_completed_recv_next_nolock_legacy(struct CE_state *CE_state,
 				     unsigned int *transfer_idp,
 				     unsigned int *flagsp)
 {
-	QDF_STATUS status;
+	int status;
 	struct CE_ring_state *dest_ring = CE_state->dest_ring;
 	unsigned int nentries_mask = dest_ring->nentries_mask;
 	unsigned int sw_index = dest_ring->sw_index;
@@ -930,7 +930,7 @@ ce_revoke_recv_next_legacy(struct CE_handle *copyeng,
  * Guts of ce_completed_send_next.
  * The caller takes responsibility for any necessary locking.
  */
-static QDF_STATUS
+static int
 ce_completed_send_next_nolock_legacy(struct CE_state *CE_state,
 				     void **per_CE_contextp,
 				     void **per_transfer_contextp,
@@ -941,7 +941,7 @@ ce_completed_send_next_nolock_legacy(struct CE_state *CE_state,
 				     unsigned int *hw_idx,
 				     uint32_t *toeplitz_hash_result)
 {
-	QDF_STATUS status = QDF_STATUS_E_FAILURE;
+	int status = QDF_STATUS_E_FAILURE;
 	struct CE_ring_state *src_ring = CE_state->src_ring;
 	uint32_t ctrl_addr = CE_state->ctrl_addr;
 	unsigned int nentries_mask = src_ring->nentries_mask;

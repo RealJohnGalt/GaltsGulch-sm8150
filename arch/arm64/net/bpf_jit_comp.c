@@ -21,7 +21,6 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/printk.h>
-#include <linux/skbuff.h>
 #include <linux/slab.h>
 
 #include <asm/byteorder.h>
@@ -174,7 +173,7 @@ static int build_prologue(struct jit_ctx *ctx)
 	 *                        | ... | BPF prog stack
 	 *                        |     |
 	 *                        +-----+ <= (BPF_FP - prog->aux->stack_depth)
-	 *                        |RSVD | JIT scratchpad
+	 *                        |RSVD | padding
 	 * current A64_SP =>      +-----+ <= (BPF_FP - ctx->stack_size)
 	 *                        |     |
 	 *                        | ... | Function call stack
@@ -206,9 +205,7 @@ static int build_prologue(struct jit_ctx *ctx)
 		return -1;
 	}
 
-	/* 4 byte extra for skb_copy_bits buffer */
-	ctx->stack_size = prog->aux->stack_depth + 4;
-	ctx->stack_size = STACK_ALIGN(ctx->stack_size);
+	ctx->stack_size = STACK_ALIGN(prog->aux->stack_depth);
 
 	/* Set up function call stack */
 	emit(A64_SUB_I(1, A64_SP, A64_SP, ctx->stack_size), ctx);
@@ -963,3 +960,16 @@ bool arch_bpf_jit_check_func(const struct bpf_prog *prog)
 	return (func >= MODULES_VADDR && func < MODULES_END);
 }
 #endif
+
+void *bpf_jit_alloc_exec(unsigned long size)
+{
+	return __vmalloc_node_range(size, PAGE_SIZE, BPF_JIT_REGION_START,
+				    BPF_JIT_REGION_END, GFP_KERNEL,
+				    PAGE_KERNEL_EXEC, 0, NUMA_NO_NODE,
+				    __builtin_return_address(0));
+}
+
+void bpf_jit_free_exec(void *addr)
+{
+	return vfree(addr);
+}

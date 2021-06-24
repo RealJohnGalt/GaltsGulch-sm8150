@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  *
  * Permission to use, copy, modify, and/or distribute this software for
@@ -93,21 +93,16 @@ struct pdev_spectral {
 	uint32_t spectral_pid;
 };
 
-struct spectral_wmi_ops;
-struct spectral_tgt_ops;
-
+struct wmi_spectral_cmd_ops;
 /**
  * struct spectral_context - spectral global context
  * @psoc_obj:               Reference to psoc global object
- * @psoc_target_handle: Reference to psoc target_if object
  * @spectral_legacy_cbacks: Spectral legacy callbacks
  *
  * Call back functions to invoke independent of OL/DA
  * @sptrlc_ucfg_phyerr_config:     ucfg handler for phyerr
- * @sptrlc_pdev_spectral_init: Init pdev Spectral
- * @sptrlc_pdev_spectral_deinit: Deinit pdev Spectral
- * @sptrlc_psoc_spectral_init: Spectral psoc init
- * @sptrlc_psoc_spectral_deinit: Spectral psoc deinit
+ * @sptrlc_pdev_spectral_init:     Init spectral
+ * @sptrlc_pdev_spectral_deinit:   Deinit spectral
  * @sptrlc_set_spectral_config:    Set spectral configurations
  * @sptrlc_get_spectral_config:    Get spectral configurations
  * @sptrlc_start_spectral_scan:    Start spectral scan
@@ -118,8 +113,7 @@ struct spectral_tgt_ops;
  * @sptrlc_get_debug_level:        Get debug level
  * @sptrlc_get_spectral_capinfo:   Get spectral capability info
  * @sptrlc_get_spectral_diagstats: Get spectral diag status
- * @sptrlc_register_spectral_wmi_ops: Register Spectral WMI operations
- * @ptrlc_register_spectral_tgt_ops: Register Spectral target operations
+ * @sptrlc_register_wmi_spectral_cmd_ops: Register wmi_spectral_cmd operations
  * @sptrlc_register_netlink_cb: Register Netlink callbacks
  * @sptrlc_use_nl_bcast: Check whether to use Netlink broadcast/unicast
  * @sptrlc_deregister_netlink_cb: De-register Netlink callbacks
@@ -128,7 +122,6 @@ struct spectral_tgt_ops;
  */
 struct spectral_context {
 	struct wlan_objmgr_psoc *psoc_obj;
-	void *psoc_target_handle;
 	struct spectral_legacy_cbacks legacy_cbacks;
 	QDF_STATUS (*sptrlc_spectral_control)
 					(struct wlan_objmgr_pdev *pdev,
@@ -137,11 +130,10 @@ struct spectral_context {
 					 void *ad);
 	void * (*sptrlc_pdev_spectral_init)(struct wlan_objmgr_pdev *pdev);
 	void (*sptrlc_pdev_spectral_deinit)(struct wlan_objmgr_pdev *pdev);
-	void * (*sptrlc_psoc_spectral_init)(struct wlan_objmgr_psoc *psoc);
-	void (*sptrlc_psoc_spectral_deinit)(struct wlan_objmgr_psoc *psoc);
 	QDF_STATUS (*sptrlc_set_spectral_config)
 				(struct wlan_objmgr_pdev *pdev,
-				 const struct spectral_cp_param *param,
+				 const uint32_t threshtype,
+				 const uint32_t value,
 				 const enum spectral_scan_mode smode,
 				 enum spectral_cp_error_code *err);
 	QDF_STATUS (*sptrlc_get_spectral_config)
@@ -150,7 +142,6 @@ struct spectral_context {
 					 const enum spectral_scan_mode smode);
 	QDF_STATUS (*sptrlc_start_spectral_scan)
 					(struct wlan_objmgr_pdev *pdev,
-					 uint8_t vdev_id,
 					 const enum spectral_scan_mode smode,
 					 enum spectral_cp_error_code *err);
 	QDF_STATUS (*sptrlc_stop_spectral_scan)
@@ -169,12 +160,9 @@ struct spectral_context {
 	QDF_STATUS (*sptrlc_get_spectral_diagstats)
 					(struct wlan_objmgr_pdev *pdev,
 					 struct spectral_diag_stats *stats);
-	QDF_STATUS (*sptrlc_register_spectral_wmi_ops)(
-					struct wlan_objmgr_psoc *psoc,
-					struct spectral_wmi_ops *wmi_ops);
-	QDF_STATUS (*sptrlc_register_spectral_tgt_ops)(
-					struct wlan_objmgr_psoc *psoc,
-					struct spectral_tgt_ops *tgt_ops);
+	void (*sptrlc_register_wmi_spectral_cmd_ops)(
+			struct wlan_objmgr_pdev *pdev,
+			struct wmi_spectral_cmd_ops *cmd_ops);
 	void (*sptrlc_register_netlink_cb)(
 			struct wlan_objmgr_pdev *pdev,
 			struct spectral_nl_cb *nl_cb);

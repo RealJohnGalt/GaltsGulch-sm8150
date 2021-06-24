@@ -127,8 +127,7 @@ static void lim_extract_he_op(struct pe_session *session,
 		session->he_op.oper_info_6g.info.center_freq_seg0;
 	session->ch_center_freq_seg1 =
 		session->he_op.oper_info_6g.info.center_freq_seg1;
-	session->ap_power_type =
-		session->he_op.oper_info_6g.info.reg_info;
+
 	pe_debug("6G op info: ch_wd %d cntr_freq_seg0 %d cntr_freq_seg1 %d",
 		 session->ch_width, session->ch_center_freq_seg0,
 		 session->ch_center_freq_seg1);
@@ -256,34 +255,12 @@ void lim_update_he_bw_cap_mcs(struct pe_session *session,
 							HE_MCS_ALL_DISABLED;
 	}
 }
-
-void lim_update_he_mcs_12_13_map(struct wlan_objmgr_psoc *psoc,
-				 uint8_t vdev_id, uint16_t he_mcs_12_13_map)
-{
-	struct wlan_objmgr_vdev *vdev;
-
-	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
-						    WLAN_LEGACY_MAC_ID);
-	if (!vdev) {
-		pe_err("vdev not found for id: %d", vdev_id);
-		return;
-	}
-	wlan_vdev_obj_lock(vdev);
-	wlan_vdev_mlme_set_he_mcs_12_13_map(vdev, he_mcs_12_13_map);
-	wlan_vdev_obj_unlock(vdev);
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
-}
 #else
 static inline void lim_extract_he_op(struct pe_session *session,
 		tSirProbeRespBeacon *beacon_struct)
 {}
 static void lim_check_is_he_mcs_valid(struct pe_session *session,
 				      tSirProbeRespBeacon *beacon_struct)
-{
-}
-
-void lim_update_he_mcs_12_13_map(struct wlan_objmgr_psoc *psoc,
-				 uint8_t vdev_id, uint16_t he_mcs_12_13_map)
 {
 }
 #endif
@@ -343,36 +320,6 @@ static inline bool lim_extract_adaptive_11r_cap(uint8_t *ie, uint16_t ie_len)
 }
 #endif
 
-#ifdef WLAN_FEATURE_11AX
-static void lim_check_peer_ldpc_and_update(struct pe_session *session,
-				    tSirProbeRespBeacon *beacon_struct)
-{
-	/*
-	 * In 2.4G if AP supports HE till MCS 0-9 we can associate
-	 * with HE mode instead downgrading to 11ac
-	 */
-	if (session->he_capable &&
-	    WLAN_REG_IS_24GHZ_CH_FREQ(session->curr_op_freq) &&
-	    beacon_struct->he_cap.present &&
-	    lim_check_he_80_mcs11_supp(session, &beacon_struct->he_cap) &&
-	    !beacon_struct->he_cap.ldpc_coding) {
-		session->he_capable = false;
-		pe_err("LDPC check failed for HE operation");
-		if (session->vhtCapability) {
-			session->dot11mode = MLME_DOT11_MODE_11AC;
-			pe_debug("Update dot11mode to 11ac");
-		} else {
-			session->dot11mode = MLME_DOT11_MODE_11N;
-			pe_debug("Update dot11mode to 11N");
-		}
-	}
-}
-#else
-static void lim_check_peer_ldpc_and_update(struct pe_session *session,
-					   tSirProbeRespBeacon *beacon_struct)
-{}
-#endif
-
 static
 void lim_update_ch_width_for_p2p_client(struct mac_context *mac,
 					struct pe_session *session,
@@ -381,9 +328,9 @@ void lim_update_ch_width_for_p2p_client(struct mac_context *mac,
 	struct ch_params ch_params = {0};
 
 	/*
-	 * Some IOT AP's/P2P-GO's (e.g. make: Intel and model: Intel(R)
-	 * Wireless-AC 9560160MHz as P2P GO), send beacon with 20mhz and assoc
-	 * resp with 80mhz and after assoc resp, next beacon also has 80mhz.
+	 * Some IOT AP's/P2P-GO's (e.g. make: Wireless-AC 9560160MHz as P2P GO),
+	 * send beacon with 20mhz and assoc resp with 80mhz and
+	 * after assoc resp, next beacon also has 80mhz.
 	 * Connection is expected to happen in better possible
 	 * bandwidth(80MHz in this case).
 	 * Start the vdev with max supported ch_width in order to support this.
@@ -414,8 +361,7 @@ void lim_update_ch_width_for_p2p_client(struct mac_context *mac,
 void lim_extract_ap_capability(struct mac_context *mac_ctx, uint8_t *p_ie,
 			       uint16_t ie_len, uint8_t *qos_cap,
 			       uint8_t *uapsd, int8_t *local_constraint,
-			       struct pe_session *session,
-			       bool *is_pwr_constraint)
+			       struct pe_session *session)
 {
 	tSirProbeRespBeacon *beacon_struct;
 	uint8_t ap_bcon_ch_width;
@@ -594,9 +540,9 @@ void lim_extract_ap_capability(struct mac_context *mac_ctx, uint8_t *p_ie,
 			}
 		} else if (vht_ch_wd == WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ) {
 			/* DUT or AP supports only 80MHz */
+			session->ch_center_freq_seg1 = 0;
 			session->ch_center_freq_seg0 =
 				lim_get_80Mhz_center_channel(channel);
-			session->ch_center_freq_seg1 = 0;
 		}
 		session->ch_width = vht_ch_wd + 1;
 	}
@@ -608,40 +554,18 @@ void lim_extract_ap_capability(struct mac_context *mac_ctx, uint8_t *p_ie,
 		session->gLimOperatingMode.present =
 			ext_cap->oper_mode_notification;
 		if (ext_cap->oper_mode_notification) {
-			uint8_t self_nss = 0;
-
-			if (!wlan_reg_is_24ghz_ch_freq(session->curr_op_freq))
-				self_nss = mac_ctx->vdev_type_nss_5g.sta;
-			else
-				self_nss = mac_ctx->vdev_type_nss_2g.sta;
-
 			if (CH_WIDTH_160MHZ > session->ch_width)
 				session->gLimOperatingMode.chanWidth =
 						session->ch_width;
 			else
 				session->gLimOperatingMode.chanWidth =
 					CH_WIDTH_160MHZ;
-			/** Populate vdev nss in OMN ie of assoc requse for
-			 *  WFA CERT test scenario.
-			 */
-			if (ext_cap->beacon_protection_enable &&
-			    (session->opmode == QDF_STA_MODE) &&
-			    (!session->nss_forced_1x1) &&
-			     lim_get_nss_supported_by_ap(
-					&beacon_struct->VHTCaps,
-					&beacon_struct->HTCaps,
-					&beacon_struct->he_cap) ==
-						 NSS_1x1_MODE)
-				session->gLimOperatingMode.rxNSS = self_nss - 1;
-			else
-				session->gLimOperatingMode.rxNSS =
-							session->nss - 1;
+			session->gLimOperatingMode.rxNSS = session->nss - 1;
 		} else {
 			pe_err("AP does not support op_mode rx");
 		}
 	}
 	lim_check_is_he_mcs_valid(session, beacon_struct);
-	lim_check_peer_ldpc_and_update(session, beacon_struct);
 	lim_extract_he_op(session, beacon_struct);
 	lim_update_he_bw_cap_mcs(session, beacon_struct);
 	/* Extract the UAPSD flag from WMM Parameter element */
@@ -650,14 +574,12 @@ void lim_extract_ap_capability(struct mac_context *mac_ctx, uint8_t *p_ie,
 
 	if (mac_ctx->mlme_cfg->sta.allow_tpc_from_ap) {
 		if (beacon_struct->powerConstraintPresent) {
-			*local_constraint =
+			*local_constraint -=
 				beacon_struct->localPowerConstraint.
 					localPowerConstraints;
-			*is_pwr_constraint = true;
 		} else {
 			get_local_power_constraint_probe_response(
 				beacon_struct, local_constraint, session);
-			*is_pwr_constraint = false;
 		}
 	}
 

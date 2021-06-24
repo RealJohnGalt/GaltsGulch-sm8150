@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -362,6 +362,7 @@ __ol_transfer_bin_file(struct ol_context *ol_ctx, enum ATH_BIN_FILE file,
 
 		temp_eeprom = qdf_mem_malloc(fw_entry_size);
 		if (!temp_eeprom) {
+			BMI_ERR("%s: Memory allocation failed", __func__);
 			status = -ENOMEM;
 			goto release_fw;
 		}
@@ -593,8 +594,10 @@ int ol_copy_ramdump(struct hif_opaque_softc *scn)
 		return 0;
 	}
 	info = qdf_mem_malloc(sizeof(struct ramdump_info));
-	if (!info)
+	if (!info) {
+		BMI_ERR("%s Memory for Ramdump Allocation failed", __func__);
 		return -ENOMEM;
+	}
 
 	ol_get_ramdump_mem(qdf_dev->dev, info);
 
@@ -723,17 +726,12 @@ void ol_target_failure(void *instance, QDF_STATUS status)
 	struct ol_config_info *ini_cfg = ol_get_ini_handle(ol_ctx);
 	qdf_device_t qdf_dev = ol_ctx->qdf_dev;
 	int ret;
-	bool skip_recovering_check = false;
 	enum hif_target_status target_status = hif_get_target_status(scn);
 
 	if (hif_get_bus_type(scn) == QDF_BUS_TYPE_SNOC) {
 		BMI_ERR("SNOC doesn't suppor this code path!");
 		return;
 	}
-
-	/* If Host driver trigger target failure, skip recovering check */
-	if (cds_is_target_asserting())
-		skip_recovering_check = true;
 
 	qdf_event_set(&wma->recovery_event);
 
@@ -750,13 +748,8 @@ void ol_target_failure(void *instance, QDF_STATUS status)
 		return;
 	}
 
-	if (!skip_recovering_check && cds_is_driver_recovering()) {
+	if (cds_is_driver_recovering() || cds_is_driver_in_bad_state()) {
 		BMI_ERR("%s: Recovery in progress, ignore!\n", __func__);
-		return;
-	}
-
-	if (cds_is_driver_in_bad_state()) {
-		BMI_ERR("%s: Driver in bad state, ignore!\n", __func__);
 		return;
 	}
 

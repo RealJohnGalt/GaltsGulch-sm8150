@@ -497,6 +497,7 @@ action_oui_extension_store(struct action_oui_psoc_priv *psoc_priv,
 	ext_priv = qdf_mem_malloc(sizeof(*ext_priv));
 	if (!ext_priv) {
 		qdf_mutex_release(&oui_priv->extension_lock);
+		action_oui_err("Failed to allocate memory for action oui extension priv");
 		return QDF_STATUS_E_NOMEM;
 	}
 
@@ -537,7 +538,7 @@ action_oui_parse(struct action_oui_psoc_priv *psoc_priv,
 	str1 = qdf_str_trim((char *)oui_string);
 
 	while (str1) {
-		str2 = (char *)qdf_str_left_trim(str1);
+		str2 = skip_spaces(str1);
 		if (str2[0] == '\0') {
 			action_oui_err("Invalid spaces in action oui: %u at extension: %u for token: %s",
 				action_id,
@@ -697,6 +698,7 @@ QDF_STATUS action_oui_send(struct action_oui_psoc_priv *psoc_priv,
 	len = sizeof(*req) + no_oui_extensions * sizeof(*extension);
 	req = qdf_mem_malloc(len);
 	if (!req) {
+		action_oui_err("Failed to allocate memory for action_oui");
 		qdf_mutex_release(&oui_priv->extension_lock);
 		return QDF_STATUS_E_NOMEM;
 	}

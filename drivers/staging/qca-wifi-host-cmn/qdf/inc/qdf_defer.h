@@ -154,12 +154,12 @@ static inline qdf_workqueue_t *qdf_alloc_unbound_workqueue(char *name)
  * @hdl: OS handle
  * @wqueue: pointer to workqueue
  * @work: pointer to work
- * Return: false if work was already on a queue, true otherwise
+ * Return: none
  */
-static inline bool
+static inline void
 qdf_queue_work(qdf_handle_t hdl, qdf_workqueue_t *wqueue, qdf_work_t *work)
 {
-	return __qdf_queue_work(wqueue, work);
+	return  __qdf_queue_work(wqueue, work);
 }
 
 /**

@@ -22,11 +22,7 @@
 #include <linux/slab.h>
 
 #ifdef CONFIG_PLD_SNOC_ICNSS
-#ifdef CONFIG_PLD_SNOC_ICNSS2
-#include <soc/qcom/icnss2.h>
-#else
 #include <soc/qcom/icnss.h>
-#endif
 #endif
 
 #include "pld_internal.h"
@@ -35,10 +31,11 @@
 
 #ifdef CONFIG_PLD_SNOC_ICNSS
 /**
- * pld_snoc_idle_restart_cb() - Perform idle restart
+ *
+ *pld_snoc_idle_restart_cb() - Perform idle restart
  * @pdev: platform device
  *
- * This function will be called if there is an idle restart request
+ *This function will be called if there is an idle restart request
  *
  * Return: int
  **/

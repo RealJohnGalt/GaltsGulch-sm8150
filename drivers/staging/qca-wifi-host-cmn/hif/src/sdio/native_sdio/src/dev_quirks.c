@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -108,7 +108,8 @@ void hif_sdio_quirk_force_drive_strength(struct hif_softc *ol_sc,
 
 	err = func0_cmd52_read_byte(func->card, addr, &value);
 	if (err) {
-		hif_err("read driver strength 0x%02X fail %d", addr, err);
+		HIF_ERROR("%s: read driver strength 0x%02X fail %d\n",
+			  __func__, addr, err);
 		return;
 	}
 
@@ -116,8 +117,9 @@ void hif_sdio_quirk_force_drive_strength(struct hif_softc *ol_sc,
 	value = (value & ~mask) | SDIO_DTSx_SET_TYPE_D;
 	err = func0_cmd52_write_byte(func->card, addr, value);
 	if (err) {
-		hif_err("Write driver strength 0x%02X to 0x%02X failed: %d",
-			(uint32_t)value, addr, err);
+		HIF_ERROR("%s: write driver strength failed", __func__);
+		HIF_ERROR("%s: 0x%02X to 0x%02X failed: %d\n", __func__,
+			  (uint32_t)value, addr, err);
 		return;
 	}
 
@@ -125,7 +127,8 @@ void hif_sdio_quirk_force_drive_strength(struct hif_softc *ol_sc,
 	addr = CCCR_SDIO_DRIVER_STRENGTH_ENABLE_ADDR;
 	err = func0_cmd52_read_byte(func->card,	addr, &value);
 	if (err) {
-		hif_err("Read CCCR 0x%02X failed: %d", addr, err);
+		HIF_ERROR("%s Read CCCR 0x%02X failed: %d\n",
+			  __func__, addr, err);
 		return;
 	}
 
@@ -135,8 +138,8 @@ void hif_sdio_quirk_force_drive_strength(struct hif_softc *ol_sc,
 		CCCR_SDIO_DRIVER_STRENGTH_ENABLE_D;
 	err = func0_cmd52_write_byte(func->card, addr, value);
 	if (err)
-		hif_err("Write CCCR 0x%02X to 0x%02X failed: %d",
-			addr, value, err);
+		HIF_ERROR("%s Write CCCR 0x%02X to 0x%02X failed: %d\n",
+			  __func__, addr, value, err);
 }
 
 /**
@@ -261,12 +264,14 @@ void hif_sdio_quirk_write_cccr(struct hif_softc *ol_sc, struct sdio_func *func)
 		err = func0_cmd52_write_byte(func->card, writecccr1,
 					     writecccr1value);
 		if (err)
-			hif_err("Write CCCR 0x%02X to 0x%02X failed: %d",
-				(unsigned int)writecccr1,
-				(unsigned int)writecccr1value,
-				err);
+			HIF_ERROR("%s Write CCCR 0x%02X to 0x%02X failed: %d\n",
+				  __func__,
+				  (unsigned int)writecccr1,
+				  (unsigned int)writecccr1value,
+				  err);
 		else
-			hif_info("%s Write CCCR 0x%02X to 0x%02X OK",
+			HIF_INFO("%s Write CCCR 0x%02X to 0x%02X OK\n",
+				 __func__,
 				 (unsigned int)writecccr1,
 				 writecccr1value);
 	}
@@ -275,12 +280,14 @@ void hif_sdio_quirk_write_cccr(struct hif_softc *ol_sc, struct sdio_func *func)
 		err = func0_cmd52_write_byte(func->card, writecccr2,
 					     writecccr2value);
 		if (err)
-			hif_err("Write CCCR 0x%02X to 0x%02X failed: %d",
-				(unsigned int)writecccr2,
-				(unsigned int)writecccr2value,
-				err);
+			HIF_ERROR("%s Write CCCR 0x%02X to 0x%02X failed: %d\n",
+				  __func__,
+				  (unsigned int)writecccr2,
+				  (unsigned int)writecccr2value,
+				  err);
 		else
-			hif_info("%s Write CCCR 0x%02X to 0x%02X OK",
+			HIF_INFO("%s Write CCCR 0x%02X to 0x%02X OK\n",
+				 __func__,
 				 (unsigned int)writecccr2,
 				 (unsigned int)writecccr2value);
 	}
@@ -288,12 +295,14 @@ void hif_sdio_quirk_write_cccr(struct hif_softc *ol_sc, struct sdio_func *func)
 		err = func0_cmd52_write_byte(func->card, writecccr3,
 					     writecccr3value);
 		if (err)
-			hif_err("Write CCCR 0x%02X to 0x%02X failed: %d",
-				(unsigned int)writecccr3,
-				(unsigned int)writecccr3value,
-				err);
+			HIF_ERROR("%s Write CCCR 0x%02X to 0x%02X failed: %d\n",
+				  __func__,
+				  (unsigned int)writecccr3,
+				  (unsigned int)writecccr3value,
+				  err);
 		else
-			hif_info("%s Write CCCR 0x%02X to 0x%02X OK",
+			HIF_INFO("%s Write CCCR 0x%02X to 0x%02X OK\n",
+				 __func__,
 				 (unsigned int)writecccr3,
 				 (unsigned int)writecccr3value);
 	}
@@ -301,12 +310,14 @@ void hif_sdio_quirk_write_cccr(struct hif_softc *ol_sc, struct sdio_func *func)
 		err = func0_cmd52_write_byte(func->card, writecccr4,
 					     writecccr4value);
 		if (err)
-			hif_err("Write CCCR 0x%02X to 0x%02X failed: %d",
-				(unsigned int)writecccr4,
-				(unsigned int)writecccr4value,
-				err);
+			HIF_ERROR("%s Write CCCR 0x%02X to 0x%02X failed: %d\n",
+				  __func__,
+				  (unsigned int)writecccr4,
+				  (unsigned int)writecccr4value,
+				  err);
 		else
-			hif_info("%s Write CCCR 0x%02X to 0x%02X OK",
+			HIF_INFO("%s Write CCCR 0x%02X to 0x%02X OK\n",
+				 __func__,
 				 (unsigned int)writecccr4,
 				 (unsigned int)writecccr4value);
 	}
@@ -333,12 +344,12 @@ int hif_sdio_quirk_mod_strength(struct hif_softc *ol_sc, struct sdio_func *func)
 		return 0;
 
 	if (!scn) {
-		hif_err("scn is null");
+		HIF_ERROR("%s: scn is null", __func__);
 		return -1;
 	}
 
 	if (!scn->hostdef) {
-		hif_err("scn->hostdef is null");
+		HIF_ERROR("%s: scn->hostdef is null", __func__);
 		return -1;
 	}
 
@@ -350,19 +361,21 @@ int hif_sdio_quirk_mod_strength(struct hif_softc *ol_sc, struct sdio_func *func)
 		value = 0x0FFF;
 		ret = sdio_memcpy_toio(func, addr, &value, 4);
 		if (ret) {
-			hif_err("write 0x%x 0x%x error:%d", addr, value, ret);
+			HIF_ERROR("%s write 0x%x 0x%x error:%d\n",
+				  __func__, addr, value, ret);
 			break;
 		}
-		hif_info("addr 0x%x val 0x%x", addr, value);
+		HIF_INFO("%s: addr 0x%x val 0x%x", __func__, addr, value);
 
 		addr = WINDOW_WRITE_ADDR_ADDRESS;
 		value = 0x50F8;
 		ret = sdio_memcpy_toio(func, addr, &value, 4);
 		if (ret) {
-			hif_err("write 0x%x 0x%x error:%d", addr, value, ret);
+			HIF_ERROR("%s write 0x%x 0x%x error:%d\n",
+				  __func__, addr, value, ret);
 			break;
 		}
-		hif_info("addr 0x%x val 0x%x", addr, value);
+		HIF_INFO("%s: addr 0x%x val 0x%x\n", __func__, addr, value);
 		break;
 	}
 
@@ -379,7 +392,7 @@ static int hif_cmd52_write_byte_8bit(struct sdio_func *func)
 #else
 static int hif_cmd52_write_byte_8bit(struct sdio_func *func)
 {
-	hif_err("8BIT Bus Width not supported");
+	HIF_ERROR("%s: 8BIT Bus Width not supported\n", __func__);
 	return QDF_STATUS_E_FAILURE;
 }
 #endif
@@ -390,10 +403,9 @@ static int hif_cmd52_write_byte_8bit(struct sdio_func *func)
  * @ol_sc: softc instance
  * @func: pointer to sdio_func
  *
- * Return: QDF_STATUS
+ * Return: 0 on success, error number otherwise.
  */
-QDF_STATUS hif_sdio_set_bus_speed(struct hif_softc *ol_sc,
-				  struct sdio_func *func)
+int hif_sdio_set_bus_speed(struct hif_softc *ol_sc, struct sdio_func *func)
 {
 	uint32_t clock, clock_set = 12500000;
 	struct hif_sdio_dev *device = get_hif_device(ol_sc, func);
@@ -402,7 +414,7 @@ QDF_STATUS hif_sdio_set_bus_speed(struct hif_softc *ol_sc,
 	manfid = device->id->device & MANUFACTURER_ID_AR6K_BASE_MASK;
 
 	if (manfid == MANUFACTURER_ID_QCN7605_BASE)
-		return QDF_STATUS_SUCCESS;
+		return 0;
 
 	if (mmcclock > 0)
 		clock_set = mmcclock;
@@ -418,44 +430,43 @@ QDF_STATUS hif_sdio_set_bus_speed(struct hif_softc *ol_sc,
 	if (clock > device->host->f_max)
 		clock = device->host->f_max;
 
-	hif_info("Clock setting: (%d,%d)",
+	HIF_INFO("%s: Clock setting: (%d,%d)\n", __func__,
 		 func->card->cis.max_dtr, device->host->f_max);
 
 	/* Limit clock if specified */
 	if (mmcclock > 0) {
-		hif_info("Limit clock from %d to %d", clock, clock_set);
+		HIF_INFO("%s: Limit clock from %d to %d\n",
+			 __func__, clock, clock_set);
 		device->host->ios.clock = clock_set;
 		device->host->ops->set_ios(device->host,
 				&device->host->ios);
 	}
 
-	return QDF_STATUS_SUCCESS;
+	return 0;
 }
 
 /**
- * hif_sdio_set_bus_width() - Set the sdio bus width
+ * hif_set_bus_width() - Set the sdio bus width
  * @ol_sc: softc instance
  * @func: pointer to sdio_func
  *
- * Return: QDF_STATUS
+ * Return: 0 on success, error number otherwise.
  */
-QDF_STATUS hif_sdio_set_bus_width(struct hif_softc *ol_sc,
-				  struct sdio_func *func)
+int hif_sdio_set_bus_width(struct hif_softc *ol_sc, struct sdio_func *func)
 {
 	int ret = 0;
 	uint16_t manfid;
 	uint8_t data = 0;
 	struct hif_sdio_dev *device = get_hif_device(ol_sc, func);
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
 
 	manfid = device->id->device & MANUFACTURER_ID_AR6K_BASE_MASK;
 
 	if (manfid == MANUFACTURER_ID_QCN7605_BASE)
-		return status;
+		return ret;
 
 #if KERNEL_VERSION(3, 4, 0) <= LINUX_VERSION_CODE
 	if (mmcbuswidth == 0)
-		return status;
+		return ret;
 
 	/* Set MMC Bus Width: 1-1Bit, 4-4Bit, 8-8Bit */
 	if (mmcbuswidth == 1) {
@@ -464,7 +475,8 @@ QDF_STATUS hif_sdio_set_bus_width(struct hif_softc *ol_sc,
 					     SDIO_CCCR_IF,
 					     data);
 		if (ret)
-			hif_err("Bus Width 0x%x failed %d", data, ret);
+			HIF_ERROR("%s: Bus Width 0x%x failed %d\n",
+				  __func__, data, ret);
 		device->host->ios.bus_width = MMC_BUS_WIDTH_1;
 		device->host->ops->set_ios(device->host,
 					   &device->host->ios);
@@ -475,7 +487,8 @@ QDF_STATUS hif_sdio_set_bus_width(struct hif_softc *ol_sc,
 					     SDIO_CCCR_IF,
 					     data);
 		if (ret)
-			hif_err("Bus Width 0x%x failed: %d", data, ret);
+			HIF_ERROR("%s: Bus Width 0x%x failed: %d\n",
+				  __func__, data, ret);
 		device->host->ios.bus_width = MMC_BUS_WIDTH_4;
 		device->host->ops->set_ios(device->host,
 				&device->host->ios);
@@ -483,22 +496,20 @@ QDF_STATUS hif_sdio_set_bus_width(struct hif_softc *ol_sc,
 		   (device->host->caps & MMC_CAP_8_BIT_DATA)) {
 		ret = hif_cmd52_write_byte_8bit(func);
 		if (ret)
-			hif_err("Bus Width 8 failed: %d", ret);
+			HIF_ERROR("%s: Bus Width 8 failed: %d\n",
+				  __func__, ret);
 		device->host->ios.bus_width = MMC_BUS_WIDTH_8;
 		device->host->ops->set_ios(device->host,
 				&device->host->ios);
 	} else {
-		hif_err("Unsupported bus width %d", mmcbuswidth);
-		status = QDF_STATUS_E_FAILURE;
-		goto out;
+		HIF_ERROR("%s: Unsupported bus width %d",
+			  __func__, mmcbuswidth);
+		ret = QDF_STATUS_E_FAILURE;
 	}
 
-	status = qdf_status_from_os_return(ret);
-
-out:
-	hif_debug("Bus width: %d", mmcbuswidth);
+	HIF_INFO("%s: Bus with : %d\n",  __func__, mmcbuswidth);
 #endif
-	return status;
+	return ret;
 }
 
 
@@ -531,7 +542,7 @@ void hif_mask_interrupt(struct hif_sdio_dev *device)
 	ret = sdio_release_irq(device->func);
 	sdio_release_host(device->func);
 	if (ret)
-		hif_err("Failed %d", ret);
+		HIF_ERROR("%s: Failed %d\n", __func__, ret);
 
 	HIF_EXIT();
 }
@@ -579,7 +590,7 @@ void hif_un_mask_interrupt(struct hif_sdio_dev *device)
 	 * instead of interrupt mode.
 	 */
 	if (brokenirq) {
-		hif_info("Using broken IRQ mode");
+		HIF_INFO("%s: Using broken IRQ mode", __func__);
 		device->func->card->host->caps &= ~MMC_CAP_SDIO_IRQ;
 	}
 	/* Register the IRQ Handler */
@@ -624,7 +635,7 @@ QDF_STATUS hif_sdio_func_disable(struct hif_sdio_dev *device,
 
 	if (ret) {
 		status = QDF_STATUS_E_FAILURE;
-		hif_err("reset failed: %d", ret);
+		HIF_ERROR("%s: reset failed : %d", __func__, ret);
 	}
 
 	sdio_release_host(device->func);
@@ -655,18 +666,19 @@ QDF_STATUS reinit_sdio(struct hif_sdio_dev *device)
 	manfid = device->id->device & MANUFACTURER_ID_AR6K_BASE_MASK;
 
 	if (manfid == MANUFACTURER_ID_QCN7605_BASE)
-		return QDF_STATUS_SUCCESS;
+		return 0;
 
 	sdio_claim_host(func);
 
 	do {
 		/* Enable high speed */
 		if (card->host->caps & MMC_CAP_SD_HIGHSPEED) {
-			hif_debug("Set high speed mode");
+			HIF_INFO_HI("%s: Set high speed mode", __func__);
 			err = func0_cmd52_read_byte(card, SDIO_CCCR_SPEED,
 						    &cmd52_resp);
 			if (err) {
-				hif_err("CCCR speed set failed: %d", err);
+				HIF_ERROR("%s: CCCR speed set failed  : %d",
+					  __func__, err);
 				sdio_card_state(card);
 				/* no need to break */
 			} else {
@@ -675,7 +687,8 @@ QDF_STATUS reinit_sdio(struct hif_sdio_dev *device)
 							     (cmd52_resp |
 							      SDIO_SPEED_EHS));
 				if (err) {
-					hif_err("CCCR speed set failed: %d", err);
+					HIF_ERROR("%s:CCCR speed set failed:%d",
+						  __func__, err);
 					break;
 				}
 				sdio_card_set_highspeed(card);
@@ -709,7 +722,8 @@ QDF_STATUS reinit_sdio(struct hif_sdio_dev *device)
 						     SDIO_BUS_CD_DISABLE |
 						     SDIO_BUS_WIDTH_4BIT);
 			if (err) {
-				hif_err("Set bus mode failed: %d", err);
+				HIF_ERROR("%s: Set bus mode failed : %d",
+					  __func__, err);
 				break;
 			}
 			host->ios.bus_width = MMC_BUS_WIDTH_4;

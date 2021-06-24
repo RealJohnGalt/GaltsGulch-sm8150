@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -121,15 +121,15 @@ static inline void *pld_pcie_get_fw_ptr(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PLD_PCIE_CNSS
+#if (!defined(CONFIG_PLD_PCIE_CNSS)) || (!defined(CONFIG_PCI_MSM))
 static inline int pld_pcie_wlan_pm_control(struct device *dev, bool vote)
 {
-	return cnss_wlan_pm_control(dev, vote);
+	return 0;
 }
 #else
 static inline int pld_pcie_wlan_pm_control(struct device *dev, bool vote)
 {
-	return 0;
+	return cnss_wlan_pm_control(dev, vote);
 }
 #endif
 
@@ -176,12 +176,6 @@ static inline int pld_pcie_prevent_l1(struct device *dev)
 static inline void pld_pcie_allow_l1(struct device *dev)
 {
 }
-
-static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
-{
-	return 0;
-}
-
 
 static inline void pld_pcie_link_down(struct device *dev)
 {
@@ -480,33 +474,13 @@ static inline void pld_pcie_allow_l1(struct device *dev)
 	cnss_pci_allow_l1(dev);
 }
 
-#ifdef PCIE_GEN_SWITCH
-/**
- * pld_pcie_set_gen_speed() - Wrapper for platform API to set PCIE gen speed
- * @dev: device
- * @pcie_gen_speed: PCIE gen speed required
- *
- * Send required PCIE Gen speed to platform driver
- *
- * Return: 0 for success. Negative error codes.
- */
-static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
-{
-	return cnss_set_pcie_gen_speed(dev, pcie_gen_speed);
-}
-#else
-static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
-{
-	return 0;
-}
-#endif
-
 static inline void pld_pcie_link_down(struct device *dev)
 {
 	cnss_pci_link_down(dev);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)) && \
+		(LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)))
 static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
 					uint32_t len)
 {
@@ -645,7 +619,7 @@ static inline int pld_pcie_idle_shutdown(struct device *dev)
 
 static inline int pld_pcie_force_assert_target(struct device *dev)
 {
-	return cnss_force_fw_assert(dev);
+	return cnss_force_collect_rddm(dev);
 }
 
 static inline int pld_pcie_get_user_msi_assignment(struct device *dev,

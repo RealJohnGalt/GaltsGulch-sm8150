@@ -2794,6 +2794,20 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 EXPORT_SYMBOL(ipa_get_ep_mapping);
 
 /**
+ * ipa_is_ready() - check if IPA module was initialized
+ * successfully
+ *
+ * Return value: true for yes; false for no
+ */
+bool ipa_is_ready(void)
+{
+	if (!ipa_api_ctrl || !ipa_api_ctrl->ipa_is_ready)
+		return false;
+	return ipa_api_ctrl->ipa_is_ready();
+}
+EXPORT_SYMBOL(ipa_is_ready);
+
+/**
  * ipa_proxy_clk_vote() - called to add IPA clock proxy vote
  *
  * Return value: none

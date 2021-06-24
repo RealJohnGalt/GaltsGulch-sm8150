@@ -31,8 +31,6 @@
 
 #define POLICY_MGR_SER_CMD_TIMEOUT 4000
 
-#define SAP_MANDATORY_5G_CH_FREQ 5745
-
 #ifdef QCA_WIFI_3_0_EMU
 #define CONNECTION_UPDATE_TIMEOUT (POLICY_MGR_SER_CMD_TIMEOUT + 3000)
 #else
@@ -199,15 +197,8 @@ extern const enum policy_mgr_pcl_type
 extern enum policy_mgr_pcl_type
 	(*second_connection_pcl_dbs_table)[PM_MAX_ONE_CONNECTION_MODE]
 			[PM_MAX_NUM_OF_MODE][PM_MAX_CONC_PRIORITY_MODE];
-extern enum policy_mgr_pcl_type const
-	(*second_connection_pcl_non_dbs_table)[PM_MAX_ONE_CONNECTION_MODE]
-			[PM_MAX_NUM_OF_MODE][PM_MAX_CONC_PRIORITY_MODE];
 extern pm_dbs_pcl_third_connection_table_type
 		*third_connection_pcl_dbs_table;
-extern enum policy_mgr_pcl_type const
-	(*third_connection_pcl_non_dbs_table)[PM_MAX_TWO_CONNECTION_MODE]
-			[PM_MAX_NUM_OF_MODE][PM_MAX_CONC_PRIORITY_MODE];
-
 extern policy_mgr_next_action_two_connection_table_type
 		*next_action_two_connection_table;
 extern policy_mgr_next_action_three_connection_table_type
@@ -228,6 +219,15 @@ extern policy_mgr_next_action_three_connection_table_type
 extern enum policy_mgr_conc_next_action
 	(*policy_mgr_get_current_pref_hw_mode_ptr)
 	(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * struct sta_ap_intf_check_work_ctx - sta_ap_intf_check_work
+ * related info
+ * @psoc: pointer to PSOC object information
+ */
+struct sta_ap_intf_check_work_ctx {
+	struct wlan_objmgr_psoc *psoc;
+};
 
 /**
  * struct policy_mgr_cfg - all the policy manager owned configs
@@ -260,7 +260,7 @@ struct policy_mgr_cfg {
 	uint8_t max_conc_cxns;
 	uint8_t conc_rule1;
 	uint8_t conc_rule2;
-	bool enable_mcc_adaptive_sch;
+	uint8_t enable_mcc_adaptive_sch;
 	uint8_t allow_mcc_go_diff_bi;
 	uint8_t enable_overlap_chnl;
 	uint8_t dual_mac_feature;
@@ -330,7 +330,6 @@ struct policy_mgr_cfg {
  * @user_config_sap_ch_freq: SAP channel freq configured by user application
  * @cfg: Policy manager config data
  * @dynamic_mcc_adaptive_sched: disable/enable mcc adaptive scheduler feature
- * @dynamic_dfs_master_disabled: current state of dynamic dfs master
  */
 struct policy_mgr_psoc_priv_obj {
 	struct wlan_objmgr_psoc *psoc;
@@ -371,7 +370,6 @@ struct policy_mgr_psoc_priv_obj {
 	uint32_t valid_ch_freq_list[NUM_CHANNELS];
 	uint32_t valid_ch_freq_list_count;
 	bool dynamic_mcc_adaptive_sched;
-	bool dynamic_dfs_master_disabled;
 };
 
 /**
@@ -547,8 +545,7 @@ void policy_mgr_pdev_set_hw_mode_cb(uint32_t status,
 				struct policy_mgr_vdev_mac_map *vdev_mac_map,
 				uint8_t next_action,
 				enum policy_mgr_conn_update_reason reason,
-				uint32_t session_id, void *context,
-				uint32_t request_id);
+				uint32_t session_id, void *context);
 void policy_mgr_dump_current_concurrency(struct wlan_objmgr_psoc *psoc);
 
 /**
@@ -567,14 +564,15 @@ QDF_STATUS policy_mgr_pdev_get_pcl(struct wlan_objmgr_psoc *psoc,
 void pm_dbs_opportunistic_timer_handler(void *data);
 enum policy_mgr_con_mode policy_mgr_get_mode(uint8_t type,
 		uint8_t subtype);
+enum hw_mode_bandwidth policy_mgr_get_bw(enum phy_ch_width chan_width);
 
 /**
- * policy_mgr_get_bw() - Convert phy_ch_width to hw_mode_bandwidth.
- * @chan_width: phy_ch_width
+ * policy_mgr_get_bw() - Convert hw_mode_bandwidth to phy_ch_width
+ * @bw: Hardware mode band width used by WMI
  *
- * Return: hw_mode_bandwidth
+ * Return: phy_ch_width
  */
-enum hw_mode_bandwidth policy_mgr_get_bw(enum phy_ch_width chan_width);
+enum phy_ch_width policy_mgr_get_ch_width(enum hw_mode_bandwidth bw);
 
 QDF_STATUS policy_mgr_get_channel_list(struct wlan_objmgr_psoc *psoc,
 			enum policy_mgr_pcl_type pcl,

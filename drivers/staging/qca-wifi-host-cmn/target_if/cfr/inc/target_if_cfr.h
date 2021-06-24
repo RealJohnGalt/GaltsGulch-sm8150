@@ -132,29 +132,6 @@ void target_if_cfr_set_cfr_support(struct wlan_objmgr_psoc *psoc,
 				   uint8_t value);
 
 /**
- * target_if_cfr_set_capture_count_support() - Function to set capture count
- *					       support.
- * @psoc: pointer to psoc object
- * @value: value to be set
- *
- * Return: success/failure
- */
-QDF_STATUS
-target_if_cfr_set_capture_count_support(struct wlan_objmgr_psoc *psoc,
-					uint8_t value);
-
-/**
- * target_if_cfr_set_mo_marking_support() - Function to set MO marking support
- * @psoc: pointer to psoc object
- * @value: value to be set
- *
- * Return: success/failure
- */
-QDF_STATUS
-target_if_cfr_set_mo_marking_support(struct wlan_objmgr_psoc *psoc,
-				     uint8_t value);
-
-/**
  * target_if_cfr_info_send() - Function to send cfr info to upper layers
  * @pdev: pointer to pdev object
  * @head: pointer to cfr info head
@@ -168,7 +145,6 @@ void target_if_cfr_info_send(struct wlan_objmgr_pdev *pdev, void *head,
 			     size_t hlen, void *data, size_t dlen, void *tail,
 			     size_t tlen);
 
-#ifdef WIFI_TARGET_TYPE_2_0
 /**
  * cfr_wifi2_0_init_pdev() - Function to init legacy pdev
  * @psoc: pointer to psoc object
@@ -188,20 +164,4 @@ QDF_STATUS cfr_wifi2_0_init_pdev(struct wlan_objmgr_psoc *psoc,
  */
 QDF_STATUS cfr_wifi2_0_deinit_pdev(struct wlan_objmgr_psoc *psoc,
 				   struct wlan_objmgr_pdev *pdev);
-
-#else
-#ifndef CFR_USE_FIXED_FOLDER
-static QDF_STATUS cfr_wifi2_0_init_pdev(struct wlan_objmgr_psoc *psoc,
-					struct wlan_objmgr_pdev *pdev)
-{
-	return QDF_STATUS_SUCCESS;
-}
-
-static QDF_STATUS cfr_wifi2_0_deinit_pdev(struct wlan_objmgr_psoc *psoc,
-					  struct wlan_objmgr_pdev *pdev)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-#endif
 #endif

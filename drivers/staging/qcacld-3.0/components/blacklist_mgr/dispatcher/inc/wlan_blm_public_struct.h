@@ -63,7 +63,6 @@ struct blm_rssi_disallow_params {
  * @DRIVER_BLACKLIST_TYPE: driver wants the AP to be blacklisted.
  * @DRIVER_RSSI_REJECT_TYPE: driver wants the AP to be in driver rssi reject.
  * @DRIVER_MONITOR_TYPE: driver wants the AP to be in monitor list.
- * @REJECT_REASON_UNKNOWN: Rejection reason unknown
  */
 enum blm_reject_ap_type {
 	USERSPACE_AVOID_TYPE =     0,
@@ -71,8 +70,7 @@ enum blm_reject_ap_type {
 	DRIVER_AVOID_TYPE    =     2,
 	DRIVER_BLACKLIST_TYPE    = 3,
 	DRIVER_RSSI_REJECT_TYPE =  4,
-	DRIVER_MONITOR_TYPE =      5,
-	REJECT_REASON_UNKNOWN = 6,
+	DRIVER_MONITOR_TYPE =      5
 };
 
 /**

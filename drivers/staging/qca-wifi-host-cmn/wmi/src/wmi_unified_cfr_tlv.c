@@ -32,13 +32,13 @@ extract_cfr_peer_tx_event_param_tlv(wmi_unified_t wmi_handle, void *evt_buf,
 
 	param_buf = (WMI_PEER_CFR_CAPTURE_EVENTID_param_tlvs *)evt_buf;
 	if (!param_buf) {
-		wmi_err("Invalid cfr capture buffer");
+		WMI_LOGE("Invalid cfr capture buffer");
 		return QDF_STATUS_E_INVAL;
 	}
 
 	peer_tx_event_ev = param_buf->fixed_param;
 	if (!peer_tx_event_ev) {
-		wmi_err("peer cfr capture buffer is null");
+		WMI_LOGE("peer cfr capture buffer is null");
 		return QDF_STATUS_E_NULL_VALUE;
 	}
 
@@ -144,7 +144,7 @@ static QDF_STATUS send_cfr_rcc_cmd_tlv(wmi_unified_t wmi_handle,
 	buf = wmi_buf_alloc(wmi_handle, len);
 
 	if (!buf) {
-		wmi_err("wmi_buf_alloc failed");
+		WMI_LOGE("%s:wmi_buf_alloc failed\n", __func__);
 		return QDF_STATUS_E_NOMEM;
 	}
 
@@ -161,9 +161,6 @@ static QDF_STATUS send_cfr_rcc_cmd_tlv(wmi_unified_t wmi_handle,
 				     rcc->capture_interval);
 	WMI_CFR_CAPTURE_DURATION_SET(cmd->capture_duration,
 				     rcc->capture_duration);
-	WMI_CFR_CAPTURE_COUNT_SET(cmd->capture_count, rcc->capture_count);
-	WMI_CFR_CAPTURE_INTERVAL_MODE_SEL_SET(cmd->capture_count,
-					      rcc->capture_intval_mode_sel);
 	WMI_CFR_FILTER_GROUP_BITMAP_SET(cmd->filter_group_bitmap,
 					rcc->filter_group_bitmap);
 	WMI_CFR_UL_MU_USER_UPPER_SET(cmd->ul_mu_user_mask_upper,
@@ -183,8 +180,6 @@ static QDF_STATUS send_cfr_rcc_cmd_tlv(wmi_unified_t wmi_handle,
 				    rcc->m_ndpa_ndp_all);
 	WMI_CFR_TA_RA_TYPE_FILTER_EN_SET(cmd->filter_type,
 					 rcc->m_ta_ra_filter);
-	WMI_CFR_FILTER_IN_AS_FP_TA_RA_TYPE_SET(cmd->filter_type,
-					       rcc->en_ta_ra_filter_in_as_fp);
 	WMI_CFR_ALL_PACKET_EN_SET(cmd->filter_type,
 				  rcc->m_all_packet);
 
@@ -200,6 +195,7 @@ static QDF_STATUS send_cfr_rcc_cmd_tlv(wmi_unified_t wmi_handle,
 
 		for (grp_id = 0; grp_id < MAX_TA_RA_ENTRIES; grp_id++) {
 			if (qdf_test_bit(grp_id,
+					 (unsigned long *)
 					 &rcc->modified_in_curr_session)) {
 				populate_wmi_cfr_param(grp_id, rcc, param);
 				param++;
@@ -245,7 +241,7 @@ static QDF_STATUS send_peer_cfr_capture_cmd_tlv(wmi_unified_t wmi_handle,
 	ret = wmi_unified_cmd_send(wmi_handle, buf, len,
 				   WMI_PEER_CFR_CAPTURE_CMDID);
 	if (QDF_IS_STATUS_ERROR(ret)) {
-		wmi_err("Failed to send WMI_PEER_CFR_CAPTURE_CMDID");
+		WMI_LOGE("Failed to send WMI_PEER_CFR_CAPTURE_CMDID");
 		wmi_buf_free(buf);
 	}
 

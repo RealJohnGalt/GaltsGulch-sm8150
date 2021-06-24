@@ -36,13 +36,21 @@
 /* Timeout (in ms) for Link to Up before Registering Station */
 #define ASSOC_LINKUP_TIMEOUT 60
 
+/* Timeout in ms for peer info request commpletion */
+#define IBSS_PEER_INFO_REQ_TIMOEUT 1000
+
 #define INVALID_PEER_IDX -1
 
 /**
  * enum eConnectionState - connection state values at HDD
- * @eConnectionState_NotConnected: Not associated in Infra
+ * @eConnectionState_NotConnected: Not associated in Infra or participating in
+ *			in an IBSS / Ad-hoc network
  * @eConnectionState_Connecting: While connection in progress
  * @eConnectionState_Associated: Associated in an Infrastructure network
+ * @eConnectionState_IbssDisconnected: Participating in an IBSS network though
+ *			disconnected (no partner stations in the IBSS)
+ * @eConnectionState_IbssConnected: Participating in an IBSS network with
+ *			partner stations also present
  * @eConnectionState_Disconnecting: Disconnecting in an Infrastructure network.
  * @eConnectionState_NdiDisconnected: NDI in disconnected state - no peers
  * @eConnectionState_NdiConnected: NDI in connected state - at least one peer
@@ -51,6 +59,8 @@ typedef enum {
 	eConnectionState_NotConnected,
 	eConnectionState_Connecting,
 	eConnectionState_Associated,
+	eConnectionState_IbssDisconnected,
+	eConnectionState_IbssConnected,
 	eConnectionState_Disconnecting,
 	eConnectionState_NdiDisconnected,
 	eConnectionState_NdiConnected,
@@ -350,12 +360,23 @@ hdd_indicate_ese_bcn_report_no_results(const struct hdd_adapter *adapter,
  * @adapter: HDD adapter
  * @peer_mac_addr: Peer MAC address
  * @sta_state: peer state
+ * @roam_synch_in_progress: roam synch in progress
  *
  * Return: QDF status
  */
 QDF_STATUS hdd_change_peer_state(struct hdd_adapter *adapter,
 				 uint8_t *peer_mac_addr,
-				 enum ol_txrx_peer_state sta_state);
+				 enum ol_txrx_peer_state sta_state,
+				 bool roam_synch_in_progress);
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
+bool hdd_is_roam_sync_in_progress(struct csr_roam_info *roaminfo);
+#else
+static inline bool hdd_is_roam_sync_in_progress(struct csr_roam_info *roaminfo)
+{
+	return false;
+}
+#endif
+
 /**
  * hdd_update_dp_vdev_flags() - update datapath vdev flags
  * @cbk_data: callback data

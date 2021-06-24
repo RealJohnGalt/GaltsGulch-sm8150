@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011,2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011,2017-2019 The Linux Foundation. All rights reserved.
  *
  *
  * Permission to use, copy, modify, and/or distribute this software for
@@ -26,14 +26,6 @@
 
 MODULE_LICENSE("Dual BSD/GPL");
 
-struct dispatcher_spectral_ops sops = {
-	.spectral_pdev_open_handler = spectral_pdev_open,
-	.spectral_psoc_open_handler = wlan_spectral_psoc_open,
-	.spectral_psoc_close_handler = wlan_spectral_psoc_close,
-	.spectral_psoc_enable_handler = wlan_spectral_psoc_enable,
-	.spectral_psoc_disable_handler = wlan_spectral_psoc_disable,
-};
-
 /**
  * spectral_init_module() - Initialize Spectral module
  *
@@ -51,7 +43,9 @@ int spectral_init_module(void)
 	/* register spectral rxops */
 	wlan_lmac_if_sptrl_set_rx_ops_register_cb
 	    (wlan_lmac_if_sptrl_register_rx_ops);
-	dispatcher_register_spectral_ops_handler(&sops);
+	/* register spectral pdev open handler */
+	dispatcher_register_spectral_pdev_open_handler(
+		spectral_pdev_open);
 
 	return 0;
 }

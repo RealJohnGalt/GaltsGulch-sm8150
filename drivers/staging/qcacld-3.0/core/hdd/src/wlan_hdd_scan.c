@@ -456,10 +456,11 @@ static int __wlan_hdd_cfg80211_scan(struct wiphy *wiphy,
 	struct net_device *dev = request->wdev->netdev;
 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
 	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(adapter);
+	struct hdd_config *cfg_param = NULL;
 	int status;
 	struct hdd_scan_info *scan_info = NULL;
 	struct hdd_adapter *con_sap_adapter;
-	qdf_freq_t con_dfs_ch_freq;
+	uint32_t con_dfs_ch_freq;
 	uint8_t curr_vdev_id;
 	enum scan_reject_states curr_reason;
 	static uint32_t scan_ebusy_cnt;
@@ -468,7 +469,6 @@ static int __wlan_hdd_cfg80211_scan(struct wiphy *wiphy,
 	struct wlan_objmgr_vdev *vdev;
 	QDF_STATUS qdf_status;
 	bool enable_connected_scan;
-	enum phy_ch_width con_dfs_ch_width;
 
 	if (cds_is_fw_down()) {
 		hdd_err("firmware is down, scan cmd cannot be processed");
@@ -514,36 +514,36 @@ static int __wlan_hdd_cfg80211_scan(struct wiphy *wiphy,
 	}
 
 	/*
-	 * NDI and monitor mode don't need scan from userspace to establish
-	 * connection and it does not support scan request either.
+	 * IBSS vdev does not need to scan to establish
+	 * IBSS connection. If IBSS vdev need to support scan,
+	 * Firmware need to make the change to add self peer
+	 * per mac for IBSS vdev.
+	 * NDI does not need scan from userspace to establish connection
+	 * and it does not support scan request either.
 	 */
-	if (QDF_NDI_MODE == adapter->device_mode ||
-	    QDF_MONITOR_MODE == adapter->device_mode) {
+	if (QDF_IBSS_MODE == adapter->device_mode ||
+	    QDF_NDI_MODE == adapter->device_mode) {
 		hdd_err("Scan not supported for %s",
 			qdf_opmode_str(adapter->device_mode));
 		return -EINVAL;
 	}
 
+	cfg_param = hdd_ctx->config;
 	scan_info = &adapter->scan_info;
 
 	/* Block All Scan during DFS operation and send null scan result */
-
 	con_sap_adapter = hdd_get_con_sap_adapter(adapter, true);
 	if (con_sap_adapter) {
 		con_dfs_ch_freq =
 			con_sap_adapter->session.ap.sap_config.chan_freq;
-		con_dfs_ch_width =
-		      con_sap_adapter->session.ap.sap_config.ch_params.ch_width;
 		if (con_dfs_ch_freq == AUTO_CHANNEL_SELECT)
 			con_dfs_ch_freq =
 				con_sap_adapter->session.ap.operating_chan_freq;
 
 		if (!policy_mgr_is_hw_dbs_capable(hdd_ctx->psoc) &&
+		    wlan_reg_is_dfs_for_freq(hdd_ctx->pdev, con_dfs_ch_freq) &&
 		    !policy_mgr_is_sta_sap_scc_allowed_on_dfs_chan(
-		    hdd_ctx->psoc) &&
-		    (wlan_reg_is_dfs_for_freq(hdd_ctx->pdev, con_dfs_ch_freq) ||
-		    (wlan_reg_is_5ghz_ch_freq(con_dfs_ch_freq) &&
-		     con_dfs_ch_width == CH_WIDTH_160MHZ))) {
+			hdd_ctx->psoc)) {
 			/* Provide empty scan result during DFS operation since
 			 * scanning not supported during DFS. Reason is
 			 * following case:
@@ -925,19 +925,17 @@ static int wlan_hdd_vendor_scan_random_attr(struct wiphy *wiphy,
 }
 #endif
 
-const
+static const
 struct nla_policy scan_policy[QCA_WLAN_VENDOR_ATTR_SCAN_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_SCAN_FLAGS] = {.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_SCAN_TX_NO_CCK_RATE] = {.type = NLA_FLAG},
 	[QCA_WLAN_VENDOR_ATTR_SCAN_COOKIE] = {.type = NLA_U64},
 	[QCA_WLAN_VENDOR_ATTR_SCAN_IE] = {.type = NLA_BINARY,
 					  .len = MAX_DEFAULT_SCAN_IE_LEN},
-	[QCA_WLAN_VENDOR_ATTR_SCAN_MAC] = VENDOR_NLA_POLICY_MAC_ADDR,
-	[QCA_WLAN_VENDOR_ATTR_SCAN_MAC_MASK] = VENDOR_NLA_POLICY_MAC_ADDR,
-	[QCA_WLAN_VENDOR_ATTR_SCAN_FREQUENCIES] = {.type = NLA_NESTED},
-	[QCA_WLAN_VENDOR_ATTR_SCAN_SSIDS] = {.type = NLA_NESTED},
-	[QCA_WLAN_VENDOR_ATTR_SCAN_SUPP_RATES] = {.type = NLA_NESTED},
-	[QCA_WLAN_VENDOR_ATTR_SCAN_BSSID] = {.type = NLA_BINARY},
+	[QCA_WLAN_VENDOR_ATTR_SCAN_MAC] = {.type = NLA_UNSPEC,
+					   .len = QDF_MAC_ADDR_SIZE},
+	[QCA_WLAN_VENDOR_ATTR_SCAN_MAC_MASK] = {.type = NLA_UNSPEC,
+						.len = QDF_MAC_ADDR_SIZE},
 };
 
 /**
@@ -960,8 +958,7 @@ static int __wlan_hdd_cfg80211_vendor_scan(struct wiphy *wiphy,
 	struct nlattr *attr;
 	enum nl80211_band band;
 	uint32_t n_channels = 0, n_ssid = 0;
-	uint32_t count, j;
-	int tmp;
+	uint32_t tmp, count, j;
 	size_t len, ie_len = 0;
 	struct ieee80211_channel *chan;
 	struct hdd_context *hdd_ctx = wiphy_priv(wiphy);
@@ -1488,16 +1485,7 @@ int wlan_hdd_cfg80211_sched_scan_stop(struct wiphy *wiphy,
 
 	osif_vdev_sync_op_stop(vdev_sync);
 
-	/* The return 0 is intentional. We observed a crash due to a return of
-	 * failure in sched_scan_stop , especially for a case where the unload
-	 * of the happens at the same time. The function
-	 * __cfg80211_stop_sched_scan was clearing rdev->sched_scan_req only
-	 * when the sched_scan_stop returns success. If it returns a failure ,
-	 * then its next invocation due to the clean up of the second interface
-	 * will have the dev pointer corresponding to the first one leading to
-	 * a crash.
-	 */
-	return 0;
+	return errno;
 }
 #else
 int wlan_hdd_cfg80211_sched_scan_stop(struct wiphy *wiphy,
@@ -1515,16 +1503,7 @@ int wlan_hdd_cfg80211_sched_scan_stop(struct wiphy *wiphy,
 
 	osif_vdev_sync_op_stop(vdev_sync);
 
-	/* The return 0 is intentional. We observed a crash due to a return of
-	 * failure in sched_scan_stop , especially for a case where the unload
-	 * of the happens at the same time. The function
-	 * __cfg80211_stop_sched_scan was clearing rdev->sched_scan_req only
-	 * when the sched_scan_stop returns success. If it returns a failure ,
-	 * then its next invocation due to the clean up of the second interface
-	 * will have the dev pointer corresponding to the first one leading to
-	 * a crash.
-	 */
-	return 0;
+	return errno;
 }
 #endif /* KERNEL_VERSION(4, 12, 0) */
 #endif /*FEATURE_WLAN_SCAN_PNO */

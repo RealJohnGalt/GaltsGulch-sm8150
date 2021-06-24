@@ -135,8 +135,8 @@ static os_timer_func(dfs_testtimer_task)
 	 * Flip the channel back to the original channel.
 	 * Make sure this is done properly with a CSA.
 	 */
-	dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS, "go back to channel %d",
-		  dfs->wlan_dfstest_ieeechan);
+	dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS, "go back to channel %d",
+		 dfs->wlan_dfstest_ieeechan);
 	dfs_mlme_start_csa_for_freq(dfs->dfs_pdev_obj,
 				    dfs->wlan_dfstest_ieeechan,
 				    dfs->dfs_curchan->dfs_ch_freq,
@@ -156,8 +156,8 @@ static os_timer_func(dfs_testtimer_task)
 	 * Flip the channel back to the original channel.
 	 * Make sure this is done properly with a CSA.
 	 */
-	dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS, "go back to channel %d",
-		  dfs->wlan_dfstest_ieeechan);
+	dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS, "go back to channel %d",
+			dfs->wlan_dfstest_ieeechan);
 	dfs_mlme_start_csa(dfs->dfs_pdev_obj,
 			dfs->wlan_dfstest_ieeechan,
 			dfs->dfs_curchan->dfs_ch_freq,
@@ -206,17 +206,6 @@ int dfs_create_object(struct wlan_dfs **dfs)
 	return 0;
 }
 
-#if defined(QCA_SUPPORT_DFS_CHAN_POSTNOL)
-static void dfs_postnol_attach(struct wlan_dfs *dfs)
-{
-	dfs->dfs_chan_postnol_mode = CH_WIDTH_INVALID;
-}
-#else
-static inline void dfs_postnol_attach(struct wlan_dfs *dfs)
-{
-}
-#endif
-
 int dfs_attach(struct wlan_dfs *dfs)
 {
 	int ret;
@@ -240,7 +229,6 @@ int dfs_attach(struct wlan_dfs *dfs)
 	dfs_cac_timer_attach(dfs);
 	dfs_zero_cac_attach(dfs);
 	dfs_nol_attach(dfs);
-	dfs_postnol_attach(dfs);
 
 	/*
 	 * Init of timer ,dfs_testtimer_task is required by both partial
@@ -353,43 +341,6 @@ static inline bool dfs_get_disable_radar_marking(struct wlan_dfs *dfs)
 	return QDF_STATUS_SUCCESS;
 }
 #endif
-
-static QDF_STATUS
-dfs_check_bangradar_sanity(struct wlan_dfs *dfs,
-			   struct dfs_bangradar_params *bangradar_params)
-{
-	if (!bangradar_params) {
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "bangradar params is NULL");
-		return -EINVAL;
-	}
-	if (dfs_is_true_160mhz_supported(dfs)) {
-		if (abs(bangradar_params->freq_offset) >
-		    FREQ_OFFSET_BOUNDARY_FOR_160MHZ) {
-			dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-				  "Frequency Offset out of bound");
-			return -EINVAL;
-		}
-	} else if (abs(bangradar_params->freq_offset) >
-		   FREQ_OFFSET_BOUNDARY_FOR_80MHZ) {
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "Frequency Offset out of bound");
-		return -EINVAL;
-	}
-	if (bangradar_params->seg_id > SEG_ID_SECONDARY) {
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS, "Invalid segment ID");
-		return -EINVAL;
-	}
-	if ((bangradar_params->detector_id > dfs_get_agile_detector_id(dfs)) ||
-	    ((bangradar_params->detector_id ==
-	      dfs_get_agile_detector_id(dfs)) &&
-	      !dfs->dfs_is_offload_enabled)) {
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS, "Invalid detector ID");
-		return -EINVAL;
-	}
-	return QDF_STATUS_SUCCESS;
-}
-
 int dfs_control(struct wlan_dfs *dfs,
 		u_int id,
 		void *indata,
@@ -405,7 +356,10 @@ int dfs_control(struct wlan_dfs *dfs,
 	struct dfsreq_nolinfo *nol;
 	uint32_t *data = NULL;
 	int i;
+	struct dfs_emulate_bang_radar_test_cmd dfs_unit_test;
 	int usenol_pdev_param;
+
+	qdf_mem_zero(&dfs_unit_test, sizeof(dfs_unit_test));
 
 	if (!dfs) {
 		dfs_err(NULL, WLAN_DEBUG_DFS_ALWAYS,  "dfs is NULL");
@@ -482,21 +436,40 @@ int dfs_control(struct wlan_dfs *dfs,
 			break;
 		}
 		bangradar_params = (struct dfs_bangradar_params *)indata;
-		error = dfs_check_bangradar_sanity(dfs, bangradar_params);
-		if (error != QDF_STATUS_SUCCESS)
-			break;
-		dfs->dfs_bangradar_type = bangradar_params->bangradar_type;
-		dfs->dfs_seg_id = bangradar_params->seg_id;
-		dfs->dfs_is_chirp = bangradar_params->is_chirp;
-		dfs->dfs_freq_offset = bangradar_params->freq_offset;
+		if (bangradar_params) {
+			if (abs(bangradar_params->freq_offset) >
+			    FREQ_OFFSET_BOUNDARY_FOR_80MHZ) {
+				dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+					 "Frequency Offset out of bound");
+				error = -EINVAL;
+				break;
+			} else if (bangradar_params->seg_id >
+				   SEG_ID_SECONDARY) {
+				dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+					 "Illegal segment ID");
+				error = -EINVAL;
+				break;
+			}
+			dfs->dfs_bangradar_type =
+				bangradar_params->bangradar_type;
+			dfs->dfs_seg_id = bangradar_params->seg_id;
+			dfs->dfs_is_chirp = bangradar_params->is_chirp;
+			dfs->dfs_freq_offset = bangradar_params->freq_offset;
 
-		if (dfs->dfs_is_offload_enabled) {
-			error = dfs_fill_emulate_bang_radar_test(
-					dfs,
-					bangradar_params);
+			if (dfs->dfs_is_offload_enabled) {
+				error = dfs_fill_emulate_bang_radar_test
+							(dfs, dfs->dfs_seg_id,
+							 dfs->dfs_is_chirp,
+							 dfs->dfs_freq_offset,
+							 &dfs_unit_test);
+			} else {
+				error = dfs_start_host_based_bangradar(dfs);
+			}
 		} else {
-			error = dfs_start_host_based_bangradar(dfs);
+			dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				 "bangradar_params is NULL");
 		}
+
 		break;
 	case DFS_GET_THRESH:
 		if (!outdata || !outsize ||
@@ -527,25 +500,25 @@ int dfs_control(struct wlan_dfs *dfs,
 		dfs->dfs_proc_phyerr &= ~DFS_RADAR_EN;
 		dfs->dfs_proc_phyerr &= ~DFS_SECOND_SEGMENT_RADAR_EN;
 		dfs->dfs_ignore_dfs = 1;
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "enable detects, ignore_dfs %d",
-			  dfs->dfs_ignore_dfs ? 1 : 0);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"enable detects, ignore_dfs %d",
+				dfs->dfs_ignore_dfs ? 1:0);
 		break;
 	case DFS_ENABLE_DETECT:
 		dfs->dfs_proc_phyerr |= DFS_RADAR_EN;
 		dfs->dfs_proc_phyerr |= DFS_SECOND_SEGMENT_RADAR_EN;
 		dfs->dfs_ignore_dfs = 0;
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "enable detects, ignore_dfs %d",
-			  dfs->dfs_ignore_dfs ? 1 : 0);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS
+				, "enable detects, ignore_dfs %d",
+				dfs->dfs_ignore_dfs ? 1:0);
 		break;
 	case DFS_DISABLE_FFT:
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "TODO disable FFT val=0x%x", val);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"TODO disable FFT val=0x%x", val);
 		break;
 	case DFS_ENABLE_FFT:
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "TODO enable FFT val=0x%x", val);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"TODO enable FFT val=0x%x", val);
 		break;
 	case DFS_SET_DEBUG_LEVEL:
 		if (insize < sizeof(uint32_t) || !indata) {
@@ -560,8 +533,8 @@ int dfs_control(struct wlan_dfs *dfs,
 		 */
 		dfs->dfs_debug_mask &= ~(WLAN_DEBUG_DFS_ALWAYS);
 
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "debug level now = 0x%x", dfs->dfs_debug_mask);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"debug level now = 0x%x", dfs->dfs_debug_mask);
 		if (dfs->dfs_debug_mask & WLAN_DEBUG_DFS3) {
 			/* Enable debug Radar Event */
 			dfs->dfs_event_log_on = 1;
@@ -579,9 +552,9 @@ int dfs_control(struct wlan_dfs *dfs,
 			break;
 		}
 		dfs->wlan_dfs_false_rssi_thres = *(uint32_t *)indata;
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "false RSSI threshold now = 0x%x",
-			  dfs->wlan_dfs_false_rssi_thres);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"false RSSI threshold now = 0x%x",
+				dfs->wlan_dfs_false_rssi_thres);
 		break;
 	case DFS_SET_PEAK_MAG:
 		if (insize < sizeof(uint32_t) || !indata) {
@@ -589,8 +562,8 @@ int dfs_control(struct wlan_dfs *dfs,
 			break;
 		}
 		dfs->wlan_dfs_peak_mag = *(uint32_t *)indata;
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "peak_mag now = 0x%x",
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"peak_mag now = 0x%x",
 				dfs->wlan_dfs_peak_mag);
 		break;
 	case DFS_GET_CAC_VALID_TIME:
@@ -607,8 +580,8 @@ int dfs_control(struct wlan_dfs *dfs,
 			break;
 		}
 		dfs->dfs_cac_valid_time = *(uint32_t *)indata;
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "dfs timeout = %d", dfs->dfs_cac_valid_time);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"dfs timeout = %d", dfs->dfs_cac_valid_time);
 		break;
 	case DFS_IGNORE_CAC:
 		if (insize < sizeof(uint32_t) || !indata) {
@@ -621,8 +594,8 @@ int dfs_control(struct wlan_dfs *dfs,
 		else
 			dfs->dfs_ignore_cac = 0;
 
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "ignore cac = 0x%x", dfs->dfs_ignore_cac);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"ignore cac = 0x%x", dfs->dfs_ignore_cac);
 		break;
 	case DFS_SET_NOL_TIMEOUT:
 		if (insize < sizeof(uint32_t) || !indata) {
@@ -634,8 +607,8 @@ int dfs_control(struct wlan_dfs *dfs,
 		else
 			dfs->wlan_dfs_nol_timeout = DFS_NOL_TIMEOUT_S;
 
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS, "nol timeout = %d sec",
-			  dfs->wlan_dfs_nol_timeout);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS, "nol timeout = %d sec",
+				dfs->wlan_dfs_nol_timeout);
 		break;
 	case DFS_MUTE_TIME:
 		if (insize < sizeof(uint32_t) || !indata) {
@@ -654,43 +627,43 @@ int dfs_control(struct wlan_dfs *dfs,
 		*outsize = sizeof(uint32_t);
 		*((uint32_t *)outdata) = dfs->dfs_use_nol;
 
-		dfs_debug(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			  "#Phyerr=%d, #false detect=%d, #queued=%d",
-			  dfs->dfs_phyerr_count,
-			  dfs->dfs_phyerr_reject_count,
-			  dfs->dfs_phyerr_queued_count);
+		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
+				"#Phyerr=%d, #false detect=%d, #queued=%d",
+				 dfs->dfs_phyerr_count,
+				dfs->dfs_phyerr_reject_count,
+				dfs->dfs_phyerr_queued_count);
 
 		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			 "dfs_phyerr_freq_min=%d, dfs_phyerr_freq_max=%d",
-			 dfs->dfs_phyerr_freq_min,
-			 dfs->dfs_phyerr_freq_max);
+				"dfs_phyerr_freq_min=%d, dfs_phyerr_freq_max=%d",
+				 dfs->dfs_phyerr_freq_min,
+				dfs->dfs_phyerr_freq_max);
 
 		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			 "Total radar events detected=%d, entries in the radar queue follows:",
-			 dfs->dfs_event_log_count);
+				"Total radar events detected=%d, entries in the radar queue follows:",
+				 dfs->dfs_event_log_count);
 
 		for (i = 0; (i < DFS_EVENT_LOG_SIZE) &&
 				(i < dfs->dfs_event_log_count); i++) {
 #define FREQ_OFFSET1 ((int)dfs->radar_log[i].freq_offset_khz / 1000)
 #define FREQ_OFFSET2 ((int)abs(dfs->radar_log[i].freq_offset_khz) % 1000)
 			dfs_debug(dfs, WLAN_DEBUG_DFS,
-				  "ts=%llu diff_ts=%u rssi=%u dur=%u, is_chirp=%d, seg_id=%d, sidx=%d, freq_offset=%d.%dMHz, peak_mag=%d, total_gain=%d, mb_gain=%d, relpwr_db=%d, delta_diff=%d, delta_peak=%d, psidx_diff=%d\n",
-				  dfs->radar_log[i].ts,
-				  dfs->radar_log[i].diff_ts,
-				  dfs->radar_log[i].rssi,
-				  dfs->radar_log[i].dur,
-				  dfs->radar_log[i].is_chirp,
-				  dfs->radar_log[i].seg_id,
-				  dfs->radar_log[i].sidx,
-				  FREQ_OFFSET1,
-				  FREQ_OFFSET2,
-				  dfs->radar_log[i].peak_mag,
-				  dfs->radar_log[i].total_gain,
-				  dfs->radar_log[i].mb_gain,
-				  dfs->radar_log[i].relpwr_db,
-				  dfs->radar_log[i].delta_diff,
-				  dfs->radar_log[i].delta_peak,
-				  dfs->radar_log[i].psidx_diff);
+					"ts=%llu diff_ts=%u rssi=%u dur=%u, is_chirp=%d, seg_id=%d, sidx=%d, freq_offset=%d.%dMHz, peak_mag=%d, total_gain=%d, mb_gain=%d, relpwr_db=%d, delta_diff=%d, delta_peak=%d, psidx_diff=%d\n",
+					dfs->radar_log[i].ts,
+					dfs->radar_log[i].diff_ts,
+					dfs->radar_log[i].rssi,
+					dfs->radar_log[i].dur,
+					dfs->radar_log[i].is_chirp,
+					dfs->radar_log[i].seg_id,
+					dfs->radar_log[i].sidx,
+					FREQ_OFFSET1,
+					FREQ_OFFSET2,
+					dfs->radar_log[i].peak_mag,
+					dfs->radar_log[i].total_gain,
+					dfs->radar_log[i].mb_gain,
+					dfs->radar_log[i].relpwr_db,
+					dfs->radar_log[i].delta_diff,
+					dfs->radar_log[i].delta_peak,
+					dfs->radar_log[i].psidx_diff);
 		}
 		dfs->dfs_event_log_count = 0;
 		dfs->dfs_phyerr_count = 0;
@@ -887,12 +860,9 @@ void dfs_set_current_channel_for_freq(struct wlan_dfs *dfs,
 				      uint8_t dfs_chan_vhtop_freq_seg1,
 				      uint8_t dfs_chan_vhtop_freq_seg2,
 				      uint16_t dfs_chan_mhz_freq_seg1,
-				      uint16_t dfs_chan_mhz_freq_seg2,
-				      bool *is_channel_updated)
-{
-	if (is_channel_updated)
-		*is_channel_updated = false;
+				      uint16_t dfs_chan_mhz_freq_seg2)
 
+{
 	if (!dfs) {
 		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,  "dfs is NULL");
 		return;
@@ -924,9 +894,6 @@ void dfs_set_current_channel_for_freq(struct wlan_dfs *dfs,
 	dfs->dfs_curchan->dfs_ch_vhtop_ch_freq_seg2 = dfs_chan_vhtop_freq_seg2;
 	dfs->dfs_curchan->dfs_ch_mhz_freq_seg1 = dfs_chan_mhz_freq_seg1;
 	dfs->dfs_curchan->dfs_ch_mhz_freq_seg2 = dfs_chan_mhz_freq_seg2;
-
-	if (is_channel_updated)
-		*is_channel_updated = true;
 }
 #endif
 
@@ -974,114 +941,3 @@ void dfs_complete_deferred_tasks(struct wlan_dfs *dfs)
 		dfs->dfs_defer_params.is_cac_completed = false;
 	}
 }
-
-#ifdef WLAN_DFS_TRUE_160MHZ_SUPPORT
-bool dfs_is_true_160mhz_supported(struct wlan_dfs *dfs)
-{
-	struct wlan_objmgr_psoc *psoc = dfs->dfs_soc_obj->psoc;
-	struct wlan_lmac_if_target_tx_ops *tgt_tx_ops;
-	struct wlan_lmac_if_tx_ops *tx_ops;
-	uint32_t target_type;
-
-	tx_ops = wlan_psoc_get_lmac_if_txops(psoc);
-	if (!tx_ops) {
-		 dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS, "tx_ops is NULL");
-		 return false;
-	}
-	target_type = lmac_get_target_type(dfs->dfs_pdev_obj);
-	tgt_tx_ops = &tx_ops->target_tx_ops;
-	if (tgt_tx_ops->tgt_is_tgt_type_qcn9000 &&
-	    tgt_tx_ops->tgt_is_tgt_type_qcn9000(target_type))
-		return true;
-
-	if (tgt_tx_ops->tgt_is_tgt_type_qcn9100 &&
-	    tgt_tx_ops->tgt_is_tgt_type_qcn9100(target_type))
-		return true;
-
-	return false;
-}
-
-bool dfs_is_restricted_80p80mhz_supported(struct wlan_dfs *dfs)
-{
-	return wlan_psoc_nif_fw_ext_cap_get(dfs->dfs_soc_obj->psoc,
-					    WLAN_SOC_RESTRICTED_80P80_SUPPORT);
-}
-#endif
-
-#ifdef QCA_SUPPORT_AGILE_DFS
-uint8_t dfs_get_agile_detector_id(struct wlan_dfs *dfs)
-{
-	return dfs->dfs_agile_detector_id;
-}
-#endif
-
-#ifdef QCA_SUPPORT_DFS_CHAN_POSTNOL
-void dfs_set_postnol_freq(struct wlan_dfs *dfs, qdf_freq_t postnol_freq)
-{
-	dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-		 "dfs_chan_postnol_freq configured as %d", postnol_freq);
-
-	dfs->dfs_chan_postnol_freq = postnol_freq;
-}
-
-void dfs_set_postnol_mode(struct wlan_dfs *dfs, uint8_t postnol_mode)
-{
-	if (dfs->dfs_chan_postnol_cfreq2) {
-		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			 "postNOL cfreq2 has been set,reset it to change mode");
-		return;
-	}
-
-	switch (postnol_mode) {
-	case DFS_CHWIDTH_20_VAL:
-		dfs->dfs_chan_postnol_mode = CH_WIDTH_20MHZ;
-		break;
-	case DFS_CHWIDTH_40_VAL:
-		dfs->dfs_chan_postnol_mode = CH_WIDTH_40MHZ;
-		break;
-	case DFS_CHWIDTH_80_VAL:
-		dfs->dfs_chan_postnol_mode = CH_WIDTH_80MHZ;
-		break;
-	case DFS_CHWIDTH_160_VAL:
-		dfs->dfs_chan_postnol_mode = CH_WIDTH_160MHZ;
-		break;
-	default:
-		dfs_err(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			"Invalid postNOL mode configured");
-		return;
-	}
-
-	dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-		 "DFS postnol mode configured as %d",
-		 dfs->dfs_chan_postnol_mode);
-}
-
-void dfs_set_postnol_cfreq2(struct wlan_dfs *dfs, qdf_freq_t postnol_cfreq2)
-{
-	dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-		 "dfs_chan_postnol_cfreq2 configured as %d", postnol_cfreq2);
-
-	dfs->dfs_chan_postnol_cfreq2 = postnol_cfreq2;
-
-	if (postnol_cfreq2) {
-		dfs_info(dfs, WLAN_DEBUG_DFS_ALWAYS,
-			 "postNOL cfreq2 is set, changing mode to 80P80");
-		dfs->dfs_chan_postnol_mode = CH_WIDTH_80P80MHZ;
-	}
-}
-
-void dfs_get_postnol_freq(struct wlan_dfs *dfs, qdf_freq_t *postnol_freq)
-{
-	*postnol_freq = dfs->dfs_chan_postnol_freq;
-}
-
-void dfs_get_postnol_mode(struct wlan_dfs *dfs, uint8_t *postnol_mode)
-{
-	*postnol_mode = dfs->dfs_chan_postnol_mode;
-}
-
-void dfs_get_postnol_cfreq2(struct wlan_dfs *dfs, qdf_freq_t *postnol_cfreq2)
-{
-	*postnol_cfreq2 = dfs->dfs_chan_postnol_cfreq2;
-}
-#endif

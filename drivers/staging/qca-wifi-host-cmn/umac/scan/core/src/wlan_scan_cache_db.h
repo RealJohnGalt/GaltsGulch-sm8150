@@ -33,6 +33,9 @@
 #define SCAN_GET_HASH(addr) \
 	(((const uint8_t *)(addr))[QDF_MAC_ADDR_SIZE - 1] % SCAN_HASH_SIZE)
 
+#define SCM_PCL_RSSI_THRESHOLD -75
+#define BEST_CANDIDATE_MAX_BSS_SCORE 10000
+
 #define ADJACENT_CHANNEL_RSSI_THRESHOLD -80
 
 /**
@@ -260,6 +263,15 @@ QDF_STATUS scm_channel_list_db_deinit(struct wlan_objmgr_psoc *psoc)
 	return QDF_STATUS_SUCCESS;
 }
 #endif
+
+/**
+ * scm_validate_scoring_config() - validate score config
+ * @score_cfg: config to be validated
+ *
+ * Return: void
+ */
+void scm_validate_scoring_config(
+			struct scoring_config *score_cfg);
 
 /**
  * scm_scan_update_mlme_by_bssinfo() - updates scan entry with mlme data

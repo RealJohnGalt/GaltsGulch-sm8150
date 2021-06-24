@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 - 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012 - 2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -109,10 +109,6 @@ struct wlan_fwol_coex_config {
  * @throttle_period: Thermal throttle period value
  * @throttle_dutycycle_level: Array of throttle duty cycle levels
  * @thermal_sampling_time: sampling time for thermal mitigation in ms
- * @mon_id: Monitor client id either the wpps or apps
- * @priority_apps: Priority of the apps mitigation to consider by fw
- * @priority_wpps: Priority of the wpps mitigation to consider by fw
- * @thermal_action: thermal action as defined enum thermal_mgmt_action_code
  */
 struct wlan_fwol_thermal_temp {
 	bool     thermal_mitigation_enable;
@@ -121,10 +117,6 @@ struct wlan_fwol_thermal_temp {
 	uint16_t thermal_temp_max_level[FWOL_THERMAL_LEVEL_MAX];
 	uint32_t throttle_dutycycle_level[FWOL_THERMAL_THROTTLE_LEVEL_MAX];
 	uint16_t thermal_sampling_time;
-	uint8_t mon_id;
-	uint8_t priority_apps;
-	uint8_t priority_wpps;
-	enum thermal_mgmt_action_code thermal_action;
 };
 
 /**
@@ -214,7 +206,6 @@ struct wlan_fwol_neighbor_report_cfg {
  * @enable_dhcp_server_offload: DHCP Offload is enabled or not
  * @dhcp_max_num_clients: Max number of DHCP client supported
  * @dwelltime_params: adaptive dwell time parameters
- * @enable_ilp: ILP HW block configuration
  * @disable_hw_assist: Flag to configure HW assist feature in FW
  */
 struct wlan_fwol_cfg {
@@ -268,7 +259,6 @@ struct wlan_fwol_cfg {
 	uint32_t dhcp_max_num_clients;
 #endif
 	struct adaptive_dwelltime_params dwelltime_params;
-	uint32_t enable_ilp;
 	bool disable_hw_assist;
 };
 
@@ -383,16 +373,6 @@ fwol_set_adaptive_dwelltime_config(
 			struct adaptive_dwelltime_params *dwelltime_params);
 
 /**
- * fwol_set_ilp_config() - API to set ILP HW block config
- * @pdev: pointer to the pdev object
- * @enable_ilp: ILP HW block configuration with various options
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS fwol_set_ilp_config(struct wlan_objmgr_pdev *pdev,
-			       uint32_t enable_ilp);
-
-/**
  * fwol_configure_hw_assist() - API to configure HW assist feature in FW
  * @pdev: pointer to the pdev object
  * @disable_he_assist: Flag to enable/disable HW assist feature
@@ -401,4 +381,5 @@ QDF_STATUS fwol_set_ilp_config(struct wlan_objmgr_pdev *pdev,
  */
 QDF_STATUS fwol_configure_hw_assist(struct wlan_objmgr_pdev *pdev,
 				    bool disable_hw_assist);
+
 #endif

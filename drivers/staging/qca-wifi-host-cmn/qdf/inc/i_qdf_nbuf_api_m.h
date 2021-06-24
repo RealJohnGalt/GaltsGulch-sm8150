@@ -121,30 +121,6 @@ static inline uint8_t qdf_nbuf_is_exc_frame(qdf_nbuf_t buf)
 }
 
 /**
- * qdf_nbuf_set_rx_ipa_smmu_map() - set ipa smmu mapped flag
- * @buf: Network buffer
- * @value: 1 - ipa smmu mapped, 0 - ipa smmu unmapped
- *
- * Return: none
- */
-static inline void qdf_nbuf_set_rx_ipa_smmu_map(qdf_nbuf_t buf,
-						uint8_t value)
-{
-	QDF_NBUF_CB_RX_PACKET_IPA_SMMU_MAP(buf) = value;
-}
-
-/**
- * qdf_nbuf_is_rx_ipa_smmu_map() - check ipa smmu map flag
- * @buf: Network buffer
- *
- * Return 0 or 1
- */
-static inline uint8_t qdf_nbuf_is_rx_ipa_smmu_map(qdf_nbuf_t buf)
-{
-	return QDF_NBUF_CB_RX_PACKET_IPA_SMMU_MAP(buf);
-}
-
-/**
  * qdf_nbuf_set_rx_reo_dest_ind() - set reo destination indication
  * @buf: Network buffer
  * @value: reo destination indication value to set

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, 2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -372,8 +372,10 @@ static QDF_STATUS oem_process_data_req_msg(int oem_data_len, char *oem_data)
 	qdf_mem_zero(&oem_data_req, sizeof(oem_data_req));
 
 	oem_data_req.data = qdf_mem_malloc(oem_data_len);
-	if (!oem_data_req.data)
+	if (!oem_data_req.data) {
+		hdd_err("malloc failed for data req buffer");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	oem_data_req.data_len = oem_data_len;
 	qdf_mem_copy(oem_data_req.data, oem_data, oem_data_len);
@@ -979,8 +981,10 @@ static void oem_cmd_handler(const void *data, int data_len, void *ctx, int pid)
 	struct nlattr *tb[CLD80211_ATTR_MAX + 1];
 
 	ret = wlan_hdd_validate_context(p_hdd_ctx);
-	if (ret)
+	if (ret) {
+		hdd_err("hdd ctx validate fails");
 		return;
+	}
 
 	/*
 	 * audit note: it is ok to pass a NULL policy here since only
@@ -1121,14 +1125,13 @@ int oem_deactivate_service(void)
 #endif
 
 #ifdef FEATURE_OEM_DATA
-const struct nla_policy
+static const struct nla_policy
 oem_data_attr_policy[QCA_WLAN_VENDOR_ATTR_OEM_DATA_PARAMS_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_OEM_DATA_CMD_DATA] = {
 						    .type = NLA_BINARY,
 						    .len = OEM_DATA_MAX_SIZE
 	},
 
-	[QCA_WLAN_VENDOR_ATTR_OEM_DEVICE_INFO] = {.type = NLA_U8},
 	[QCA_WLAN_VENDOR_ATTR_OEM_DATA_RESPONSE_EXPECTED] = {.type = NLA_FLAG},
 };
 
@@ -1167,9 +1170,10 @@ void hdd_oem_event_handler_cb(const struct oem_data *oem_event_data,
 		oem_data = osif_request_priv(request);
 		oem_data->data_len = oem_event_data->data_len;
 		oem_data->data = qdf_mem_malloc(oem_data->data_len);
-		if (!oem_data->data)
+		if (!oem_data->data) {
+			hdd_err("Memory allocation failure");
 			return;
-
+		}
 		qdf_mem_copy(oem_data->data, oem_event_data->data,
 			     oem_data->data_len);
 		oem_data->vdev_id = hdd_adapter->vdev_id;
@@ -1237,7 +1241,6 @@ __wlan_hdd_cfg80211_oem_data_handler(struct wiphy *wiphy,
 {
 	struct net_device *dev = wdev->netdev;
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
-	uint8_t mac_id;
 	int ret;
 	struct sk_buff *skb = NULL;
 	struct oem_data oem_data = {0};
@@ -1277,21 +1280,6 @@ __wlan_hdd_cfg80211_oem_data_handler(struct wiphy *wiphy,
 		return -EINVAL;
 	}
 
-	if (tb[QCA_WLAN_VENDOR_ATTR_OEM_DEVICE_INFO])
-		oem_data.pdev_vdev_flag =
-			nla_get_u8(tb[QCA_WLAN_VENDOR_ATTR_OEM_DEVICE_INFO]);
-
-	if (oem_data.pdev_vdev_flag) {
-		status = policy_mgr_get_mac_id_by_session_id(hdd_ctx->psoc,
-							     adapter->vdev_id,
-							     &mac_id);
-		if (QDF_IS_STATUS_ERROR(status)) {
-			hdd_err("get mac id failed");
-			return -EINVAL;
-		}
-		oem_data.pdev_id = mac_id;
-		oem_data.is_host_pdev_id = true;
-	}
 	oem_data.data_len =
 		nla_len(tb[QCA_WLAN_VENDOR_ATTR_OEM_DATA_CMD_DATA]);
 	if (!oem_data.data_len) {

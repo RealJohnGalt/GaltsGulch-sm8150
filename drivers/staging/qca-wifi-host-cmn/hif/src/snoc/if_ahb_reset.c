@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -65,7 +65,8 @@ static int clk_enable_disable(struct device *dev, const char *str, int enable)
 
 	clk_t = clk_get(dev, str);
 	if (IS_ERR(clk_t)) {
-		hif_err("Failed to get %s clk %ld", str, PTR_ERR(clk_t));
+		HIF_INFO("%s: Failed to get %s clk %ld\n",
+				__func__, str, PTR_ERR(clk_t));
 		return -EFAULT;
 	}
 	if (true == enable) {
@@ -73,7 +74,8 @@ static int clk_enable_disable(struct device *dev, const char *str, int enable)
 		status = qal_vbus_enable_devclk((struct qdf_dev_clk *)clk_t);
 		ret = qdf_status_to_os_return(status);
 		if (ret) {
-			hif_err("enabling clk: %s, error: %d", str, ret);
+			HIF_INFO("%s: err enabling clk %s , error:%d\n",
+					__func__, str, ret);
 		}
 	} else {
 		/* Disable and unprepare clk */
@@ -134,17 +136,20 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 
 	ret = of_property_read_u32(dev_node, "qca,msi_addr", &msi_addr);
 	if (ret) {
-		hif_err("Unable to get msi_addr - error :%d", ret);
+		HIF_INFO("%s: Unable to get msi_addr - error:%d\n",
+					__func__, ret);
 		return -EIO;
 	}
 	ret = of_property_read_u32(dev_node, "qca,msi_base", &msi_base);
 	if (ret) {
-		hif_err("Unable to get msi_base - error: %d", ret);
+		HIF_INFO("%s: Unable to get msi_base - error:%d\n",
+					__func__, ret);
 		return -EIO;
 	}
 	ret = of_property_read_u32(dev_node, "core-id", &wifi_core_id);
 	if (ret) {
-		hif_err("Unable to get core-id - error: %d", ret);
+		HIF_INFO("%s: Unable to get core-id - error:%d\n",
+					__func__, ret);
 		return -EIO;
 	}
 
@@ -169,14 +174,15 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 		if (scn->target_info.target_type == TARGET_TYPE_IPQ4019) {
 			ret = hif_ahb_clk_enable_disable(&pdev->dev, 1);
 			if (ret) {
-				hif_err("Error while enabling clock :%d", ret);
+				HIF_INFO("%s:Error while enabling clock :%d\n",
+					__func__, ret);
 				return ret;
 			}
 		}
 
 		mem_gcc = ioremap_nocache(GCC_BASE, GCC_SIZE);
 		if (IS_ERR(mem_gcc)) {
-			hif_err("GCC ioremap failed");
+			HIF_INFO("%s: GCC ioremap failed\n", __func__);
 			return PTR_ERR(mem_gcc);
 		}
 		gcc_fepll_pll_div = hif_read32_mb(sc, mem_gcc +
@@ -188,7 +194,8 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 					>> GCC_FEPLL_PLL_CLK_WIFI_1_SEL_SHIFT);
 		current_freq = wifi_cpu_freq[clk_sel];
 
-		hif_debug("Wifi%d CPU frequency %u", wifi_core_id, current_freq);
+		HIF_INFO("Wifi%d CPU frequency %u\n", wifi_core_id,
+							current_freq);
 		hif_write32_mb(sc, sc->mem + FW_CPU_PLL_CONFIG,
 			       gcc_fepll_pll_div);
 		iounmap(mem_gcc);
@@ -199,7 +206,8 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 				"wifi_radio_cold", &vrstctl);
 	reset_ctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(reset_ctl)) {
-		hif_err("Failed to get radio cold reset control");
+		HIF_INFO("%s: Failed to get radio cold reset control\n",
+							__func__);
 		ret = PTR_ERR(reset_ctl);
 		goto err_reset;
 	}
@@ -213,7 +221,8 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 				"wifi_radio_warm", &vrstctl);
 	reset_ctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(reset_ctl)) {
-		hif_err("Failed to get radio warm reset control");
+		HIF_INFO("%s: Failed to get radio warm reset control\n",
+							__func__);
 		ret = PTR_ERR(reset_ctl);
 		goto err_reset;
 	}
@@ -227,7 +236,8 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 				"wifi_radio_srif",  &vrstctl);
 	reset_ctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(reset_ctl)) {
-		hif_err("Failed to get radio srif reset control");
+		HIF_INFO("%s: Failed to get radio srif reset control\n",
+							__func__);
 		ret = PTR_ERR(reset_ctl);
 		goto err_reset;
 	}
@@ -241,7 +251,7 @@ int hif_ahb_enable_radio(struct hif_pci_softc *sc,
 				"wifi_cpu_init", &vrstctl);
 	reset_ctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(reset_ctl)) {
-		hif_err("Failed to get cpu init reset control");
+		HIF_INFO("%s: Failed to get cpu init reset control", __func__);
 		ret = PTR_ERR(reset_ctl);
 		goto err_reset;
 	}
@@ -306,7 +316,7 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 
 	mem_tcsr = ioremap_nocache(TCSR_BASE, TCSR_SIZE);
 	if (IS_ERR(mem_tcsr)) {
-		hif_err("TCSR ioremap failed");
+		HIF_INFO("%s: TCSR ioremap failed\n", __func__);
 		return;
 	}
 	reg_value = hif_read32_mb(sc, mem_tcsr + haltreq_offset);
@@ -328,7 +338,7 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 				AHB_RESET_TYPE, &vrstctl);
 	core_resetctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(core_resetctl)) {
-		hif_err("Failed to get wifi core cold reset control");
+		HIF_INFO("Failed to get wifi core cold reset control\n");
 		return;
 	}
 
@@ -346,7 +356,8 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 				"wifi_radio_cold", &vrstctl);
 	resetctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(resetctl)) {
-		hif_err("Failed to get radio cold reset control");
+		HIF_INFO("%s: Failed to get radio cold reset control\n",
+						__func__);
 		return;
 	}
 	qal_vbus_activate_dev_rstctl((struct qdf_pfm_hndl *)&pdev->dev,
@@ -360,7 +371,8 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 				"wifi_radio_warm", &vrstctl);
 	resetctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(resetctl)) {
-		hif_err("Failed to get radio warm reset control");
+		HIF_INFO("%s: Failed to get radio warm reset control\n",
+						__func__);
 		return;
 	}
 	qal_vbus_activate_dev_rstctl((struct qdf_pfm_hndl *)&pdev->dev,
@@ -374,7 +386,8 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 				"wifi_radio_srif", &vrstctl);
 	resetctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(resetctl)) {
-		hif_err("Failed to get radio srif reset control");
+		HIF_INFO("%s: Failed to get radio srif reset control\n",
+						__func__);
 		return;
 	}
 	qal_vbus_activate_dev_rstctl((struct qdf_pfm_hndl *)&pdev->dev,
@@ -388,7 +401,7 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 				"wifi_cpu_init", &vrstctl);
 	resetctl = (struct reset_control *)vrstctl;
 	if (IS_ERR(resetctl)) {
-		hif_err("Failed to get cpu init reset control");
+		HIF_INFO("%s: Failed to get cpu init reset control", __func__);
 		return;
 	}
 	qal_vbus_activate_dev_rstctl((struct qdf_pfm_hndl *)&pdev->dev,
@@ -413,7 +426,7 @@ void hif_ahb_device_reset(struct hif_softc *scn)
 	qal_vbus_release_dev_rstctl((struct qdf_pfm_hndl *)&pdev->dev,
 				    (struct qdf_vbus_rstctl *)core_resetctl);
 	iounmap(mem_tcsr);
-	hif_info("Reset complete for wifi core id: %d", wifi_core_id);
+	HIF_INFO("Reset complete for wifi core id : %d\n", wifi_core_id);
 }
 #else
 void hif_ahb_device_reset(struct hif_softc *scn)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -27,11 +27,6 @@
 bool ucfg_ipa_is_present(void)
 {
 	return ipa_is_hw_support();
-}
-
-bool ucfg_ipa_is_ready(void)
-{
-	return ipa_is_ready();
 }
 
 bool ucfg_ipa_is_enabled(void)
@@ -124,10 +119,9 @@ void ucfg_ipa_set_dfs_cac_tx(struct wlan_objmgr_pdev *pdev, bool tx_block)
 	return ipa_set_dfs_cac_tx(pdev, tx_block);
 }
 
-void ucfg_ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, uint8_t session_id,
-			      bool intra_bss)
+void ucfg_ipa_set_ap_ibss_fwd(struct wlan_objmgr_pdev *pdev, bool intra_bss)
 {
-	return ipa_set_ap_ibss_fwd(pdev, session_id, intra_bss);
+	return ipa_set_ap_ibss_fwd(pdev, intra_bss);
 }
 
 void ucfg_ipa_uc_force_pipe_shutdown(struct wlan_objmgr_pdev *pdev)
@@ -223,11 +217,6 @@ void ucfg_ipa_fw_rejuvenate_send_msg(struct wlan_objmgr_pdev *pdev)
 void ucfg_ipa_component_config_update(struct wlan_objmgr_psoc *psoc)
 {
 	ipa_component_config_update(psoc);
-}
-
-void ucfg_ipa_component_config_free(void)
-{
-	ipa_component_config_free();
 }
 
 uint32_t ucfg_ipa_get_tx_buf_count(void)

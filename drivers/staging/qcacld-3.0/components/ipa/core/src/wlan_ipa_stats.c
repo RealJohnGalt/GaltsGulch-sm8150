@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -750,9 +750,8 @@ void wlan_ipa_uc_stat(struct wlan_ipa_priv *ipa_ctx)
 #ifdef FEATURE_METERING
 
 #ifdef WDI3_STATS_UPDATE
-#ifdef WDI3_STATS_BW_MONITOR
 /**
- * __wlan_ipa_wdi_meter_notifier_cb() - WLAN to IPA callback handler.
+ * wlan_ipa_wdi_meter_notifier_cb() - WLAN to IPA callback handler.
  * IPA calls to get WLAN stats or set quota limit.
  * @priv: pointer to private data registered with IPA (we register a
  *	  pointer to the IPA context)
@@ -799,13 +798,6 @@ static void __wlan_ipa_wdi_meter_notifier_cb(qdf_ipa_wdi_meter_evt_type_t evt,
 
 	ipa_debug("Requested BW level: %d", ipa_ctx->curr_bw_level);
 }
-
-#else
-static void __wlan_ipa_wdi_meter_notifier_cb(qdf_ipa_wdi_meter_evt_type_t evt,
-					     void *data)
-{
-}
-#endif
 
 void wlan_ipa_update_tx_stats(struct wlan_ipa_priv *ipa_ctx, uint64_t sta_tx,
 			      uint64_t ap_tx)
@@ -973,6 +965,7 @@ QDF_STATUS wlan_ipa_uc_op_metering(struct wlan_ipa_priv *ipa_ctx,
 	struct ipa_uc_quota_rsp *uc_quota_rsp;
 	struct ipa_uc_quota_ind *uc_quota_ind;
 	struct wlan_ipa_iface_context *iface_ctx;
+	uint32_t ifindex;
 	uint64_t quota_bytes;
 
 	if (msg->op_code == WLAN_IPA_UC_OPCODE_SHARING_STATS) {
@@ -1003,11 +996,11 @@ QDF_STATUS wlan_ipa_uc_op_metering(struct wlan_ipa_priv *ipa_ctx,
 
 		/* send quota exceeded indication to IPA */
 		iface_ctx = wlan_ipa_get_iface(ipa_ctx, QDF_STA_MODE);
+		ifindex = iface_ctx->dev->ifindex;
 		quota_bytes = uc_quota_ind->quota_bytes;
 		if (iface_ctx)
-			qdf_ipa_broadcast_wdi_quota_reach_ind(
-							iface_ctx->dev->ifindex,
-							quota_bytes);
+			qdf_ipa_broadcast_wdi_quota_reach_ind(ifindex,
+							      quota_bytes);
 		else
 			ipa_err("Failed quota_reach_ind: NULL interface");
 	} else {

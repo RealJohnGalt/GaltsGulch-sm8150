@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -20,7 +20,6 @@
 #include "../dfs_random_chan_sel.h"
 #include <qdf_mc_timer.h>
 #include <wlan_utility.h>
-#include <wlan_reg_services_api.h>
 #include "../dfs_process_radar_found_ind.h"
 
 #ifdef WLAN_ENABLE_CHNL_MATRIX_RESTRICTION
@@ -855,8 +854,7 @@ dfs_mark_leaking_ch(struct wlan_dfs *dfs,
 
 	nol = dfs->dfs_nol;
 	while (nol) {
-		dfs_nol_channel = wlan_reg_freq_to_chan(dfs->dfs_pdev_obj,
-							nol->nol_freq);
+		dfs_nol_channel = wlan_freq_to_chan(nol->nol_freq);
 		if (false == dfs_find_target_channel_in_channel_matrix(
 					ch_width, dfs_nol_channel,
 					&target_chan_matrix)) {
@@ -910,13 +908,7 @@ dfs_mark_leaking_ch(struct wlan_dfs *dfs,
 #endif
 
 #ifdef CONFIG_CHAN_FREQ_API
-
-#ifdef CONFIG_BAND_6GHZ
-#define END_CHAN_INDEX CHAN_ENUM_7115
-#else
 #define END_CHAN_INDEX CHAN_ENUM_5720
-#endif
-
 #define START_CHAN_INDEX CHAN_ENUM_5180
 QDF_STATUS
 dfs_mark_leaking_chan_for_freq(struct wlan_dfs *dfs,
@@ -1544,37 +1536,6 @@ static uint8_t dfs_find_ch_with_fallback(
 }
 #endif
 
-#ifdef CONFIG_BAND_6GHZ
-/**
- * dfs_assign_6g_channels()- Assign the center frequency of the first 20 MHZ
- * channel in every 80MHz channel, present in the 6G band.
- * @ch_map: Pointer to ch_map.
- *
- * Return: Void
- */
-static void dfs_assign_6g_channels(struct  chan_bonding_bitmap *ch_map)
-{
-	ch_map->chan_bonding_set[6].start_chan_freq = 5955;
-	ch_map->chan_bonding_set[7].start_chan_freq = 6035;
-	ch_map->chan_bonding_set[8].start_chan_freq = 6115;
-	ch_map->chan_bonding_set[9].start_chan_freq = 6195;
-	ch_map->chan_bonding_set[10].start_chan_freq = 6275;
-	ch_map->chan_bonding_set[11].start_chan_freq = 6355;
-	ch_map->chan_bonding_set[12].start_chan_freq = 6435;
-	ch_map->chan_bonding_set[13].start_chan_freq = 6515;
-	ch_map->chan_bonding_set[14].start_chan_freq = 6595;
-	ch_map->chan_bonding_set[15].start_chan_freq = 6675;
-	ch_map->chan_bonding_set[16].start_chan_freq = 6755;
-	ch_map->chan_bonding_set[17].start_chan_freq = 6835;
-	ch_map->chan_bonding_set[18].start_chan_freq = 6915;
-	ch_map->chan_bonding_set[19].start_chan_freq = 6995;
-}
-#else
-static inline void dfs_assign_6g_channels(struct  chan_bonding_bitmap *ch_map)
-{
-}
-#endif
-
 /**
  * dfs_find_ch_with_fallback_for_freq()- find random channel
  * @dfs: Pointer to DFS structure.
@@ -1591,7 +1552,7 @@ static inline void dfs_assign_6g_channels(struct  chan_bonding_bitmap *ch_map)
 #ifdef CONFIG_CHAN_FREQ_API
 static uint16_t dfs_find_ch_with_fallback_for_freq(struct wlan_dfs *dfs,
 						   uint8_t *chan_wd,
-						   qdf_freq_t *center_freq_seg1,
+						   uint16_t *center_freq_seg1,
 						   uint16_t *freq_lst,
 						   uint32_t num_chan)
 {
@@ -1611,7 +1572,6 @@ static uint16_t dfs_find_ch_with_fallback_for_freq(struct wlan_dfs *dfs,
 	ch_map.chan_bonding_set[4].start_chan_freq = 5660;
 	ch_map.chan_bonding_set[5].start_chan_freq = 5745;
 
-	dfs_assign_6g_channels(&ch_map);
 	for (i = 0; i < num_chan; i++) {
 		dfs_debug(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
 			  "channel = %d added to bitmap", freq_lst[i]);
@@ -1825,7 +1785,7 @@ static void dfs_apply_rules(struct wlan_dfs *dfs,
 		if (acs_info && acs_info->acs_mode) {
 			for (j = 0; j < acs_info->num_of_channel; j++) {
 				if (acs_info->chan_freq_list[j] ==
-							     chan->dfs_ch_freq){
+				    wlan_chan_to_freq(chan->dfs_ch_ieee)) {
 					found = true;
 					break;
 				}
@@ -1937,7 +1897,6 @@ static void dfs_apply_rules_for_freq(struct wlan_dfs *dfs,
 	bool flag_no_2g_chan  = 0;
 	bool flag_no_5g_chan  = 0;
 	bool flag_no_japan_w53 = 0;
-	bool flag_no_6g_freq;
 	int i;
 	bool found = false;
 	uint16_t j;
@@ -1957,7 +1916,6 @@ static void dfs_apply_rules_for_freq(struct wlan_dfs *dfs,
 	flag_no_dfs_chan = flags & DFS_RANDOM_CH_FLAG_NO_DFS_CH;
 	flag_no_2g_chan  = flags & DFS_RANDOM_CH_FLAG_NO_2GHZ_CH;
 	flag_no_5g_chan  = flags & DFS_RANDOM_CH_FLAG_NO_5GHZ_CH;
-	flag_no_6g_freq = flags & DFS_RANDOM_CH_FLAG_NO_6GHZ_CH;
 
 	if (flags & DFS_RANDOM_CH_FLAG_NO_CURR_OPE_CH) {
 		num_channels =
@@ -2017,8 +1975,9 @@ static void dfs_apply_rules_for_freq(struct wlan_dfs *dfs,
 			continue;
 		}
 
-		if (flag_no_5g_chan &&
-		    WLAN_REG_IS_5GHZ_CH_FREQ(chan->dfs_ch_freq)) {
+		if (flag_no_5g_chan && chan->dfs_ch_freq >
+		    DFS_MAX_24GHZ_CHANNEL_FREQ)
+		{
 			dfs_debug(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
 				  "skip 5 GHz channel=%d", chan->dfs_ch_ieee);
 			continue;
@@ -2044,13 +2003,6 @@ static void dfs_apply_rules_for_freq(struct wlan_dfs *dfs,
 		    DFS_IS_CHAN_JAPAN_OUTDOOR_FREQ(chan->dfs_ch_freq)) {
 			dfs_debug(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
 				  "skip outdoor channel=%d", chan->dfs_ch_ieee);
-			continue;
-		}
-
-		if (flag_no_6g_freq &&
-		    WLAN_REG_IS_6GHZ_CHAN_FREQ(chan->dfs_ch_freq)) {
-			dfs_debug(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
-				  "skip 6 GHz channel=%d", chan->dfs_ch_ieee);
 			continue;
 		}
 
@@ -2197,7 +2149,8 @@ uint16_t dfs_prepare_random_channel_for_freq(struct wlan_dfs *dfs,
 					     struct dfs_channel *chan_list,
 					     uint32_t chan_cnt,
 					     uint32_t flags,
-					     struct ch_params *chan_params,
+					     uint8_t *chan_wd,
+					     struct dfs_channel *cur_chan,
 					     uint8_t dfs_region,
 					     struct dfs_acs_info *acs_info)
 {
@@ -2209,7 +2162,7 @@ uint16_t dfs_prepare_random_channel_for_freq(struct wlan_dfs *dfs,
 	uint16_t flag_no_weather = 0;
 	uint16_t *leakage_adjusted_lst;
 	uint16_t final_lst[NUM_CHANNELS] = {0};
-	uint8_t *chan_wd = (uint8_t *)&chan_params->ch_width;
+	uint16_t *dfs_cfreq_seg2 = NULL;
 
 	if (!chan_list || !chan_cnt) {
 		dfs_info(dfs, WLAN_DEBUG_DFS_RANDOM_CHAN,
@@ -2276,9 +2229,12 @@ uint16_t dfs_prepare_random_channel_for_freq(struct wlan_dfs *dfs,
 								     final_cnt);
 			break;
 		}
-		target_freq = dfs_find_ch_with_fallback_for_freq(
-				dfs, chan_wd, &chan_params->mhz_freq_seg1,
-				leakage_adjusted_lst, random_chan_cnt);
+		dfs_cfreq_seg2 = &cur_chan->dfs_ch_mhz_freq_seg2;
+		target_freq =
+			dfs_find_ch_with_fallback_for_freq(dfs, chan_wd,
+							   dfs_cfreq_seg2,
+							   leakage_adjusted_lst,
+							   random_chan_cnt);
 
 		/* Since notion of 80+80 is not present in the regulatory
 		 * channel the function may return invalid 80+80 channels for
@@ -2287,21 +2243,12 @@ uint16_t dfs_prepare_random_channel_for_freq(struct wlan_dfs *dfs,
 		 */
 		if ((*chan_wd == DFS_CH_WIDTH_80P80MHZ) &&
 		    (flags & DFS_RANDOM_CH_FLAG_RESTRICTED_80P80_ENABLED) &&
-		    target_freq) {
-			wlan_reg_set_channel_params_for_freq(dfs->dfs_pdev_obj,
-							     target_freq,
-							     0, chan_params);
-			if (!(CHAN_WITHIN_RESTRICTED_80P80(
-						chan_params->mhz_freq_seg0,
-						chan_params->mhz_freq_seg1))) {
-				*chan_wd = DFS_CH_WIDTH_160MHZ;
-				target_freq =
-				    dfs_find_ch_with_fallback_for_freq(
-					    dfs, chan_wd,
-					    &chan_params->mhz_freq_seg1,
-					    leakage_adjusted_lst,
-					    random_chan_cnt);
-			}
+		    !(CHAN_WITHIN_RESTRICTED_80P80(target_freq,
+				*dfs_cfreq_seg2))) {
+			*chan_wd = DFS_CH_WIDTH_160MHZ;
+			target_freq = dfs_find_ch_with_fallback_for_freq(
+					dfs, chan_wd, dfs_cfreq_seg2,
+					leakage_adjusted_lst, random_chan_cnt);
 		}
 
 		/*

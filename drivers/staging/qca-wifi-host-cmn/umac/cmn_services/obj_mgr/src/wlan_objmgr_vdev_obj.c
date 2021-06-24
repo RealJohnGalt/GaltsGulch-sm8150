@@ -23,16 +23,13 @@
 #include <wlan_objmgr_pdev_obj.h>
 #include <wlan_objmgr_vdev_obj.h>
 #include <wlan_objmgr_peer_obj.h>
-#include <wlan_objmgr_debug.h>
 #include <qdf_mem.h>
 #include <qdf_module.h>
 #include "wlan_objmgr_global_obj_i.h"
 #include "wlan_objmgr_psoc_obj_i.h"
 #include "wlan_objmgr_pdev_obj_i.h"
 #include "wlan_objmgr_vdev_obj_i.h"
-#include <wlan_utility.h>
 #include <wlan_osif_priv.h>
-
 
 /**
  ** APIs to Create/Delete Global object APIs
@@ -113,7 +110,6 @@ static QDF_STATUS wlan_objmgr_vdev_obj_free(struct wlan_objmgr_vdev *vdev)
 
 	qdf_mem_free(vdev->vdev_mlme.bss_chan);
 	qdf_mem_free(vdev->vdev_mlme.des_chan);
-	wlan_minidump_remove(vdev);
 	qdf_mem_free(vdev);
 
 	return QDF_STATUS_SUCCESS;
@@ -158,6 +154,7 @@ struct wlan_objmgr_vdev *wlan_objmgr_vdev_obj_create(
 	vdev = qdf_mem_malloc(sizeof(*vdev) + params->size_vdev_priv);
 	if (!vdev)
 		return NULL;
+
 	vdev->obj_state = WLAN_OBJ_STATE_ALLOCATED;
 
 	vdev->vdev_mlme.bss_chan = qdf_mem_malloc(sizeof(struct wlan_channel));
@@ -213,7 +210,6 @@ struct wlan_objmgr_vdev *wlan_objmgr_vdev_obj_create(
 	vdev->vdev_objmgr.c_flags = params->flags;
 	/* store os-specific pointer */
 	vdev->vdev_nif.osdev = wlan_objmgr_vdev_get_osif_priv(vdev);
-
 	/* peer count to 0 */
 	vdev->vdev_objmgr.wlan_peer_count = 0;
 	qdf_atomic_init(&vdev->vdev_objmgr.ref_cnt);
@@ -275,9 +271,6 @@ struct wlan_objmgr_vdev *wlan_objmgr_vdev_obj_create(
 		return NULL;
 	}
 
-	wlan_minidump_log(vdev, sizeof(*vdev), psoc,
-			  WLAN_MD_OBJMGR_VDEV, "wlan_objmgr_vdev");
-
 	obj_mgr_debug("Created vdev %d", vdev->vdev_objmgr.vdev_id);
 
 	return vdev;
@@ -303,10 +296,9 @@ static QDF_STATUS wlan_objmgr_vdev_obj_destroy(struct wlan_objmgr_vdev *vdev)
 	obj_mgr_debug("Physically deleting vdev %d", vdev_id);
 
 	if (vdev->obj_state != WLAN_OBJ_STATE_LOGICALLY_DELETED) {
-		obj_mgr_alert("VDEV object delete is not invoked vdevid:%d objstate:%d",
-			      wlan_vdev_get_id(vdev), vdev->obj_state);
+		obj_mgr_err("VDEV object delete is not invoked vdevid:%d objstate:%d",
+			    wlan_vdev_get_id(vdev), vdev->obj_state);
 		WLAN_OBJMGR_BUG(0);
-		return QDF_STATUS_E_FAILURE;
 	}
 
 	/* Invoke registered destroy handlers */
@@ -1109,7 +1101,7 @@ QDF_STATUS wlan_objmgr_vdev_try_get_ref(struct wlan_objmgr_vdev *vdev,
 		wlan_vdev_obj_unlock(vdev);
 		if (vdev->vdev_objmgr.print_cnt++ <=
 				WLAN_OBJMGR_RATELIMIT_THRESH)
-			obj_mgr_debug(
+			obj_mgr_err(
 			"[Ref id: %d] vdev(%d) is not in Created state(%d)",
 				id, vdev_id, vdev->obj_state);
 
@@ -1401,30 +1393,4 @@ void wlan_objmgr_vdev_peer_freed_notify(struct wlan_objmgr_vdev *vdev)
 		if (stat_handler)
 			stat_handler(vdev);
 	}
-}
-
-QDF_STATUS wlan_vdev_get_bss_peer_mac(struct wlan_objmgr_vdev *vdev,
-				      struct qdf_mac_addr *bss_peer_mac)
-{
-	struct wlan_objmgr_peer *peer;
-
-	if (!vdev) {
-		obj_mgr_err("vdev is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	peer = wlan_objmgr_vdev_try_get_bsspeer(vdev, WLAN_MLME_OBJMGR_ID);
-	if (!peer) {
-		obj_mgr_err("not able to find bss peer for vdev %d",
-			    wlan_vdev_get_id(vdev));
-		return QDF_STATUS_E_INVAL;
-	}
-	wlan_peer_obj_lock(peer);
-	qdf_mem_copy(bss_peer_mac->bytes, wlan_peer_get_macaddr(peer),
-		     QDF_MAC_ADDR_SIZE);
-	wlan_peer_obj_unlock(peer);
-
-	wlan_objmgr_peer_release_ref(peer, WLAN_MLME_OBJMGR_ID);
-
-	return QDF_STATUS_SUCCESS;
 }

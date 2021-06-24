@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -34,23 +34,12 @@ void tgt_if_pmo_reg_pkt_filter_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
 		target_if_pmo_clear_pkt_filter_req;
 }
 #else
-static inline void
-tgt_if_pmo_reg_pkt_filter_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
+static inline
+void tgt_if_pmo_reg_pkt_filter_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
 {
 }
 #endif
-#ifdef WLAN_FEATURE_IGMP_OFFLOAD
-static void
-update_pmo_igmp_tx_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
-{
-	pmo_tx_ops->send_igmp_offload_req =
-		target_if_pmo_send_igmp_offload_req;
-}
-#else
-static inline void
-update_pmo_igmp_tx_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
-{}
-#endif
+
 void target_if_pmo_register_tx_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
 {
 	if (!pmo_tx_ops) {
@@ -110,13 +99,10 @@ void target_if_pmo_register_tx_ops(struct wlan_pmo_tx_ops *pmo_tx_ops)
 		target_if_pmo_psoc_update_bus_suspend;
 	pmo_tx_ops->psoc_get_host_credits =
 		target_if_pmo_psoc_get_host_credits;
-	update_pmo_igmp_tx_ops(pmo_tx_ops);
 	pmo_tx_ops->psoc_get_pending_cmnds =
 		target_if_pmo_psoc_get_pending_cmnds;
 	pmo_tx_ops->update_target_suspend_flag =
 		target_if_pmo_update_target_suspend_flag;
-	pmo_tx_ops->update_target_suspend_acked_flag =
-		target_if_pmo_update_target_suspend_acked_flag;
 	pmo_tx_ops->is_target_suspended =
 		target_if_pmo_is_target_suspended;
 	pmo_tx_ops->psoc_send_wow_enable_req =

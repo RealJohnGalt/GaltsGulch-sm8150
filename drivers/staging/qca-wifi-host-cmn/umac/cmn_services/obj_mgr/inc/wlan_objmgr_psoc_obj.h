@@ -24,6 +24,8 @@
 
 #include "wlan_objmgr_cmn.h"
 #include "wlan_objmgr_debug.h"
+#include "wlan_lmac_if_def.h"
+#include <target_if_pub.h>
 
 #define REG_DMN_CH144        0x0001
 #define REG_DMN_ENTREPRISE   0x0002
@@ -138,14 +140,6 @@
 #define WLAN_SOC_RESTRICTED_80P80_SUPPORT 0x00100000
 	/* Indicates Firmware supports sending NSS ratio info to host */
 #define WLAN_SOC_NSS_RATIO_TO_HOST_SUPPORT 0x00200000
-	/* EMA AP Support */
-#define WLAN_SOC_CEXT_EMA_AP           0x00400000
-	/* MBSS PARAM IN START REQ Support */
-#define WLAN_SOC_CEXT_MBSS_PARAM_IN_START   0x00800000
-/* Per channel scan config flags support */
-#define WLAN_SOC_CEXT_SCAN_PER_CH_CONFIG    0x01000000
-	/* CAPABILITY: csa offload in case of AP */
-#define WLAN_SOC_CEXT_CSA_TX_OFFLOAD      0x02000000
 
 /* feature_flags */
 	/* CONF: ATH FF enabled */
@@ -204,13 +198,6 @@
 #define WLAN_SOC_F_TESTMODE_ENABLE     0x01000000
 	/* Dynamic HW mode swithch enable */
 #define WLAN_SOC_F_DYNAMIC_HW_MODE     0x02000000
-	/* Broadcast TWT support enable */
-#define WLAN_SOC_F_BCAST_TWT           0x04000000
-       /* WDS Extended support */
-#define WLAN_SOC_F_WDS_EXTENDED        0x08000000
-/* Peer create response */
-#define WLAN_SOC_F_PEER_CREATE_RESP    0x10000000
-
 
 /* PSOC op flags */
 
@@ -318,7 +305,7 @@ struct wlan_objmgr_psoc_objmgr {
 	uint16_t temp_peer_count;
 	struct wlan_objmgr_pdev *wlan_pdev_list[WLAN_UMAC_MAX_PDEVS];
 	struct wlan_objmgr_vdev *wlan_vdev_list[WLAN_UMAC_PSOC_MAX_VDEVS];
-	qdf_bitmap(wlan_vdev_id_map, WLAN_UMAC_PSOC_MAX_VDEVS);
+	uint32_t wlan_vdev_id_map[2];
 	struct wlan_peer_list peer_list;
 	qdf_atomic_t ref_cnt;
 	qdf_atomic_t ref_id_dbg[WLAN_REF_ID_MAX];
@@ -331,8 +318,8 @@ struct wlan_objmgr_psoc_objmgr {
  * @rx_ops: contains southbound rx callbacks
  */
 struct wlan_soc_southbound_cb {
-	struct wlan_lmac_if_tx_ops *tx_ops;
-	struct wlan_lmac_if_rx_ops *rx_ops;
+	struct wlan_lmac_if_tx_ops tx_ops;
+	struct wlan_lmac_if_rx_ops rx_ops;
 };
 
 /**
@@ -357,6 +344,7 @@ struct wlan_soc_timer {
  * @soc_cb:                south bound callbacks
  * @soc_timer:             soc timer for inactivity
  * @soc_concurrency:       concurrency info
+ * @wlan_active_vdevs[]:   List of active VDEVs
  * @soc_comp_priv_obj[]:   component private object pointers
  * @obj_status[]:          component object status
  * @obj_state:             object state
@@ -371,10 +359,11 @@ struct wlan_objmgr_psoc {
 	struct wlan_soc_southbound_cb soc_cb;
 	struct wlan_soc_timer soc_timer;
 	struct wlan_concurrency_info soc_concurrency; /*TODO */
+	uint8_t wlan_active_vdevs[WLAN_UMAC_PSOC_MAX_VDEVS];
 	void *soc_comp_priv_obj[WLAN_UMAC_MAX_COMPONENTS];
 	QDF_STATUS obj_status[WLAN_UMAC_MAX_COMPONENTS];
 	WLAN_OBJ_STATE obj_state;
-	struct target_psoc_info *tgt_if_handle;
+	target_psoc_info_t *tgt_if_handle;
 	void *dp_handle;
 	qdf_spinlock_t psoc_lock;
 };
@@ -404,17 +393,6 @@ struct wlan_psoc_host_hal_reg_capabilities_ext {
 	uint32_t high_2ghz_chan;
 	uint32_t low_5ghz_chan;
 	uint32_t high_5ghz_chan;
-};
-
-/**
- * struct wlan_psoc_host_hal_reg_capabilities_ext2 - HAL reg capabilities
- * from service ready ext2 event.
- * @phy_id: phy id starts with 0
- * @wireless_modes_ext: REGDMN MODE, see REGDMN_MODE_ enum
- */
-struct wlan_psoc_host_hal_reg_capabilities_ext2 {
-	uint32_t phy_id;
-	uint32_t wireless_modes_ext;
 };
 
 /**
@@ -1393,7 +1371,7 @@ static inline uint8_t *wlan_psoc_get_hw_macaddr(struct wlan_objmgr_psoc *psoc)
 }
 
 /**
- * wlan_objmgr_psoc_get_comp_private_obj() - API to retrieve component object
+ * wlan_objmgr_psoc_get_comp_private_obj(): API to retrieve component object
  * @psoc: Psoc pointer
  * @id: component id
  *
@@ -1421,79 +1399,7 @@ static inline uint8_t wlan_psoc_get_pdev_count(struct wlan_objmgr_psoc *psoc)
 }
 
 /**
- * wlan_psoc_set_lmac_if_txops() - API to set tx ops handle in psoc object
- * @psoc: Psoc pointer
- * @tx_ops: tx callbacks handle
- *
- * API to set tx callbacks handle in psoc object
- *
- * Return: None
- */
-static inline
-void wlan_psoc_set_lmac_if_txops(struct wlan_objmgr_psoc *psoc,
-			  struct wlan_lmac_if_tx_ops *tx_ops)
-{
-	if (!psoc)
-		return;
-
-	psoc->soc_cb.tx_ops = tx_ops;
-}
-
-/**
- * wlan_psoc_get_lmac_if_txops() - API to get tx ops handle
- * @psoc: Psoc pointer
- *
- * API to get tx callbacks handle from psoc object
- *
- * Return: tx callbacks handle
- */
-static inline
-struct wlan_lmac_if_tx_ops *wlan_psoc_get_lmac_if_txops(struct wlan_objmgr_psoc *psoc)
-{
-	if (!psoc)
-		return NULL;
-
-	return psoc->soc_cb.tx_ops;
-}
-
-/**
- * wlan_psoc_set_lmac_if_rxops() - API to set rx ops handle in psoc object
- * @psoc: Psoc pointer
- * @tgt_if_handle: rx callbacks handle
- *
- * API to set rx callbacks handle in psoc object
- *
- * Return: None
- */
-static inline
-void wlan_psoc_set_lmac_if_rxops(struct wlan_objmgr_psoc *psoc, struct
-		wlan_lmac_if_rx_ops *rx_ops)
-{
-	if (!psoc)
-		return;
-
-	psoc->soc_cb.rx_ops = rx_ops;
-}
-
-/**
- * wlan_psoc_get_lmac_if_rxops() - API to get rx ops handle
- * @psoc: Psoc pointer
- *
- * API to get rx callbacks handle from psoc object
- *
- * Return: rx callbacks handle
- */
-static inline
-struct wlan_lmac_if_rx_ops *wlan_psoc_get_lmac_if_rxops(struct wlan_objmgr_psoc *psoc)
-{
-	if (!psoc)
-		return NULL;
-
-	return psoc->soc_cb.rx_ops;
-}
-
-/**
- * wlan_psoc_set_tgt_if_handle() - API to set target if handle in psoc object
+ * wlan_psoc_set_tgt_if_handle(): API to set target if handle in psoc object
  * @psoc: Psoc pointer
  * @tgt_if_handle: target interface handle
  *
@@ -1503,7 +1409,7 @@ struct wlan_lmac_if_rx_ops *wlan_psoc_get_lmac_if_rxops(struct wlan_objmgr_psoc 
  */
 static inline
 void wlan_psoc_set_tgt_if_handle(struct wlan_objmgr_psoc *psoc,
-				 struct target_psoc_info *tgt_if_handle)
+				 target_psoc_info_t *tgt_if_handle)
 {
 	if (!psoc)
 		return;
@@ -1512,7 +1418,7 @@ void wlan_psoc_set_tgt_if_handle(struct wlan_objmgr_psoc *psoc,
 }
 
 /**
- * wlan_psoc_get_tgt_if_handle() - API to get target interface handle
+ * wlan_psoc_get_tgt_if_handle(): API to get target interface handle
  * @psoc: Psoc pointer
  *
  * API to get target interface handle from psoc object
@@ -1520,8 +1426,7 @@ void wlan_psoc_set_tgt_if_handle(struct wlan_objmgr_psoc *psoc,
  * Return: target interface handle
  */
 static inline
-struct target_psoc_info *wlan_psoc_get_tgt_if_handle(
-				struct wlan_objmgr_psoc *psoc)
+target_psoc_info_t *wlan_psoc_get_tgt_if_handle(struct wlan_objmgr_psoc *psoc)
 {
 	if (!psoc)
 		return NULL;
@@ -1530,7 +1435,7 @@ struct target_psoc_info *wlan_psoc_get_tgt_if_handle(
 }
 
 /**
- * wlan_psoc_get_qdf_dev() - API to get qdf device
+ * wlan_psoc_get_qdf_dev(): API to get qdf device
  * @psoc: Psoc pointer
  *
  * API to get qdf device from psoc object
@@ -1547,7 +1452,7 @@ static inline qdf_device_t wlan_psoc_get_qdf_dev(
 }
 
 /**
- * wlan_psoc_set_qdf_dev() - API to get qdf device
+ * wlan_psoc_set_qdf_dev(): API to get qdf device
  * @psoc: Psoc pointer
  * dev: qdf device
  *
@@ -1577,9 +1482,6 @@ static inline void wlan_psoc_set_qdf_dev(
 static inline void wlan_psoc_set_max_vdev_count(struct wlan_objmgr_psoc *psoc,
 						uint8_t max_vdev_count)
 {
-	if (max_vdev_count > WLAN_UMAC_PSOC_MAX_VDEVS)
-		QDF_BUG(0);
-
 	psoc->soc_objmgr.max_vdev_count = max_vdev_count;
 }
 
@@ -1609,9 +1511,6 @@ static inline uint8_t wlan_psoc_get_max_vdev_count(
 static inline void wlan_psoc_set_max_peer_count(struct wlan_objmgr_psoc *psoc,
 						uint16_t max_peer_count)
 {
-	if (max_peer_count > WLAN_UMAC_PSOC_MAX_PEERS)
-		QDF_BUG(0);
-
 	psoc->soc_objmgr.max_peer_count = max_peer_count;
 }
 
@@ -1814,6 +1713,18 @@ struct wlan_logically_del_peer {
 	qdf_list_node_t list;
 	struct wlan_objmgr_peer *peer;
 };
+
+/**
+ * wlan_psoc_get_lmac_if_txops() - get lmac if txops for the psoc
+ * @psoc: psoc object pointer
+ *
+ * Return: Pointer to wlan_lmac_if_tx_ops
+ */
+static inline struct wlan_lmac_if_tx_ops *
+wlan_psoc_get_lmac_if_txops(struct wlan_objmgr_psoc *psoc)
+{
+	return &((psoc->soc_cb.tx_ops));
+}
 
 /**
  * wlan_psoc_get_id() - get psoc id

@@ -28,13 +28,11 @@
 #include <qdf_nbuf.h>
 #include "wlan_cfr_utils_api.h"
 #include "target_if_cfr_6490.h"
-#include "target_if_cfr_enh.h"
+#include "target_if_cfr_6018.h"
 #include "init_deinit_lmac.h"
 #include "cfg_ucfg_api.h"
 #include "cfr_cfg.h"
 
-#ifdef WLAN_ENH_CFR_ENABLE
-#ifdef CFR_USE_FIXED_FOLDER
 static wdi_event_subscribe g_cfr_subscribe;
 
 static void target_cfr_callback(void *pdev_obj, enum WDI_EVENT event,
@@ -118,7 +116,87 @@ target_if_cfr_subscribe_ppdu_desc(struct wlan_objmgr_pdev *pdev,
 
 	return QDF_STATUS_SUCCESS;
 }
-#endif
-#endif
 
+QDF_STATUS cfr_6490_init_pdev(struct wlan_objmgr_psoc *psoc,
+			      struct wlan_objmgr_pdev *pdev)
+{
+	struct pdev_cfr *cfr_pdev;
+	struct psoc_cfr *cfr_psoc;
+	struct wmi_unified *wmi_handle = NULL;
+	bool is_cfr_disabled;
+	bool cfr_capable;
+	QDF_STATUS status;
 
+	if (!psoc || !pdev) {
+		cfr_err("null pdev or psoc");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	cfr_pdev = wlan_objmgr_pdev_get_comp_private_obj(
+					pdev, WLAN_UMAC_COMP_CFR);
+	if (!cfr_pdev) {
+		cfr_err("null pdev cfr");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	cfr_psoc = wlan_objmgr_psoc_get_comp_private_obj(
+					psoc, WLAN_UMAC_COMP_CFR);
+
+	if (!cfr_psoc) {
+		cfr_err("null psoc cfr");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	wmi_handle = lmac_get_pdev_wmi_handle(pdev);
+	if (!wmi_handle) {
+		cfr_err("null wmi handle");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	is_cfr_disabled = cfg_get(psoc, CFG_CFR_DISABLE);
+	if (is_cfr_disabled) {
+		cfr_pdev->is_cfr_capable = 0;
+		cfr_psoc->is_cfr_capable = 0;
+		cfr_info("cfr disabled");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	cfr_capable = wmi_service_enabled(wmi_handle,
+					  wmi_service_cfr_capture_support);
+	cfr_pdev->is_cfr_capable = cfr_capable;
+	cfr_psoc->is_cfr_capable = cfr_capable;
+	if (!cfr_capable) {
+		cfr_err("FW doesn't support CFR");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	status = cfr_6018_init_pdev(psoc, pdev);
+	cfr_pdev->chip_type = CFR_CAPTURE_RADIO_HSP;
+
+	return status;
+}
+
+QDF_STATUS cfr_6490_deinit_pdev(struct wlan_objmgr_psoc *psoc,
+				struct wlan_objmgr_pdev *pdev)
+{
+	struct pdev_cfr *pcfr;
+
+	if (!psoc || !pdev) {
+		cfr_err("null pdev or psoc");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	pcfr = wlan_objmgr_pdev_get_comp_private_obj(
+					pdev, WLAN_UMAC_COMP_CFR);
+	if (!pcfr) {
+		cfr_err("null pdev cfr");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (!pcfr->is_cfr_capable) {
+		cfr_info("cfr disabled or FW not support");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	return cfr_6018_deinit_pdev(psoc, pdev);
+}

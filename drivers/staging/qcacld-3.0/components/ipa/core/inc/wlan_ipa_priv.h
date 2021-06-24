@@ -56,11 +56,7 @@
 #define WLAN_IPA_CLIENT_MAX_IFACE           3
 #define WLAN_IPA_MAX_SYSBAM_PIPE            4
 #define WLAN_IPA_MAX_SESSION                5
-#ifdef WLAN_MAX_CLIENTS_ALLOWED
-#define WLAN_IPA_MAX_STA_COUNT              WLAN_MAX_CLIENTS_ALLOWED
-#else
 #define WLAN_IPA_MAX_STA_COUNT              41
-#endif
 
 #define WLAN_IPA_RX_PIPE                    WLAN_IPA_MAX_IFACE
 #define WLAN_IPA_ENABLE_MASK                BIT(0)
@@ -335,9 +331,6 @@ struct wlan_ipa_iface_context {
 	uint8_t iface_id;       /* This iface ID */
 	qdf_netdev_t dev;
 	enum QDF_OPMODE device_mode;
-	uint8_t mac_addr[QDF_MAC_ADDR_SIZE];
-	qdf_atomic_t conn_count;
-	qdf_atomic_t disconn_count;
 	uint8_t session_id;
 	qdf_spinlock_t interface_lock;
 	uint32_t ifa_address;
@@ -686,13 +679,12 @@ struct wlan_ipa_priv {
 	qdf_mc_timer_t rt_debug_fill_timer;
 	qdf_mutex_t rt_debug_lock;
 	qdf_mutex_t ipa_lock;
-	qdf_mutex_t init_deinit_lock;
 
 	uint8_t vdev_to_iface[WLAN_IPA_MAX_SESSION];
 	bool vdev_offload_enabled[WLAN_IPA_MAX_SESSION];
 	bool mcc_mode;
 	qdf_work_t mcc_work;
-	bool disable_intrabss_fwd[WLAN_IPA_MAX_SESSION];
+	bool ap_intrabss_fwd;
 	bool dfs_cac_block_tx;
 #ifdef FEATURE_METERING
 	struct ipa_uc_sharing_stats ipa_sharing_stats;
@@ -717,7 +709,6 @@ struct wlan_ipa_priv {
 	bool is_smmu_enabled;	/* IPA caps returned from ipa_wdi_init */
 	qdf_atomic_t stats_quota;
 	uint8_t curr_bw_level;
-	qdf_atomic_t deinit_in_prog;
 };
 
 #define WLAN_IPA_WLAN_FRAG_HEADER        sizeof(struct frag_header)

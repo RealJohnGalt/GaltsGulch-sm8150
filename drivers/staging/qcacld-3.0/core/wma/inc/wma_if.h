@@ -164,6 +164,8 @@ struct sAniProbeRspStruct {
  * @vht_caps: VHT vapabalities
  * @nwType: NW Type
  * @maxTxPower: max tx power
+ * @atimIePresent: Peer Atim Info
+ * @peerAtimWindowLength: peer ATIM Window length
  * @nss: Return the number of spatial streams supported
  * @stbc_capable: stbc capable
  * @no_ptk_4_way: Do not need 4-way handshake
@@ -233,6 +235,8 @@ typedef struct {
 	uint32_t vht_caps;
 	tSirNwType nwType;
 	int8_t maxTxPower;
+	uint8_t atimIePresent;
+	uint32_t peerAtimWindowLength;
 	uint8_t nonRoamReassoc;
 	uint32_t nss;
 #ifdef WLAN_FEATURE_11AX
@@ -240,7 +244,6 @@ typedef struct {
 	tDot11fIEhe_cap he_config;
 	tDot11fIEhe_op he_op;
 	tDot11fIEhe_6ghz_band_cap he_6ghz_band_caps;
-	uint16_t he_mcs_12_13_map;
 #endif
 	uint8_t stbc_capable;
 #ifdef WLAN_SUPPORT_TWT
@@ -321,7 +324,7 @@ typedef struct sLimMlmSetKeysReq {
 } tLimMlmSetKeysReq, *tpLimMlmSetKeysReq;
 
 /**
- * struct bss_params - parameters required for add bss params
+ * struct struct bss_params - parameters required for add bss params
  * @bssId: MAC Address/BSSID
  * @nwType: network type
  * @shortSlotTimeSupported: is short slot time supported or not
@@ -333,6 +336,8 @@ typedef struct sLimMlmSetKeysReq {
  * @staContext: sta context
  * @updateBss: update the existing BSS entry, if this flag is set
  * @maxTxPower: max power to be used after applying the power constraint
+ * @extSetStaKeyParamValid: Ext Bss Config Msg if set
+ * @extSetStaKeyParam: SetStaKeyParams for ext bss msg
  * @bSpectrumMgtEnabled: Spectrum Management Capability, 1:Enabled, 0:Disabled.
  * @vhtCapable: VHT capablity
  * @ch_width: VHT tx channel width
@@ -355,6 +360,9 @@ struct bss_params {
 	 */
 	uint8_t updateBss;
 	int8_t maxTxPower;
+
+	uint8_t extSetStaKeyParamValid;
+	tSetStaKeyParams extSetStaKeyParam;
 	uint8_t vhtCapable;
 	enum phy_ch_width ch_width;
 	uint8_t nonRoamReassoc;
@@ -380,7 +388,7 @@ struct add_bss_rsp {
 };
 
 /**
- * struct del_bss_resp - params required for del bss response
+ * struct struct del_bss_resp - params required for del bss response
  * @status: QDF status
  * @vdev_id: vdev_id
  */
@@ -705,14 +713,14 @@ struct set_dtim_params {
  * struct del_vdev_params - Del Sta Self params
  * @session_id: SME Session ID
  * @status: response status code
- * @vdev: Object to vdev
+ * @sme_callback: callback to be called from WMA to SME
  * @sme_ctx: pointer to context provided by SME
  */
 struct del_vdev_params {
 	tSirMacAddr self_mac_addr;
 	uint8_t vdev_id;
 	uint32_t status;
-	struct wlan_objmgr_vdev *vdev;
+	csr_session_close_cb sme_callback;
 	void *sme_ctx;
 };
 
@@ -735,14 +743,6 @@ struct send_peer_unmap_conf_params {
 	uint8_t vdev_id;
 	uint32_t peer_id_cnt;
 	uint16_t *peer_id_list;
-};
-
-/**
- * struct peer_create_rsp_params  - Peer create response parameters
- * @peer_mac: Peer mac address
- */
-struct peer_create_rsp_params {
-	struct qdf_mac_addr peer_mac;
 };
 
 /**

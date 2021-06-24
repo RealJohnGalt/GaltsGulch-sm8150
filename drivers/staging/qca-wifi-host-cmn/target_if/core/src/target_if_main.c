@@ -35,10 +35,6 @@
 #ifdef WLAN_CONV_SPECTRAL_ENABLE
 #include "target_if_spectral.h"
 #endif
-
-#ifdef WLAN_IOT_SIM_SUPPORT
-#include <target_if_iot_sim.h>
-#endif
 #include <target_if_reg.h>
 #include <target_if_scan.h>
 #include <target_if_ftm.h>
@@ -86,11 +82,6 @@
 
 #ifdef FEATURE_COEX
 #include <target_if_coex.h>
-#endif
-#include <wlan_utility.h>
-
-#ifdef DCS_INTERFERENCE_DETECTION
-#include <target_if_dcs.h>
 #endif
 
 static struct target_if_ctx *g_target_if_ctx;
@@ -312,19 +303,6 @@ static void target_if_sptrl_tx_ops_register(
 }
 #endif /* WLAN_CONV_SPECTRAL_ENABLE */
 
-#ifdef WLAN_IOT_SIM_SUPPORT
-static void target_if_iot_sim_tx_ops_register(
-				struct wlan_lmac_if_tx_ops *tx_ops)
-{
-	target_if_iot_sim_register_tx_ops(tx_ops);
-}
-#else
-static void target_if_iot_sim_tx_ops_register(
-				struct wlan_lmac_if_tx_ops *tx_ops)
-{
-}
-#endif
-
 #ifdef DIRECT_BUF_RX_ENABLE
 static void target_if_direct_buf_rx_tx_ops_register(
 				struct wlan_lmac_if_tx_ops *tx_ops)
@@ -405,12 +383,6 @@ static void target_if_target_tx_ops_register(
 	target_tx_ops->tgt_is_tgt_type_adrastea =
 		target_is_tgt_type_adrastea;
 
-	target_tx_ops->tgt_is_tgt_type_qcn9000 =
-		target_is_tgt_type_qcn9000;
-
-	target_tx_ops->tgt_is_tgt_type_qcn9100 =
-		target_is_tgt_type_qcn9100;
-
 	target_tx_ops->tgt_get_tgt_type =
 		lmac_get_tgt_type;
 
@@ -426,20 +398,6 @@ target_if_cp_stats_tx_ops_register(struct wlan_lmac_if_tx_ops *tx_ops)
 {
 	return target_if_cp_stats_register_tx_ops(tx_ops);
 }
-
-#ifdef DCS_INTERFERENCE_DETECTION
-static QDF_STATUS
-target_if_dcs_tx_ops_register(struct wlan_lmac_if_tx_ops *tx_ops)
-{
-	return target_if_dcs_register_tx_ops(tx_ops);
-}
-#else
-static QDF_STATUS
-target_if_dcs_tx_ops_register(struct wlan_lmac_if_tx_ops *tx_ops)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
 
 static QDF_STATUS
 target_if_vdev_mgr_tx_ops_register(struct wlan_lmac_if_tx_ops *tx_ops)
@@ -459,7 +417,6 @@ void target_if_ftm_tx_ops_register(struct wlan_lmac_if_tx_ops *tx_ops)
 {
 }
 #endif
-
 static
 QDF_STATUS target_if_register_umac_tx_ops(struct wlan_lmac_if_tx_ops *tx_ops)
 {
@@ -498,8 +455,6 @@ QDF_STATUS target_if_register_umac_tx_ops(struct wlan_lmac_if_tx_ops *tx_ops)
 
 	target_if_cp_stats_tx_ops_register(tx_ops);
 
-	target_if_dcs_tx_ops_register(tx_ops);
-
 	target_if_crypto_tx_ops_register(tx_ops);
 
 	target_if_vdev_mgr_tx_ops_register(tx_ops);
@@ -517,8 +472,6 @@ QDF_STATUS target_if_register_tx_ops(struct wlan_lmac_if_tx_ops *tx_ops)
 
 	/* Components parallel to UMAC to register their TX-ops here */
 	target_if_sptrl_tx_ops_register(tx_ops);
-
-	target_if_iot_sim_tx_ops_register(tx_ops);
 
 	/* Register direct buffer rx component tx ops here */
 	target_if_direct_buf_rx_tx_ops_register(tx_ops);
@@ -612,9 +565,6 @@ QDF_STATUS target_if_alloc_psoc_tgt_info(struct wlan_objmgr_psoc *psoc)
 
 	wlan_psoc_set_tgt_if_handle(psoc, tgt_psoc_info);
 	target_psoc_set_preferred_hw_mode(tgt_psoc_info, WMI_HOST_HW_MODE_MAX);
-	wlan_minidump_log(tgt_psoc_info,
-			  sizeof(*tgt_psoc_info), psoc,
-			  WLAN_MD_OBJMGR_PSOC_TGT_INFO, "target_psoc_info");
 
 	qdf_event_create(&tgt_psoc_info->info.event);
 
@@ -641,13 +591,11 @@ QDF_STATUS target_if_free_psoc_tgt_info(struct wlan_objmgr_psoc *psoc)
 	init_deinit_chainmask_table_free(ext_param);
 	init_deinit_dbr_ring_cap_free(tgt_psoc_info);
 	init_deinit_spectral_scaling_params_free(tgt_psoc_info);
-	init_deinit_scan_radio_cap_free(tgt_psoc_info);
 
 	qdf_event_destroy(&tgt_psoc_info->info.event);
 
 	wlan_psoc_set_tgt_if_handle(psoc, NULL);
 
-	wlan_minidump_remove(tgt_psoc_info);
 	qdf_mem_free(tgt_psoc_info);
 
 	return QDF_STATUS_SUCCESS;
@@ -676,166 +624,4 @@ bool target_is_tgt_type_qca9888(uint32_t target_type)
 bool target_is_tgt_type_adrastea(uint32_t target_type)
 {
 	return target_type == TARGET_TYPE_ADRASTEA;
-}
-
-bool target_is_tgt_type_qcn9000(uint32_t target_type)
-{
-	return target_type == TARGET_TYPE_QCN9000;
-}
-
-bool target_is_tgt_type_qcn9100(uint32_t target_type)
-{
-	return target_type == TARGET_TYPE_QCN9100;
-}
-
-QDF_STATUS
-target_pdev_is_scan_radio_supported(struct wlan_objmgr_pdev *pdev,
-				    bool *is_scan_radio_supported)
-{
-	struct wlan_objmgr_psoc *psoc;
-	struct wlan_psoc_host_scan_radio_caps *scan_radio_caps;
-	uint8_t cap_idx;
-	uint32_t num_scan_radio_caps;
-	int32_t phy_id;
-	struct target_psoc_info *tgt_psoc_info;
-	struct target_pdev_info *tgt_pdev;
-
-	if (!is_scan_radio_supported) {
-		target_if_err("input argument is null");
-		return QDF_STATUS_E_INVAL;
-	}
-	*is_scan_radio_supported = false;
-
-	if (!pdev) {
-		target_if_err("pdev is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	psoc = wlan_pdev_get_psoc(pdev);
-	if (!psoc) {
-		target_if_err("psoc is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	tgt_psoc_info = wlan_psoc_get_tgt_if_handle(psoc);
-	if (!tgt_psoc_info) {
-		target_if_err("target_psoc_info is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	num_scan_radio_caps =
-		target_psoc_get_num_scan_radio_caps(tgt_psoc_info);
-	if (!num_scan_radio_caps)
-		return QDF_STATUS_SUCCESS;
-
-	scan_radio_caps = target_psoc_get_scan_radio_caps(tgt_psoc_info);
-	if (!scan_radio_caps) {
-		target_if_err("scan radio capabilities is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	tgt_pdev = (struct target_pdev_info *)wlan_pdev_get_tgt_if_handle(pdev);
-	if (!tgt_pdev) {
-		target_if_err("target_pdev_info is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	phy_id = target_pdev_get_phy_idx(tgt_pdev);
-	if (phy_id < 0) {
-		target_if_err("phy_id is invalid");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	for (cap_idx = 0; cap_idx < num_scan_radio_caps; cap_idx++)
-		if (scan_radio_caps[cap_idx].phy_id == phy_id)
-			*is_scan_radio_supported =
-				scan_radio_caps[cap_idx].scan_radio_supported;
-
-	return QDF_STATUS_SUCCESS;
-}
-
-QDF_STATUS
-target_pdev_scan_radio_is_dfs_enabled(struct wlan_objmgr_pdev *pdev,
-				      bool *is_dfs_en)
-{
-	struct wlan_objmgr_psoc *psoc;
-	struct wlan_psoc_host_scan_radio_caps *scan_radio_caps;
-	uint8_t cap_idx;
-	uint32_t num_scan_radio_caps, pdev_id;
-	int32_t phy_id;
-	struct target_psoc_info *tgt_psoc_info;
-	struct target_pdev_info *tgt_pdev;
-
-	if (!is_dfs_en) {
-		target_if_err("input argument is null");
-		return QDF_STATUS_E_INVAL;
-	}
-	*is_dfs_en = true;
-
-	if (!pdev) {
-		target_if_err("pdev is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	psoc = wlan_pdev_get_psoc(pdev);
-	if (!psoc) {
-		target_if_err("psoc is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	tgt_psoc_info = wlan_psoc_get_tgt_if_handle(psoc);
-	if (!tgt_psoc_info) {
-		target_if_err("target_psoc_info is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	num_scan_radio_caps =
-		target_psoc_get_num_scan_radio_caps(tgt_psoc_info);
-	if (!num_scan_radio_caps) {
-		target_if_err("scan radio not supported for psoc");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	scan_radio_caps = target_psoc_get_scan_radio_caps(tgt_psoc_info);
-	if (!scan_radio_caps) {
-		target_if_err("scan radio capabilities is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	tgt_pdev = (struct target_pdev_info *)wlan_pdev_get_tgt_if_handle(pdev);
-	if (!tgt_pdev) {
-		target_if_err("target_pdev_info is null");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	pdev_id = wlan_objmgr_pdev_get_pdev_id(pdev);
-	phy_id = target_pdev_get_phy_idx(tgt_pdev);
-	if (phy_id < 0) {
-		target_if_err("phy_id is invalid");
-		return QDF_STATUS_E_INVAL;
-	}
-
-	for (cap_idx = 0; cap_idx < num_scan_radio_caps; cap_idx++)
-		if (scan_radio_caps[cap_idx].phy_id == phy_id) {
-			*is_dfs_en = scan_radio_caps[cap_idx].dfs_en;
-			return QDF_STATUS_SUCCESS;
-		}
-
-	target_if_err("No scan radio cap found in pdev %d", pdev_id);
-
-	return QDF_STATUS_E_INVAL;
-}
-
-void target_if_set_reg_cc_ext_supp(struct target_psoc_info *tgt_hdl,
-				   struct wlan_objmgr_psoc *psoc)
-{
-	struct tgt_info *info;
-
-	if (!tgt_hdl)
-		return;
-
-	info = (&tgt_hdl->info);
-
-	info->wlan_res_cfg.is_reg_cc_ext_event_supported =
-		target_if_reg_is_reg_cc_ext_event_host_supported(psoc);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -46,7 +46,7 @@
 static inline struct wlan_lmac_if_p2p_tx_ops *
 p2p_psoc_get_tx_ops(struct wlan_objmgr_psoc *psoc)
 {
-	return &psoc->soc_cb.tx_ops->p2p;
+	return &psoc->soc_cb.tx_ops.p2p;
 }
 
 /**
@@ -1083,8 +1083,10 @@ static QDF_STATUS p2p_roc_req_for_tx_action(
 	QDF_STATUS status;
 
 	roc_ctx = qdf_mem_malloc(sizeof(struct p2p_roc_context));
-	if (!roc_ctx)
+	if (!roc_ctx) {
+		p2p_err("Failed to allocate p2p roc context");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	p2p_soc_obj = tx_ctx->p2p_soc_obj;
 	roc_ctx->p2p_soc_obj = p2p_soc_obj;
@@ -1832,8 +1834,10 @@ QDF_STATUS p2p_cleanup_tx_sync(
 
 	p2p_debug("p2p_soc_obj:%pK, vdev:%pK", p2p_soc_obj, vdev);
 	param = qdf_mem_malloc(sizeof(*param));
-	if (!param)
+	if (!param) {
+		p2p_err("failed to allocate cleanup param");
 		return QDF_STATUS_E_NOMEM;
+	}
 
 	param->p2p_soc_obj = p2p_soc_obj;
 	if (vdev)
@@ -2867,8 +2871,6 @@ QDF_STATUS p2p_process_mgmt_tx(struct tx_action_context *tx_ctx)
 				return QDF_STATUS_SUCCESS;
 		} else if (curr_roc_ctx->roc_state == ROC_STATE_ON_CHAN) {
 			p2p_adjust_tx_wait(tx_ctx);
-			if (curr_roc_ctx->duration < tx_ctx->duration)
-				curr_roc_ctx->duration = tx_ctx->duration;
 			status = p2p_restart_roc_timer(curr_roc_ctx);
 			curr_roc_ctx->tx_ctx = tx_ctx;
 			if (status != QDF_STATUS_SUCCESS) {

@@ -176,7 +176,7 @@ void qdf_cpumask_setall(qdf_cpu_mask *dstp);
  * Return: true or false
  *
  */
-bool qdf_cpumask_empty(const qdf_cpu_mask *srcp);
+bool qdf_cpumask_empty(const struct cpumask *srcp);
 
 /**
  * qdf_cpumask_copy - Copy srcp cpumask to dstp
@@ -186,6 +186,6 @@ bool qdf_cpumask_empty(const qdf_cpu_mask *srcp);
  * Return: None
  *
  */
-void qdf_cpumask_copy(qdf_cpu_mask *dstp,
-		      const qdf_cpu_mask *srcp);
+void qdf_cpumask_copy(struct cpumask *dstp,
+		      const struct cpumask *srcp);
 #endif /* __QDF_THREADS_H */

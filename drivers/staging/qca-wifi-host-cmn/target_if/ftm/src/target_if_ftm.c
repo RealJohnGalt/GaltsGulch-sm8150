@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018 The Linux Foundation. All rights reserved.
  *
  *
  * Permission to use, copy, modify, and/or distribute this software for
@@ -32,15 +32,7 @@
 static inline struct wlan_lmac_if_ftm_rx_ops *
 target_if_ftm_get_rx_ops(struct wlan_objmgr_psoc *psoc)
 {
-	struct wlan_lmac_if_rx_ops *rx_ops;
-
-	rx_ops = wlan_psoc_get_lmac_if_rxops(psoc);
-	if (!rx_ops) {
-		ftm_err("rx_ops is NULL");
-		return NULL;
-	}
-
-	return &rx_ops->ftm_rx_ops;
+	return &psoc->soc_cb.rx_ops.ftm_rx_ops;
 }
 
 static int
@@ -97,10 +89,7 @@ target_if_ftm_process_utf_event(ol_scn_t sc, uint8_t *event_buf, uint32_t len)
 	}
 
 	ftm_rx_ops = target_if_ftm_get_rx_ops(psoc);
-	if (!ftm_rx_ops) {
-		ftm_err("ftm_rx_ops is NULL");
-		return QDF_STATUS_E_INVAL;
-	}
+
 	if (ftm_rx_ops->ftm_ev_handler) {
 		status = ftm_rx_ops->ftm_ev_handler(pdev,
 				event.data, event.datalen);
@@ -146,7 +135,7 @@ QDF_STATUS target_if_ftm_cmd_send(struct wlan_objmgr_pdev *pdev,
 
 QDF_STATUS target_if_ftm_attach(struct wlan_objmgr_psoc *psoc)
 {
-	QDF_STATUS ret;
+	int ret;
 	wmi_unified_t handle;
 
 	if (!psoc) {
@@ -163,7 +152,7 @@ QDF_STATUS target_if_ftm_attach(struct wlan_objmgr_psoc *psoc)
 			wmi_pdev_utf_event_id,
 			target_if_ftm_process_utf_event,
 			WMI_RX_UMAC_CTX);
-	if (QDF_IS_STATUS_ERROR(ret)) {
+	if (ret) {
 		ftm_err("wmi event registration failed, ret: %d", ret);
 		return QDF_STATUS_E_FAILURE;
 	}

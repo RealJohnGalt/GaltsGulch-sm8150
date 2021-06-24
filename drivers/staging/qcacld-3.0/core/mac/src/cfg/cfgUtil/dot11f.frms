@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2006-2007, 2014-2018, 2020-2021 The Linux Foundation.
- * All rights reserved.
+ * Copyright (c) 2006-2007, 2014-2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -99,7 +98,6 @@ const EID_20_40_BSS_COEXISTENCE      =  72;
 const EID_20_40_BSS_INTOLERANT_REPORT=  73;
 const EID_OBSS_SCAN_PARAMETERS       =  74;
 const EID_FT_RIC_DESCRIPTOR          =  75;
-const EID_MSCS_STATUS                =  76;
 const EID_LINK_IDENTIFIER            = 101;
 const EID_PTI_CONTROL                = 105;
 const EID_PU_BUFFER_STATUS           = 106;
@@ -114,7 +112,7 @@ const EID_AID                        =  197;
 const EID_EXT_CAP           	     =  127;
 const EID_OPERATING_MODE             =  199;
 const EID_WIDER_BW_CHANNEL_SWITCH_ANN=  194;
-const EID_TRANSMIT_POWER_ENVELOPE    = 195;
+const VHT_TRANSMIT_POWER_ENVELOPE    = 195;
 const EID_CHANNEL_SWITCH_WRAPPER     = 196;
 const EID_VENDOR_SPECIFIC            = 221;
 const EID_FILS_INDICATION            = 240;
@@ -1319,6 +1317,11 @@ IE TIM (EID_TIM)                          // 7.3.2.6
     vbmp[1..251];
 }
 
+IE IBSSParams (EID_IBSS_PARAM_SET)        // 7.3.2.7
+{
+    atim, 2;
+}
+
 IE ChallengeText (EID_CHALLENGE_TEXT)     // 7.3.2.8
 {
     text[1..253];
@@ -1332,8 +1335,7 @@ IE RequestedInfo (EID_REQUEST)            // 7.3.2.12
 IE Country (EID_COUNTRY)                  // 7.3.2.9
 {
     country[3];
-    first_triplet[3];
-    OPTIONAL more_triplets[3][0..80];
+    OPTIONAL triplets[3][0..84];
 }
 
 IE FHParams (EID_FH_PATTERN)              // 7.3.2.10
@@ -2036,6 +2038,14 @@ IE ESERadMgmtCap (EID_VENDOR_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x01)
 
 }
 
+IE BeaconReportStatus (EID_VENDOR_SPECIFIC) OUI (0x00, 0x00, 0x00F, 0x22)
+{
+        sub_type,       1;
+        version,        1;
+        length,         1;
+        reason_code,    1;
+}
+
 IE Vendor1IE (EID_VENDOR_SPECIFIC) OUI (0x00, 0x10, 0x18)
 {
 }
@@ -2362,13 +2372,6 @@ IE PTIControl (EID_PTI_CONTROL)                 // 7.3.2.65
     sequence_control,     2;
 }
 
-IE oci (EID_EXTN_ID_ELEMENT) OUI ( 0x36 )
-{
-    op_class, 1;
-    prim_ch_num, 1;
-    freq_seg_1_ch_num, 1;
-}
-
 IE PUBufferStatus (EID_PU_BUFFER_STATUS)        // 7.3.2.66
 {
     {
@@ -2449,20 +2452,15 @@ IE WiderBWChanSwitchAnn (EID_WIDER_BW_CHANNEL_SWITCH_ANN)
    newCenterChanFreq1,    1;
 }
 
-IE transmit_power_env (EID_TRANSMIT_POWER_ENVELOPE)
+IE vht_transmit_power_env (VHT_TRANSMIT_POWER_ENVELOPE)
 {
-    {
-        max_tx_pwr_count:             3;
-        max_tx_pwr_interpret:         3;
-        max_tx_pwr_category:          2;
-    }
-    tx_power[1..8];
+    bytes[2..5];
 }
 
 IE ChannelSwitchWrapper (EID_CHANNEL_SWITCH_WRAPPER)
 {
     OPTIE IE  WiderBWChanSwitchAnn;
-    OPTIE IE  transmit_power_env;
+    OPTIE IE  vht_transmit_power_env;
 }
 IE ExtCap (EID_EXT_CAP)
 {
@@ -2627,74 +2625,21 @@ IE TimeAdvertisement (EID_TIME_ADVERTISEMENT)   // 8.4.2.63
     time_error[5];
 }
 
-const TLV_VERSION_ATTR_ID                 = 1;
-const TLV_VHT_MCS_10_11_ATTR_ID           = 2;
-const TLV_HE_400NS_SGI_SUPP_ATTR_ID       = 3;
-const TLV_HE_2XLTF_160_80P80_SUPP_ATTR_ID = 4;
-const TLV_HE_DL_OFDMA_SUPPP_ATTR_ID       = 5;
-const TLV_TRANSITION_REASONP_ATTR_ID      = 6;
-const TLV_TRANSITION_REJECTIONP_ATTR_ID   = 7;
-const TLV_HE_DL_MUMIMO_SUPPP_ATTR_ID      = 8;
-const TLV_HE_MCS_11_12_ATTR_ID            = 9;
+const QTI_VERSION_ATTR_ID = 1;
+const QTI_VHT_MCS_10_11_ATTR_ID = 2;
 
-TLV qcn_version(TLV_VERSION_ATTR_ID) ( 1 : 1 ) LSB
+IE qcn_ie (EID_VENDOR_SPECIFIC) OUI ( 0x8C, 0xFD, 0xF0, 0x01 )
 {
-	version, 1;
-	sub_version, 1;
-}
-TLV vht_mcs11_attr (TLV_VHT_MCS_10_11_ATTR_ID) ( 1 : 1 ) LSB
-{
+   OPTIE IE version_attr (QTI_VERSION_ATTR_ID)
+   {
+      version, 1;
+      sub_version, 1;
+   }
+
+   OPTIE IE vht_mcs11_attr (QTI_VHT_MCS_10_11_ATTR_ID)
+   {
       vht_mcs_10_11_supp, 1;
-}
-TLV he_400ns_sgi_attr (TLV_HE_400NS_SGI_SUPP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   he_ltf1x_400ns_sgi, 1;
-   he_ltf2x_400ns_sgi, 1;
-   he_ltf4x_400ns_sgi, 1;
-}
-
-TLV he_2xltf_160mhz_supp (TLV_HE_2XLTF_160_80P80_SUPP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   he_2xltf_160MHz_supp, 1;
-}
-
-TLV he_dl_ofdma_attr (TLV_HE_DL_OFDMA_SUPPP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   he_dl_ofdma_supp, 1;
-}
-
-TLV trans_reasonp_attr (TLV_TRANSITION_REASONP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   transition_reasonp, 1;
-}
-
-TLV trans_rejectp_attr (TLV_TRANSITION_REJECTIONP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   transition_rejp, 1;
-}
-
-TLV he_dl_mumimo_attr (TLV_HE_DL_MUMIMO_SUPPP_ATTR_ID) ( 1 : 1 ) LSB
-{
-   he_dl_mumimo_supp, 1;
-}
-
-TLV he_mcs13_attr (TLV_HE_MCS_11_12_ATTR_ID) ( 1 : 1 ) LSB
-{
-   he_mcs_12_13_supp_80,  1;
-   he_mcs_12_13_supp_160, 1;
-}
-
-MULTIIE qcn_ie (EID_VENDOR_SPECIFIC) OUI ( 0x8C, 0xFD, 0xF0, 0x01 )
-{
-   OPTIONALTLV qcn_version;
-   OPTIONALTLV vht_mcs11_attr;
-   OPTIONALTLV he_400ns_sgi_attr;
-   OPTIONALTLV he_2xltf_160mhz_supp;
-   OPTIONALTLV he_dl_ofdma_attr;
-   OPTIONALTLV trans_reasonp_attr;
-   OPTIONALTLV trans_rejectp_attr;
-   OPTIONALTLV he_dl_mumimo_attr;
-   OPTIONALTLV he_mcs13_attr;
+   }
 }
 
 IE esp_information (EID_EXTN_ID_ELEMENT) OUI ( 0x0B )
@@ -2924,34 +2869,6 @@ IE MeasurementRequest (EID_MEAS_REQUEST)  // 7.3.2.21
     };
 }
 
-IE tclas_mask (EID_EXTN_ID_ELEMENT) OUI (0x59)
-{
-    classifier_type, 1;
-    classifier_mask, 1;
-    UNION info (DISCRIMINATOR classifier_type)
-    {
-        ip_param (classifier_type IS 4)
-        {
-            reserved[16];
-        }
-    };
-}
-
-IE mscs_status (EID_MSCS_STATUS)
-{
-     status_code,        1;
-}
-
-IE decriptor_element (EID_EXTN_ID_ELEMENT) OUI (0x58)
-{
-     request_type,                1;
-     user_priority_control,       2;
-     stream_timeout,              4;
-     OPTIE IE tclas_mask;
-     OPTIE IE mscs_status;
-     //Optional Vendor specific IEs ... ignoring
-}
-
 IE he_cap (EID_EXTN_ID_ELEMENT) OUI (0x23)
 {
     {
@@ -3117,8 +3034,7 @@ IE he_op (EID_EXTN_ID_ELEMENT) OUI (0x24)
             { // control
                 ch_width: 2;
                 dup_bcon: 1;
-                reg_info: 3;
-                reserved: 2;
+                reserved: 5;
             }
             center_freq_seg0, 1;
             center_freq_seg1, 1;
@@ -3554,6 +3470,7 @@ FRAME Beacon                              // C.f. Sec. 7.2.3.1
     OPTIE  FHParamSet;
     OPTIE  DSParams;
     OPTIE  CFParams;
+    OPTIE  IBSSParams;
     OPTIE  TIM;
     OPTIE  Country;
     OPTIE  FHParams;
@@ -3589,7 +3506,6 @@ FRAME Beacon                              // C.f. Sec. 7.2.3.1
     OPTIE  P2PBeacon;
     OPTIE  VHTCaps;
     OPTIE  VHTOperation;
-    OPTIE  transmit_power_env[0..8];
     OPTIE  VHTExtBssLoad;
     OPTIE  ExtCap;
     OPTIE  OperatingMode;
@@ -3625,7 +3541,7 @@ FRAME Beacon                              // C.f. Sec. 7.2.3.1
 // this: whenever  our config changes,  call schSetFixedBeaconFields.  There,
 // we serialize the following  Beacon fields into gSchBeaconFrameBegin (after
 // the power template & MAC header): TimeStamp, BeaconInterval, Capabilities,
-// SSID, SuppRates, DSParams.  It sets gSchBeaconOffsetBegin to
+// SSID, SuppRates, DSParams, & IBSSParams.  It sets gSchBeaconOffsetBegin to
 // the length of this buffer (incl. power template & MAC header).
 
 // Next, it serializes the following fields into gSchBeaconFrameEnd: Country,
@@ -3653,6 +3569,7 @@ FRAME Beacon1
     MANDIE SSID;
     MANDIE SuppRates;
     OPTIE  DSParams;
+    OPTIE  IBSSParams;
 }
 
 FRAME Beacon2
@@ -3686,7 +3603,7 @@ FRAME Beacon2
     OPTIE  P2PBeacon;
     OPTIE  VHTCaps;
     OPTIE  VHTOperation;
-    OPTIE  transmit_power_env[0..8];
+    OPTIE  vht_transmit_power_env;
     OPTIE  ChannelSwitchWrapper;
     OPTIE  VHTExtBssLoad;
     OPTIE  ExtCap;
@@ -3723,6 +3640,7 @@ FRAME BeaconIEs
     OPTIE  FHParamSet;
     OPTIE  DSParams;
     OPTIE  CFParams;
+    OPTIE  IBSSParams;
     OPTIE  TIM;
     OPTIE  Country;
     OPTIE  FHParams;
@@ -3759,7 +3677,6 @@ FRAME BeaconIEs
     OPTIE  P2PBeaconProbeRes;
     OPTIE  VHTCaps;
     OPTIE  VHTOperation;
-    OPTIE  transmit_power_env[0..8];
     OPTIE  VHTExtBssLoad;
     OPTIE  ExtCap;
     OPTIE  OperatingMode;
@@ -3990,6 +3907,7 @@ FRAME ProbeResponse                       // 7.2.3.9
     OPTIE  FHParamSet;
     OPTIE  DSParams;
     OPTIE  CFParams;
+    OPTIE  IBSSParams;
     OPTIE  Country;
     OPTIE  FHParams;
     OPTIE  FHPattTable;
@@ -4024,8 +3942,6 @@ FRAME ProbeResponse                       // 7.2.3.9
 
     OPTIE  VHTCaps;
     OPTIE  VHTOperation;
-    OPTIE  transmit_power_env[0..8];
-    OPTIE  ChannelSwitchWrapper;
     OPTIE  VHTExtBssLoad;
     OPTIE  ExtCap;
     OPTIE  OBSSScanParameters;
@@ -4034,6 +3950,7 @@ FRAME ProbeResponse                       // 7.2.3.9
     OPTIE  vendor_vht_ie;
     OPTIE  Vendor3IE;
     OPTIE  hs20vendor_ie;
+    OPTIE  ChannelSwitchWrapper;
     OPTIE  QComVendorIE;
     OPTIE  ESEVersion;
     OPTIE  MBO_IE;
@@ -4068,7 +3985,6 @@ FRAME DeAuth                              // 7.2.3.11
     FF    Reason;
     OPTIE P2PDeAuth;
 }
-
 
 FRAME AddTSRequest                        // 7.4.2.1
 {
@@ -4217,7 +4133,8 @@ FRAME RadioMeasurementReport
    FF   Action;
    FF   DialogToken;
    //Measurement Report elements.
-   MANDIE MeasurementReport[1];
+   MANDIE MeasurementReport[1..4];
+   OPTIE  BeaconReportStatus;
 }
 
 FRAME LinkMeasurementRequest
@@ -4298,7 +4215,6 @@ FRAME TDLSDisRsp
     OPTIE  ht2040_bss_coexistence;
     MANDIE LinkIdentifier;
     OPTIE  VHTCaps;
-    OPTIE  he_cap;
 }
 
 FRAME TDLSSetupReq
@@ -4324,7 +4240,6 @@ FRAME TDLSSetupReq
     OPTIE  WMMInfoStation;
     OPTIE  AID;
     OPTIE  VHTCaps;
-    OPTIE  he_cap;
 }
 
 FRAME TDLSSetupRsp
@@ -4352,7 +4267,6 @@ FRAME TDLSSetupRsp
     OPTIE  AID;
     OPTIE  VHTCaps;
     OPTIE  OperatingMode;
-    OPTIE  he_cap;
 }
 
 FRAME TDLSSetupCnf
@@ -4370,7 +4284,6 @@ FRAME TDLSSetupCnf
     OPTIE  WMMParams;
     OPTIE  VHTOperation;
     OPTIE  OperatingMode;
-    OPTIE  he_op;
 }
 FRAME TDLSTeardown
 {
@@ -4404,7 +4317,6 @@ FRAME SaQueryReq
     FF     Category;
     FF     Action;
     FF     TransactionId;
-    OPTIE  oci;
 }
 
 FRAME SaQueryRsp
@@ -4412,7 +4324,6 @@ FRAME SaQueryRsp
     FF     Category;
     FF     Action;
     FF     TransactionId;
-    OPTIE  oci;
 }
 
 FRAME QosMapConfigure
@@ -4504,14 +4415,6 @@ FRAME vendor_action_frame
     FF    Category;
     FF    vendor_oui;
     FF    vendor_action_subtype;
-}
-
-FRAME mscs_request_action_frame
-{
-    FF     Category;
-    FF     Action;
-    FF     DialogToken;
-    MANDIE decriptor_element;
 }
 
 // Local Variables:

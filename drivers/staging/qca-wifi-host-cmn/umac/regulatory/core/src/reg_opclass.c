@@ -86,7 +86,7 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  132, 136, 140, 144, 149, 153, 157, 161} },
 
 #ifdef CONFIG_BAND_6GHZ
-	{131, 20, BW20, BIT(BEHAV_NONE), 5950,
+	{131, 20, BW20, BIT(BEHAV_NONE), 5940,
 	 {1, 5, 9, 13, 17, 21, 25, 29, 33,
 	  37, 41, 45, 49, 53, 57, 61, 65, 69,
 	  73, 77, 81, 85, 89, 93, 97,
@@ -96,7 +96,7 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  185, 189, 193, 197, 201, 205, 209,
 	  213, 217, 221, 225, 229, 233} },
 
-	{132, 40, BW40_LOW_PRIMARY, BIT(BEHAV_NONE), 5950,
+	{132, 40, BW40_LOW_PRIMARY, BIT(BEHAV_NONE), 5940,
 	 {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49,
 	  53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97,
 	  101, 105, 109, 113, 117, 121, 125, 129, 133, 137,
@@ -104,7 +104,7 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  181, 185, 189, 193, 197, 201, 205, 209, 213, 217,
 	  221, 225, 229, 233} },
 
-	{133, 80, BW80, BIT(BEHAV_NONE), 5950,
+	{133, 80, BW80, BIT(BEHAV_NONE), 5940,
 	 {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49,
 	  53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97,
 	  101, 105, 109, 113, 117, 121, 125, 129, 133, 137,
@@ -112,7 +112,7 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  177, 181, 185, 189, 193, 197, 201, 205, 209, 213,
 	  217, 221, 225, 229, 233} },
 
-	{134, 160, BW80, BIT(BEHAV_NONE), 5950,
+	{134, 160, BW80, BIT(BEHAV_NONE), 5940,
 	 {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45,
 	  49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89,
 	  93, 97, 101, 105, 109, 113, 117, 121, 125,
@@ -120,7 +120,7 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  165, 169, 173, 177, 181, 185, 189, 193, 197,
 	  201, 205, 209, 213, 217, 221, 225, 229, 233} },
 
-	{135, 80, BW80, BIT(BEHAV_BW80_PLUS), 5950,
+	{135, 80, BW80, BIT(BEHAV_BW80_PLUS), 5940,
 	 {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41,
 	  45, 49, 53, 57, 61, 65, 69, 73, 77, 81,
 	  85, 89, 93, 97, 101, 105, 109, 113, 117,
@@ -128,9 +128,6 @@ static const struct reg_dmn_op_class_map_t global_op_class[] = {
 	  153, 157, 161, 165, 169, 173, 177, 181,
 	  185, 189, 193, 197, 201, 205, 209, 213,
 	  217, 221, 225, 229, 233} },
-
-	{136, 20, BW20, BIT(BEHAV_NONE), 5925,
-	 {2} },
 #endif
 	{0, 0, 0, 0, 0, {0} },
 };
@@ -151,7 +148,7 @@ static const struct reg_dmn_op_class_map_t us_op_class[] = {
 	{23, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
 	 {52, 60} },
 	{24, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
-	 {100, 108, 116, 124, 132, 140} },
+	 {100, 108, 116, 124, 132} },
 	{26, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
 	 {149, 157} },
 	{27, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
@@ -159,7 +156,7 @@ static const struct reg_dmn_op_class_map_t us_op_class[] = {
 	{28, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
 	 {56, 64} },
 	{29, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
-	 {104, 112, 120, 128, 136, 144} },
+	 {104, 112, 120, 128, 136} },
 	{30, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
 	 {153, 161} },
 	{31, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
@@ -227,7 +224,7 @@ static const struct reg_dmn_op_class_map_t japan_op_class[] = {
 	 {36, 40, 44, 48} },
 	{30, 25, BW20, BIT(BEHAV_NONE), 2407,
 	 {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13} },
-	{31, 25, BW20, BIT(BEHAV_NONE), 2414,
+	{31, 25, BW20, BIT(BEHAV_NONE), 2407,
 	 {14} },
 	{32, 20, BW20, BIT(BEHAV_NONE), 5000,
 	 {52, 56, 60, 64} },
@@ -257,35 +254,6 @@ static const struct reg_dmn_op_class_map_t japan_op_class[] = {
 	{0, 0, 0, 0, 0, {0} },
 };
 
-static const struct reg_dmn_op_class_map_t china_op_class[] = {
-	{7, 25, BW20, BIT(BEHAV_NONE), 2407,
-	 {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13} },
-	{8, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 2407,
-	 {1, 2, 3, 4, 5, 6, 7, 8, 9} },
-	{9, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 2407,
-	 {5, 6, 7, 8, 9, 10, 11, 12, 13} },
-	{1, 20, BW20, BIT(BEHAV_NONE), 5000,
-	 {36, 40, 44, 48} },
-	{4, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
-	 {36, 44} },
-	{117, 40, BW40_HIGH_PRIMARY, BIT(BEHAV_BW40_HIGH_PRIMARY), 5000,
-	 {40, 48} },
-	{2, 20, BW20, BIT(BEHAV_NONE), 5000,
-	 {52, 56, 60, 64} },
-	{5, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
-	 {52, 60} },
-	{3, 20, BW20, BIT(BEHAV_NONE), 5000,
-	 {149, 153, 157, 161, 165} },
-	{6, 40, BW40_LOW_PRIMARY, BIT(BEHAV_BW40_LOW_PRIMARY), 5000,
-	 {149, 157} },
-	{128, 80, BW80, BIT(BEHAV_NONE), 5000,
-	 {36, 40, 44, 48, 52, 56, 60, 64, 149, 153, 157, 161} },
-	{129, 160, BW80, BIT(BEHAV_NONE), 5000,
-	 {36, 40, 44, 48, 52, 56, 60, 64,} },
-	{130, 80, BW80, BIT(BEHAV_BW80_PLUS), 5000,
-	 {36, 40, 44, 48, 52, 56, 60, 64, 149, 153, 157, 161} },
-	{0, 0, 0, 0, 0, {0} },
-};
 #ifdef HOST_OPCLASS
 /**
  * reg_get_class_from_country()- Get Class from country
@@ -293,8 +261,8 @@ static const struct reg_dmn_op_class_map_t china_op_class[] = {
  *
  * Return: class.
  */
-static const struct reg_dmn_op_class_map_t
-*reg_get_class_from_country(const uint8_t *country)
+static const
+struct reg_dmn_op_class_map_t *reg_get_class_from_country(uint8_t *country)
 {
 	const struct reg_dmn_op_class_map_t *class = NULL;
 
@@ -317,9 +285,6 @@ static const struct reg_dmn_op_class_map_t
 		class = global_op_class;
 		break;
 
-	case OP_CLASS_CHINA:
-		class = china_op_class;
-		break;
 	default:
 		if (!qdf_mem_cmp(country, "US", 2))
 			class = us_op_class;
@@ -327,8 +292,6 @@ static const struct reg_dmn_op_class_map_t
 			class = euro_op_class;
 		else if (!qdf_mem_cmp(country, "JP", 2))
 			class = japan_op_class;
-		else if (!qdf_mem_cmp(country, "CN", 2))
-			class = china_op_class;
 		else
 			class = global_op_class;
 	}
@@ -355,24 +318,6 @@ uint16_t reg_dmn_get_chanwidth_from_opclass(uint8_t *country, uint8_t channel,
 	}
 
 	return 0;
-}
-
-uint16_t reg_dmn_get_chanwidth_from_opclass_auto(uint8_t *country,
-						 uint8_t channel,
-						 uint8_t opclass)
-{
-	uint16_t ret;
-	uint8_t global_country[REG_ALPHA2_LEN + 1];
-
-	ret = reg_dmn_get_chanwidth_from_opclass(country, channel, opclass);
-
-	if (!ret) {
-		global_country[2] = OP_CLASS_GLOBAL;
-		ret = reg_dmn_get_chanwidth_from_opclass(global_country,
-							 channel, opclass);
-	}
-
-	return ret;
 }
 
 uint16_t reg_dmn_get_opclass_from_channel(uint8_t *country, uint8_t channel,
@@ -422,51 +367,6 @@ uint8_t reg_dmn_get_opclass_from_freq_width(uint8_t *country,
 	}
 
 	return 0;
-}
-
-static void
-reg_get_band_cap_from_chan_set(const struct reg_dmn_op_class_map_t
-			       *op_class_tbl,
-			       uint8_t *supported_band)
-{
-	qdf_freq_t chan_freq = op_class_tbl->start_freq +
-						(op_class_tbl->channels[0] *
-						 FREQ_TO_CHAN_SCALE);
-
-	if (reg_is_24ghz_ch_freq(chan_freq))
-		*supported_band |= BIT(REG_BAND_2G);
-	else if (reg_is_5ghz_ch_freq(chan_freq))
-		*supported_band |= BIT(REG_BAND_5G);
-	else if (reg_is_6ghz_chan_freq(chan_freq))
-		*supported_band |= BIT(REG_BAND_6G);
-	else
-		reg_err_rl("Unknown band");
-}
-
-uint8_t reg_get_band_cap_from_op_class(const uint8_t *country,
-				       uint8_t num_of_opclass,
-				       const uint8_t *opclass)
-{
-	const struct reg_dmn_op_class_map_t *op_class_tbl;
-	uint8_t supported_band = 0, opclassidx;
-
-	op_class_tbl = reg_get_class_from_country(country);
-
-	while (op_class_tbl && op_class_tbl->op_class) {
-		for (opclassidx = 0; opclassidx < num_of_opclass;
-		     opclassidx++) {
-			if (op_class_tbl->op_class == opclass[opclassidx]) {
-				reg_get_band_cap_from_chan_set(op_class_tbl,
-							       &supported_band);
-			}
-		}
-		op_class_tbl++;
-	}
-
-	if (!supported_band)
-		reg_err_rl("None of the operating classes is found");
-
-	return supported_band;
 }
 
 void reg_dmn_print_channels_in_opclass(uint8_t *country, uint8_t op_class)
@@ -584,7 +484,7 @@ void reg_freq_width_to_chan_op_class(struct wlan_objmgr_pdev *pdev,
 		else if (channel_map == channel_map_eu)
 			op_class_tbl = euro_op_class;
 		else if (channel_map == channel_map_china)
-			op_class_tbl = china_op_class;
+			op_class_tbl = us_op_class;
 		else if (channel_map == channel_map_jp)
 			op_class_tbl = japan_op_class;
 		else
@@ -651,7 +551,7 @@ void reg_freq_to_chan_op_class(struct wlan_objmgr_pdev *pdev,
 					chan_num);
 }
 
-bool reg_is_freq_in_country_opclass(struct wlan_objmgr_pdev *pdev,
+bool reg_country_opclass_freq_check(struct wlan_objmgr_pdev *pdev,
 				    const uint8_t country[3],
 				    uint8_t op_class,
 				    qdf_freq_t chan_freq)
@@ -692,7 +592,7 @@ uint16_t reg_get_op_class_width(struct wlan_objmgr_pdev *pdev,
 		else if (channel_map == channel_map_eu)
 			op_class_tbl = euro_op_class;
 		else if (channel_map == channel_map_china)
-			op_class_tbl = china_op_class;
+			op_class_tbl = us_op_class;
 		else if (channel_map == channel_map_jp)
 			op_class_tbl = japan_op_class;
 		else
@@ -725,7 +625,7 @@ uint16_t reg_chan_opclass_to_freq(uint8_t chan,
 		} else if (channel_map == channel_map_eu) {
 			op_class_tbl = euro_op_class;
 		} else if (channel_map == channel_map_china) {
-			op_class_tbl = china_op_class;
+			op_class_tbl = us_op_class;
 		} else if (channel_map == channel_map_jp) {
 			op_class_tbl = japan_op_class;
 		} else {
@@ -751,17 +651,6 @@ uint16_t reg_chan_opclass_to_freq(uint8_t chan,
 	}
 	reg_err_rl("Invalid opclass");
 	return 0;
-}
-
-qdf_freq_t reg_chan_opclass_to_freq_auto(uint8_t chan, uint8_t op_class,
-					 bool global_tbl_lookup)
-{
-	if ((op_class >= MIN_6GHZ_OPER_CLASS) &&
-	    (op_class <= MAX_6GHZ_OPER_CLASS)) {
-		global_tbl_lookup = true;
-	}
-
-	return reg_chan_opclass_to_freq(chan, op_class, global_tbl_lookup);
 }
 
 #ifdef HOST_OPCLASS_EXT
@@ -820,7 +709,7 @@ reg_get_op_class_tbl_by_chan_map(const struct
 	else if (channel_map == channel_map_eu)
 		*op_class_tbl = euro_op_class;
 	else if (channel_map == channel_map_china)
-		*op_class_tbl = china_op_class;
+		*op_class_tbl = us_op_class;
 	else if (channel_map == channel_map_jp)
 		*op_class_tbl = japan_op_class;
 	else
@@ -990,61 +879,4 @@ QDF_STATUS reg_get_opclass_details(struct wlan_objmgr_pdev *pdev,
 	return QDF_STATUS_SUCCESS;
 }
 
-bool reg_is_6ghz_op_class(struct wlan_objmgr_pdev *pdev, uint8_t op_class)
-{
-	return ((op_class >= MIN_6GHZ_OPER_CLASS) &&
-		(op_class <= MAX_6GHZ_OPER_CLASS));
-}
-
-/**
- * reg_is_opclass_band_found - Check if the input opclass is 2G or 5G.
- *
- * @country - Pointer to country.
- * @op_class - Operating class.
- * @bandmask = Bitmask for band.
- *
- * Return : Return true if the input opclass' band (2Ghz or 5Ghz) matches one
- * of bandmask's band.
- */
-static bool reg_is_opclass_band_found(const uint8_t *country,
-				      uint8_t op_class,
-				      uint8_t bandmask)
-{
-	const struct reg_dmn_op_class_map_t *op_class_tbl;
-
-	op_class_tbl = reg_get_class_from_country((uint8_t *)country);
-
-	while (op_class_tbl && op_class_tbl->op_class) {
-		if (op_class_tbl->op_class == op_class) {
-			qdf_freq_t freq = op_class_tbl->start_freq +
-			(op_class_tbl->channels[0] * FREQ_TO_CHAN_SCALE);
-
-			if ((bandmask & BIT(REG_BAND_5G)) &&
-			    REG_IS_5GHZ_FREQ(freq))
-				return true;
-
-			if ((bandmask & BIT(REG_BAND_2G)) &&
-			    REG_IS_24GHZ_CH_FREQ(freq))
-				return true;
-
-			return false;
-		}
-
-		op_class_tbl++;
-	}
-
-	reg_err_rl("Opclass %d is not found", op_class);
-
-	return false;
-}
-
-bool reg_is_5ghz_op_class(const uint8_t *country, uint8_t op_class)
-{
-	return reg_is_opclass_band_found(country, op_class, BIT(REG_BAND_5G));
-}
-
-bool reg_is_2ghz_op_class(const uint8_t *country, uint8_t op_class)
-{
-	return reg_is_opclass_band_found(country, op_class, BIT(REG_BAND_2G));
-}
 #endif

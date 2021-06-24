@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -124,7 +124,7 @@ static inline qdf_nbuf_t htt_rx_netbuf_pop(htt_pdev_handle pdev)
 	idx++;
 	idx &= pdev->rx_ring.size_mask;
 	pdev->rx_ring.sw_rd_idx.msdu_payld = idx;
-	qdf_atomic_dec(&pdev->rx_ring.fill_cnt);
+	pdev->rx_ring.fill_cnt--;
 	return msdu;
 }
 
@@ -483,7 +483,7 @@ moretofill:
 		}
 
 		pdev->rx_ring.buf.paddrs_ring[idx] = paddr_marked;
-		qdf_atomic_inc(&pdev->rx_ring.fill_cnt);
+		pdev->rx_ring.fill_cnt++;
 
 		num--;
 		idx++;
@@ -767,8 +767,7 @@ htt_rx_mpdu_desc_retry_ll(htt_pdev_handle pdev, void *mpdu_desc)
 }
 
 static uint16_t htt_rx_mpdu_desc_seq_num_ll(htt_pdev_handle pdev,
-					    void *mpdu_desc,
-					    bool update_seq_num)
+					    void *mpdu_desc)
 {
 	struct htt_host_rx_desc_base *rx_desc =
 		(struct htt_host_rx_desc_base *)mpdu_desc;
@@ -2049,8 +2048,7 @@ void htt_rx_fill_ring_count(htt_pdev_handle pdev)
 {
 	int num_to_fill;
 
-	num_to_fill = pdev->rx_ring.fill_level -
-		qdf_atomic_read(&pdev->rx_ring.fill_cnt);
+	num_to_fill = pdev->rx_ring.fill_level - pdev->rx_ring.fill_cnt;
 	htt_rx_ring_fill_n(pdev, num_to_fill /* okay if <= 0 */);
 }
 
@@ -2138,7 +2136,7 @@ int htt_rx_attach(struct htt_pdev_t *pdev)
 		       htt_rx_ring_refill_retry, (void *)pdev,
 		       QDF_TIMER_TYPE_SW);
 
-	qdf_atomic_init(&pdev->rx_ring.fill_cnt);
+	pdev->rx_ring.fill_cnt = 0;
 	pdev->rx_ring.pop_fail_cnt = 0;
 #ifdef DEBUG_DMA_DONE
 	pdev->rx_ring.dbg_ring_idx = 0;

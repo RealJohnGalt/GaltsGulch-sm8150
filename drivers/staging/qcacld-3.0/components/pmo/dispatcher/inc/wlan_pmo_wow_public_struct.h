@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -63,7 +63,6 @@
 #define PMO_MAC_SELF_PROTECTED        15
 #define PMO_MAC_ACTION_WME            17
 #define PMO_MAC_ACTION_FST            18
-#define PMO_MAC_ACTION_RVS            19
 #define PMO_MAC_ACTION_VHT            21
 #define PMO_MAC_ACTION_MAX            256
 
@@ -94,7 +93,6 @@
  * PMO_SELF_PROTECTED         15      0
  * PMO_ACTION_WME             17      1
  * PMO_ACTION_FST             18      1
- * PMO_ACTION_RVS             19      1
  * PMO_ACTION_VHT             21      1
  * ----------------------------+------+-------+
  */
@@ -107,7 +105,6 @@
 			 (1 << PMO_MAC_ACTION_WNM) | \
 			 (1 << PMO_MAC_ACTION_WME) | \
 			 (1 << PMO_MAC_ACTION_FST) | \
-			 (1 << PMO_MAC_ACTION_RVS) | \
 			 (1 << PMO_MAC_ACTION_VHT))
 
 #define ALLOWED_ACTION_FRAMES_BITMAP1   0x0
@@ -130,7 +127,6 @@
 		 (1 << PMO_MAC_ACTION_WNM) | \
 		 (1 << PMO_MAC_ACTION_WME) | \
 		 (1 << PMO_MAC_ACTION_FST) | \
-		 (1 << PMO_MAC_ACTION_RVS) | \
 		 (1 << PMO_MAC_ACTION_VHT))
 
 /* Public Action for 20/40 BSS Coexistence */
@@ -227,8 +223,6 @@ enum pmo_wow_state {
  * @pmo_lphb_callback: registered os if calllback function
  * @ptrn_id_def: default pattern id counter for legacy firmware
  * @ptrn_id_usr: user pattern id counter for legacy firmware
- * @txrx_suspended: flag to determine if TX/RX is suspended
- *		    during WoW
  *
  * This structure stores wow patterns and
  * wow related parameters in host.
@@ -253,7 +247,6 @@ struct pmo_wow {
 
 	uint8_t ptrn_id_def;
 	uint8_t ptrn_id_usr;
-	bool txrx_suspended;
 };
 
 /* WOW related structures */

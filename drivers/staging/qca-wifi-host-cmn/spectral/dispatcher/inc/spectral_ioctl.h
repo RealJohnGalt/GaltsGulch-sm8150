@@ -54,12 +54,6 @@
 #define SPECTRAL_SET_DMA_DEBUG           (DFS_LAST_IOCTL + 24)
 
 /*
- * Increase spectral sub version if struct spectral_samp_msg updated.
- */
-#define SPECTRAL_VERSION     (3)
-#define SPECTRAL_SUB_VERSION (1)
-
-/*
  * ioctl parameter types
  */
 enum spectral_params {
@@ -93,68 +87,14 @@ enum spectral_params {
 };
 
 /**
- * enum spectral_report_mode: Spectral report mode
- * @SPECTRAL_REPORT_MODE_0: No FFT report (only spectral scan summary report)
- * @SPECTRAL_REPORT_MODE_1: FFT report header + spectral scan summary report
- * @SPECTRAL_REPORT_MODE_2: FFt report header + in-band bins per
- *                          FFT (half of the number of FFT bins), where the
- *                          FFT input is sampled at two times the channel
- *                          bandwidth + spectral scan summary report
- * @SPECTRAL_REPORT_MODE_3: FFT report header + all bins per FFT, where the FFT
- *                          input is sampled at two times the channel bandwidth
- *                          + spectral scan summary report
- * @SPECTRAL_REPORT_MODE_MAX: Max number of report modes
- */
-enum spectral_report_mode {
-	SPECTRAL_REPORT_MODE_0,
-	SPECTRAL_REPORT_MODE_1,
-	SPECTRAL_REPORT_MODE_2,
-	SPECTRAL_REPORT_MODE_3,
-	SPECTRAL_REPORT_MODE_MAX,
-};
-
-/**
- * enum spectral_fft_size : FFT size values
- * @SPECTRAL_FFT_SIZE_INVALID: Invalid FFT size
- * @SPECTRAL_FFT_SIZE_1: FFT size 1
- * @SPECTRAL_FFT_SIZE_2: FFT size 2
- * @SPECTRAL_FFT_SIZE_3: FFT size 3
- * @SPECTRAL_FFT_SIZE_4: FFT size 4
- * @SPECTRAL_FFT_SIZE_5: FFT size 5
- * @SPECTRAL_FFT_SIZE_6: FFT size 6
- * @SPECTRAL_FFT_SIZE_7: FFT size 7
- * @SPECTRAL_FFT_SIZE_8: FFT size 8
- * @SPECTRAL_FFT_SIZE_9: FFT size 9
- * @SPECTRAL_FFT_SIZE_10: FFT size 10
- * @SPECTRAL_FFT_SIZE_MAX: Max number of FFT size
- */
-enum spectral_fft_size {
-	SPECTRAL_FFT_SIZE_INVALID,
-	SPECTRAL_FFT_SIZE_1,
-	SPECTRAL_FFT_SIZE_2,
-	SPECTRAL_FFT_SIZE_3,
-	SPECTRAL_FFT_SIZE_4,
-	SPECTRAL_FFT_SIZE_5,
-	SPECTRAL_FFT_SIZE_6,
-	SPECTRAL_FFT_SIZE_7,
-	SPECTRAL_FFT_SIZE_8,
-	SPECTRAL_FFT_SIZE_9,
-	SPECTRAL_FFT_SIZE_10,
-	SPECTRAL_FFT_SIZE_MAX,
-};
-
-/**
  * enum spectral_scan_mode - Spectral scan mode
  * @SPECTRAL_SCAN_MODE_NORMAL: Normal mode
  * @SPECTRAL_SCAN_MODE_AGILE: Agile mode
- * @SPECTRAL_SCAN_MODE_MAX: Max number of Spectral modes
- * @SPECTRAL_SCAN_MODE_INVALID: Invalid Spectral mode
  */
 enum spectral_scan_mode {
 	SPECTRAL_SCAN_MODE_NORMAL,
 	SPECTRAL_SCAN_MODE_AGILE,
 	SPECTRAL_SCAN_MODE_MAX,
-	SPECTRAL_SCAN_MODE_INVALID = 0xff,
 };
 
 struct spectral_ioctl_params {
@@ -176,21 +116,6 @@ enum spectral_cap_hw_gen {
 	SPECTRAL_CAP_HW_GEN_1 = 0,
 	SPECTRAL_CAP_HW_GEN_2 = 1,
 	SPECTRAL_CAP_HW_GEN_3 = 2,
-};
-
-/**
- * struct spectral_config_frequency - Spectral scan frequency
- * @cfreq1: Center frequency (in MHz) of the span of interest(primary 80 MHz
- *          span for 80 + 80 agile scan request) or center frequency (in MHz)
- *          of any WLAN channel in the span of interest.
- * @cfreq2: Applicable only for Agile Spectral scan request in 80+80 MHz mode.
- *          For 80+80 mode it represents  the center frequency (in MHz) of the
- *          secondary 80 MHz span of interest or center frequency (in MHz) of
- *          any WLAN channel in the secondary 80 MHz span of interest.
- */
-struct spectral_config_frequency {
-	uint32_t cfreq1;
-	uint32_t cfreq2;
 };
 
 /**
@@ -257,16 +182,9 @@ struct spectral_config_frequency {
  *                          Not applicable. Spectral scan would happen in the
  *                          operating span.
  *                        Agile mode:-
- *                          cfreq1 represents the center frequency (in MHz) of
- *                          the span of interest(primary 80 MHz span for 80 + 80
- *                          agile scan request) or center frequency (in MHz) of
- *                          any WLAN channel in the span of interest. cfreq2 is
- *                          applicable only for Agile Spectral scan request in
- *                          80+80 MHz mode. For 80+80 mode it represents  the
- *                          center frequency (in MHz) of the secondary 80 MHz
-*                           span of interest or center frequency (in MHz) of
- *                          any WLAN channel in the secondary 80 MHz span of
- *                          interest.
+ *                          Center frequency (in MHz) of the interested span
+ *                          or center frequency (in MHz) of any WLAN channel
+ *                          in the interested span.
  */
 struct spectral_config {
 	uint16_t ss_fft_period;
@@ -293,7 +211,7 @@ struct spectral_config {
 	int8_t ss_nf_cal[AH_MAX_CHAINS * 2];
 	int8_t ss_nf_pwr[AH_MAX_CHAINS * 2];
 	int32_t ss_nf_temp_data;
-	struct spectral_config_frequency ss_frequency;
+	uint32_t ss_frequency;
 };
 
 /**
@@ -312,11 +230,6 @@ struct spectral_config {
  * @agile_spectral_cap: agile Spectral capability for 20/40/80
  * @agile_spectral_cap_160: agile Spectral capability for 160 MHz
  * @agile_spectral_cap_80p80: agile Spectral capability for 80p80
- * @num_detectors_20mhz: number of Spectral detectors in 20 MHz
- * @num_detectors_40mhz: number of Spectral detectors in 40 MHz
- * @num_detectors_80mhz: number of Spectral detectors in 80 MHz
- * @num_detectors_160mhz: number of Spectral detectors in 160 MHz
- * @num_detectors_80p80mhz: number of Spectral detectors in 80p80 MHz
  */
 struct spectral_caps {
 	uint8_t phydiag_cap;
@@ -333,11 +246,6 @@ struct spectral_caps {
 	bool agile_spectral_cap;
 	bool agile_spectral_cap_160;
 	bool agile_spectral_cap_80p80;
-	uint32_t num_detectors_20mhz;
-	uint32_t num_detectors_40mhz;
-	uint32_t num_detectors_80mhz;
-	uint32_t num_detectors_160mhz;
-	uint32_t num_detectors_80p80mhz;
 };
 
 #define SPECTRAL_IOCTL_PARAM_NOVAL (65535)
@@ -346,7 +254,6 @@ struct spectral_caps {
 #define MAX_NUM_BINS                  (1024)
 #define MAX_NUM_BINS_PRI80            (1024)
 #define MAX_NUM_BINS_SEC80            (520)
-#define MAX_NUM_BINS_5MHZ             (32)
 /* 5 categories x (lower + upper) bands */
 #define MAX_INTERF                   10
 
@@ -474,10 +381,6 @@ struct spectral_classifier_params {
  *                            via direct DMA framework.
  * @target_reset_count:       Indicates the number of times target went through
  *                            reset routine after spectral was enabled.
- * @bin_pwr_count_5mhz:       Indicates the number of FFT bins in the extra
- *                            5 MHz for 165 MHz/ Restricted 80p80 mode
- * @bin_pwr_5mhz:             Contains FFT magnitudes corresponding to the extra
- *                            5 MHz in 165 MHz/ Restricted 80p80 mode
  */
 struct spectral_samp_data {
 	int16_t spectral_data_len;
@@ -544,8 +447,6 @@ struct spectral_samp_data {
 	uint32_t reset_delay;
 	uint32_t target_reset_count;
 	uint32_t agile_ch_width;
-	uint16_t bin_pwr_count_5mhz;
-	uint8_t bin_pwr_5mhz[MAX_NUM_BINS_5MHZ];
 } __packed;
 
 /**
@@ -554,13 +455,9 @@ struct spectral_samp_data {
  * @freq:               Operating frequency in MHz
  * @vhtop_ch_freq_seg1: VHT Segment 1 centre frequency in MHz
  * @vhtop_ch_freq_seg2: VHT Segment 2 centre frequency in MHz
- * @agile_freq1:        Center frequency in MHz of the entire span(for 80+80 MHz
- *                      agile Scan it is primary 80 MHz span) across which
+ * @agile_freq:         Center frequency in MHz of the entire span across which
  *                      Agile Spectral is carried out. Applicable only for Agile
  *                      Spectral samples.
- * @agile_freq2:        Center frequency in MHz of the secondary 80 MHz span
- *                      across which Agile Spectral is carried out. Applicable
- *                      only for Agile Spectral samples in 80+80 MHz mode.
  * @freq_loading:       How busy was the channel
  * @dcs_enabled:        Whether DCS is enabled
  * @int_type:           Interference type indicated by DCS
@@ -572,8 +469,7 @@ struct spectral_samp_msg {
 	uint16_t freq;
 	uint16_t vhtop_ch_freq_seg1;
 	uint16_t vhtop_ch_freq_seg2;
-	uint16_t agile_freq1;
-	uint16_t agile_freq2;
+	uint16_t agile_freq;
 	uint16_t freq_loading;
 	uint16_t dcs_enabled;
 	enum dcs_int_type int_type;

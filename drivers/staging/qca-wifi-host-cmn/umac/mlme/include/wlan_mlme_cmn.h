@@ -26,31 +26,29 @@
 
 /**
  * struct vdev_mlme_ext_ops - VDEV MLME legacy callbacks structure
- * @mlme_psoc_ext_hdl_create:               callback to invoke creation of
- *                                          legacy psoc object
- * @mlme_psoc_ext_hdl_destroy:              callback to invoke destroy of legacy
- *                                          psoc object
- * @mlme_pdev_ext_hdl_create:               callback to invoke creation of
- *                                          legacy pdev object
- * @mlme_pdev_ext_hdl_destroy:              callback to invoke destroy of legacy
- *                                          pdev object
- * @mlme_vdev_ext_hdl_create:               callback to invoke creation of
- *                                          legacy vdev object
- * @mlme_vdev_ext_hdl_post_create:          callback to invoke post creation
- *                                          actions of legacy vdev object
- * @mlme_vdev_ext_hdl_destroy:              callback to invoke destroy of legacy
- *                                          vdev object
- * @mlme_vdev_start_fw_send:                callback to invoke vdev start
- *                                          command
- * @mlme_vdev_stop_fw_send:                 callback to invoke vdev stop command
- * @mlme_vdev_down_fw_send:                 callback to invoke vdev down command
- * @mlme_multivdev_restart_fw_send:         callback to invoke multivdev restart
- *                                          command
- * @mlme_vdev_enqueue_exp_cmd:              callback to enqueue exception
- *                                          command
- *                                          required by serialization
- * @mlme_multi_vdev_restart_resp:           callback to process multivdev
- *                                          restart response
+ * @mlme_psoc_ext_hdl_create:        callback to invoke creation of legacy
+ *                                   psoc object
+ * @mlme_psoc_ext_hdl_destroy:       callback to invoke destroy of legacy
+ *                                   psoc object
+ * @mlme_pdev_ext_hdl_create:        callback to invoke creation of legacy
+ *                                   pdev object
+ * @mlme_pdev_ext_hdl_destroy:       callback to invoke destroy of legacy
+ *                                   pdev object
+ * @mlme_vdev_ext_hdl_create:        callback to invoke creation of legacy
+ *                                   vdev object
+ * @mlme_vdev_ext_hdl_post_create:   callback to invoke post creation actions
+ *                                   of legacy vdev object
+ * @mlme_vdev_ext_hdl_destroy:       callback to invoke destroy of legacy
+ *                                   vdev object
+ * @mlme_vdev_start_fw_send:         callback to invoke vdev start command
+ * @mlme_vdev_stop_fw_send:          callback to invoke vdev stop command
+ * @mlme_vdev_down_fw_send:          callback to invoke vdev down command
+ * @mlme_multivdev_restart_fw_send:  callback to invoke multivdev restart
+ *                                   command
+ * @mlme_vdev_enqueue_exp_cmd:       callback to enqueue exception command
+ *                                   required by serialization
+ * @mlme_multi_vdev_restart_resp:    callback to process multivdev restart
+ *				     response
  */
 struct mlme_ext_ops {
 	QDF_STATUS (*mlme_psoc_ext_hdl_create)(

@@ -36,15 +36,7 @@
 static inline struct wlan_lmac_if_scan_tx_ops *
 wlan_psoc_get_scan_txops(struct wlan_objmgr_psoc *psoc)
 {
-	struct wlan_lmac_if_tx_ops *tx_ops;
-
-	tx_ops = wlan_psoc_get_lmac_if_txops(psoc);
-	if (!tx_ops) {
-		scm_err("tx_ops is NULL");
-		return NULL;
-	}
-
-	return &tx_ops->scan;
+	return &((psoc->soc_cb.tx_ops.scan));
 }
 
 static inline struct wlan_lmac_if_scan_tx_ops *
@@ -65,7 +57,6 @@ static inline struct wlan_lmac_if_scan_rx_ops *
 wlan_vdev_get_scan_rxops(struct wlan_objmgr_vdev *vdev)
 {
 	struct wlan_objmgr_psoc *psoc = NULL;
-	struct wlan_lmac_if_rx_ops *rx_ops;
 
 	psoc = wlan_vdev_get_psoc(vdev);
 	if (!psoc) {
@@ -73,13 +64,7 @@ wlan_vdev_get_scan_rxops(struct wlan_objmgr_vdev *vdev)
 		return NULL;
 	}
 
-	rx_ops = wlan_psoc_get_lmac_if_rxops(psoc);
-	if (!rx_ops) {
-		scm_err("rx_ops is NULL");
-		return NULL;
-	}
-
-	return &rx_ops->scan;
+	return &((psoc->soc_cb.rx_ops.scan));
 }
 
 #ifdef FEATURE_WLAN_SCAN_PNO
@@ -156,11 +141,6 @@ tgt_scan_start(struct scan_start_request *req)
 	}
 
 	scan_ops = wlan_psoc_get_scan_txops(psoc);
-	if (!scan_ops) {
-		scm_err("NULL scan_ops");
-		return QDF_STATUS_E_NULL_VALUE;
-	}
-
 	/* invoke wmi_unified_scan_start_cmd_send() */
 	QDF_ASSERT(scan_ops->scan_start);
 	if (scan_ops->scan_start)
@@ -189,11 +169,6 @@ tgt_scan_cancel(struct scan_cancel_request *req)
 		return QDF_STATUS_E_NULL_VALUE;
 	}
 	scan_ops = wlan_psoc_get_scan_txops(psoc);
-	if (!scan_ops) {
-		scm_err("NULL scan_ops");
-		return QDF_STATUS_E_NULL_VALUE;
-	}
-
 	/* invoke wmi_unified_scan_stop_cmd_send() */
 	QDF_ASSERT(scan_ops->scan_cancel);
 	if (scan_ops->scan_cancel)
@@ -208,11 +183,6 @@ tgt_scan_register_ev_handler(struct wlan_objmgr_psoc *psoc)
 	struct wlan_lmac_if_scan_tx_ops *scan_ops = NULL;
 
 	scan_ops = wlan_psoc_get_scan_txops(psoc);
-	if (!scan_ops) {
-		scm_err("NULL scan_ops");
-		return QDF_STATUS_E_FAILURE;
-	}
-
 	/* invoke wmi_unified_register_event_handler()
 	 * since event id, handler function and context is
 	 * already known to offload lmac, passing NULL as argument.
@@ -232,11 +202,6 @@ tgt_scan_unregister_ev_handler(struct wlan_objmgr_psoc *psoc)
 	struct wlan_lmac_if_scan_tx_ops *scan_ops = NULL;
 
 	scan_ops = wlan_psoc_get_scan_txops(psoc);
-	if (!scan_ops) {
-		scm_err("NULL scan_ops");
-		return QDF_STATUS_E_FAILURE;
-	}
-
 	/* invoke wmi_unified_register_event_handler()
 	 * since event id, handler function and context is
 	 * already known to offload lmac, passing NULL as argument.

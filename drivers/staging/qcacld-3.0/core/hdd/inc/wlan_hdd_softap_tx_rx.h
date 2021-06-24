@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -57,7 +57,6 @@ QDF_STATUS hdd_softap_ipa_start_xmit(qdf_nbuf_t nbuf, qdf_netdev_t dev);
 /**
  * hdd_softap_tx_timeout() - TX timeout handler
  * @dev: pointer to network device
- * @txqueue: tx queue
  *
  * Function registered as a net_device .ndo_tx_timeout() method for
  * master mode interfaces (SoftAP/P2P GO), called by the OS if the
@@ -65,11 +64,8 @@ QDF_STATUS hdd_softap_ipa_start_xmit(qdf_nbuf_t nbuf, qdf_netdev_t dev);
  *
  * Return: None
  */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
-void hdd_softap_tx_timeout(struct net_device *dev, unsigned int txqueue);
-#else
 void hdd_softap_tx_timeout(struct net_device *dev);
-#endif
+
 /**
  * hdd_softap_init_tx_rx() - Initialize Tx/Rx module
  * @adapter: pointer to adapter context
@@ -128,16 +124,15 @@ QDF_STATUS hdd_softap_deregister_sta(struct hdd_adapter *adapter,
  * @auth_required: is additional authentication required?
  * @privacy_required: should 802.11 privacy bit be set?
  * @sta_mac: station MAC address
- * @event: STA assoc complete event (Can be NULL)
+ * @wmm_enabled: is WMM enabled for this STA?
  *
  * Return: QDF_STATUS_SUCCESS on success, QDF_STATUS_E_** on error
  */
-QDF_STATUS
-hdd_softap_register_sta(struct hdd_adapter *adapter,
-			bool auth_required,
-			bool privacy_required,
-			struct qdf_mac_addr *sta_mac,
-			tSap_StationAssocReassocCompleteEvent *event);
+QDF_STATUS hdd_softap_register_sta(struct hdd_adapter *adapter,
+				   bool auth_required,
+				   bool privacy_required,
+				   struct qdf_mac_addr *sta_mac,
+				   bool wmm_enabled);
 
 /**
  * hdd_softap_register_bc_sta() - Register the SoftAP broadcast STA
@@ -203,21 +198,6 @@ void hdd_softap_tx_resume_cb(void *adapter_context, bool tx_resume)
 {
 }
 #endif /* QCA_LL_LEGACY_TX_FLOW_CONTROL */
-
-/**
- * hdd_ipa_update_rx_mcbc_stats() - Update broadcast multicast stats
- * @adapter: pointer to hdd adapter
- * @skb: pointer to netbuf
- *
- * Check if multicast or broadcast pkt was received and increment
- * the stats accordingly. This is required only if IPA is enabled
- * as in case of regular Rx path mcast/bcast stats are processed
- * in the dp layer.
- *
- * Return: None
- */
-void hdd_ipa_update_rx_mcbc_stats(struct hdd_adapter *adapter,
-				  struct sk_buff *skb);
 
 #ifdef SAP_DHCP_FW_IND
 /**

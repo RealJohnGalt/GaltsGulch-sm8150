@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
  *
  *
  * Permission to use, copy, modify, and/or distribute this software for
@@ -253,12 +253,6 @@ void ucfg_reg_unit_simulate_ch_avoid(struct wlan_objmgr_psoc *psoc,
 	reg_process_ch_avoid_event(psoc, ch_avoid);
 }
 
-void ucfg_reg_ch_avoid(struct wlan_objmgr_psoc *psoc,
-		       struct ch_avoid_ind_type *ch_avoid)
-{
-	reg_process_ch_avoid_event(psoc, ch_avoid);
-}
-
 QDF_STATUS ucfg_reg_11d_vdev_delete_update(struct wlan_objmgr_vdev *vdev)
 {
 	return reg_11d_vdev_delete_update(vdev);
@@ -284,14 +278,6 @@ QDF_STATUS ucfg_reg_set_hal_reg_cap(struct wlan_objmgr_psoc *psoc,
 	return reg_set_hal_reg_cap(psoc, hal_reg_cap, phy_cnt);
 }
 qdf_export_symbol(ucfg_reg_set_hal_reg_cap);
-
-QDF_STATUS ucfg_reg_update_hal_reg_cap(struct wlan_objmgr_psoc *psoc,
-				       uint32_t wireless_modes, uint8_t phy_id)
-{
-	return reg_update_hal_reg_cap(psoc, wireless_modes, phy_id);
-}
-
-qdf_export_symbol(ucfg_reg_update_hal_reg_cap);
 
 #ifdef DISABLE_CHANNEL_LIST
 #ifdef CONFIG_CHAN_FREQ_API
@@ -348,21 +334,5 @@ QDF_STATUS
 ucfg_reg_get_unii_5g_bitmap(struct wlan_objmgr_pdev *pdev, uint8_t *bitmap)
 {
 	return reg_get_unii_5g_bitmap(pdev, bitmap);
-}
-#endif
-
-#if defined(CONFIG_BAND_6GHZ)
-QDF_STATUS
-ucfg_reg_set_cur_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev,
-				enum reg_6g_ap_type reg_cur_6g_ap_pwr_type)
-{
-	return reg_set_cur_6g_ap_pwr_type(pdev, reg_cur_6g_ap_pwr_type);
-}
-
-QDF_STATUS
-ucfg_reg_get_cur_6g_ap_pwr_type(struct wlan_objmgr_pdev *pdev,
-				enum reg_6g_ap_type *reg_cur_6g_ap_pwr_type)
-{
-	return reg_get_cur_6g_ap_pwr_type(pdev, reg_cur_6g_ap_pwr_type);
 }
 #endif

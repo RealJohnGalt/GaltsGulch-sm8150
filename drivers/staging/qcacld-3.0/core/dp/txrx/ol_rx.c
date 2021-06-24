@@ -56,8 +56,6 @@
 #include <cdp_txrx_handle.h>
 #include <pld_common.h>
 #include <htt_internal.h>
-#include <wlan_pkt_capture_ucfg_api.h>
-#include <wlan_cfr_ucfg_api.h>
 
 #ifndef OL_RX_INDICATION_MAX_RECORDS
 #define OL_RX_INDICATION_MAX_RECORDS 2048
@@ -417,12 +415,11 @@ static void process_reorder(ol_txrx_pdev_handle pdev,
 	enum htt_rx_status mpdu_status;
 	int reorder_idx;
 
-	reorder_idx = htt_rx_mpdu_desc_reorder_idx(htt_pdev, rx_mpdu_desc,
-						   true);
+	reorder_idx = htt_rx_mpdu_desc_reorder_idx(htt_pdev, rx_mpdu_desc);
 	OL_RX_REORDER_TRACE_ADD(pdev, tid,
 				reorder_idx,
 				htt_rx_mpdu_desc_seq_num(htt_pdev,
-							 rx_mpdu_desc, false),
+							 rx_mpdu_desc),
 				1);
 	ol_rx_mpdu_rssi_update(peer, rx_mpdu_desc);
 	/*
@@ -478,7 +475,7 @@ static void process_reorder(ol_txrx_pdev_handle pdev,
 		if (peer->tids_rx_reorder[tid].win_sz_mask == 0) {
 			peer->tids_last_seq[tid] = htt_rx_mpdu_desc_seq_num(
 				htt_pdev,
-				rx_mpdu_desc, false);
+				rx_mpdu_desc);
 		}
 	}
 } /* process_reorder */
@@ -1564,7 +1561,6 @@ ol_rx_in_order_indication_handler(ol_txrx_pdev_handle pdev,
 {
 	struct ol_txrx_vdev_t *vdev = NULL;
 	struct ol_txrx_peer_t *peer = NULL;
-	struct ol_txrx_peer_t *peer_head = NULL;
 	htt_pdev_handle htt_pdev = NULL;
 	int status;
 	qdf_nbuf_t head_msdu = NULL, tail_msdu = NULL;
@@ -1573,14 +1569,6 @@ ol_rx_in_order_indication_handler(ol_txrx_pdev_handle pdev,
 	uint32_t msdu_count;
 	uint8_t pktlog_bit;
 	uint32_t filled = 0;
-	uint8_t bssid[QDF_MAC_ADDR_SIZE];
-	bool offloaded_pkt;
-	struct ol_txrx_soc_t *soc = cds_get_context(QDF_MODULE_ID_SOC);
-
-	if (qdf_unlikely(!soc)) {
-		ol_txrx_err("soc is NULL");
-		return;
-	}
 
 	if (tid >= OL_TXRX_NUM_EXT_TIDS) {
 		ol_txrx_err("invalid tid, %u", tid);
@@ -1643,43 +1631,6 @@ ol_rx_in_order_indication_handler(ol_txrx_pdev_handle pdev,
 	/* Send the chain of MSDUs to the OS */
 	/* rx_opt_proc takes a NULL-terminated list of msdu netbufs */
 	qdf_nbuf_set_next(tail_msdu, NULL);
-
-	/* Packet Capture Mode */
-
-	if ((ucfg_pkt_capture_get_pktcap_mode((void *)soc->psoc) &
-	      PKT_CAPTURE_MODE_DATA_ONLY)) {
-		offloaded_pkt = ucfg_pkt_capture_rx_offloaded_pkt(rx_ind_msg);
-		if (peer) {
-			vdev = peer->vdev;
-			if (peer->vdev) {
-				qdf_spin_lock_bh(&pdev->peer_ref_mutex);
-				peer_head = TAILQ_FIRST(&vdev->peer_list);
-				qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
-				if (peer_head) {
-					qdf_spin_lock_bh(
-						&peer_head->peer_info_lock);
-					qdf_mem_copy(bssid,
-						     &peer_head->mac_addr.raw,
-						     QDF_MAC_ADDR_SIZE);
-					qdf_spin_unlock_bh(
-						&peer_head->peer_info_lock);
-
-					ucfg_pkt_capture_rx_msdu_process(
-							bssid, head_msdu,
-							peer->vdev->vdev_id,
-							htt_pdev);
-				}
-			}
-		} else if (offloaded_pkt) {
-			ucfg_pkt_capture_rx_msdu_process(
-						bssid, head_msdu,
-						HTT_INVALID_VDEV,
-						htt_pdev);
-
-			ucfg_pkt_capture_rx_drop_offload_pkt(head_msdu);
-			return;
-		}
-	}
 
 	/* Pktlog */
 	ol_rx_send_pktlog_event(pdev, peer, head_msdu, pktlog_bit);
@@ -1998,68 +1949,4 @@ void ol_ath_add_vow_extstats(htt_pdev_handle pdev, qdf_nbuf_t msdu)
 	}
 }
 
-#endif
-
-#ifdef WLAN_CFR_ENABLE
-void ol_rx_cfr_capture_msg_handler(qdf_nbuf_t htt_t2h_msg)
-{
-	struct ol_txrx_soc_t *soc = cds_get_context(QDF_MODULE_ID_SOC);
-	HTT_PEER_CFR_CAPTURE_MSG_TYPE cfr_type;
-	struct htt_cfr_dump_compl_ind *cfr_dump;
-	struct htt_cfr_dump_ind_type_1 cfr_ind;
-	struct csi_cfr_header cfr_hdr = {};
-	uint32_t mem_index, req_id, vdev_id;
-	uint32_t *msg_word;
-	uint8_t *mac_addr;
-
-	msg_word = (uint32_t *)qdf_nbuf_data(htt_t2h_msg);
-
-	/* First payload word */
-	msg_word++;
-	cfr_dump = (struct htt_cfr_dump_compl_ind *)msg_word;
-	cfr_type = cfr_dump->msg_type;
-	if (cfr_type != HTT_PEER_CFR_CAPTURE_MSG_TYPE_1) {
-		ol_txrx_err("Unsupported cfr msg type 0x%x", cfr_type);
-		return;
-	}
-
-	/* Second payload word */
-	msg_word++;
-	req_id = HTT_T2H_CFR_DUMP_TYPE1_MEM_REQ_ID_GET(*msg_word);
-	if (req_id != CFR_CAPTURE_HOST_MEM_REQ_ID) {
-		ol_txrx_err("Invalid req id in cfr capture msg");
-		return;
-	}
-	cfr_hdr.start_magic_num = 0xDEADBEAF;
-	cfr_hdr.u.meta_v1.status = HTT_T2H_CFR_DUMP_TYPE1_STATUS_GET(
-					*msg_word);
-	cfr_hdr.u.meta_v1.capture_bw = HTT_T2H_CFR_DUMP_TYPE1_CAP_BW_GET(
-					*msg_word);
-	cfr_hdr.u.meta_v1.capture_mode = HTT_T2H_CFR_DUMP_TYPE1_MODE_GET(
-					*msg_word);
-	cfr_hdr.u.meta_v1.sts_count = HTT_T2H_CFR_DUMP_TYPE1_STS_GET(
-					*msg_word);
-	cfr_hdr.u.meta_v1.channel_bw = HTT_T2H_CFR_DUMP_TYPE1_CHAN_BW_GET(
-					*msg_word);
-	cfr_hdr.u.meta_v1.capture_type = HTT_T2H_CFR_DUMP_TYPE1_CAP_TYPE_GET(
-					*msg_word);
-
-	vdev_id = HTT_T2H_CFR_DUMP_TYPE1_VDEV_ID_GET(*msg_word);
-
-	mac_addr = (uint8_t *)(msg_word + 1);
-	qdf_mem_copy(cfr_hdr.u.meta_v1.peer_addr, mac_addr, QDF_MAC_ADDR_SIZE);
-
-	cfr_ind = cfr_dump->htt_cfr_dump_compl_ind_type_1;
-
-	cfr_hdr.u.meta_v1.prim20_chan = cfr_ind.chan.chan_mhz;
-	cfr_hdr.u.meta_v1.center_freq1 = cfr_ind.chan.band_center_freq1;
-	cfr_hdr.u.meta_v1.center_freq2 = cfr_ind.chan.band_center_freq2;
-	cfr_hdr.u.meta_v1.phy_mode = cfr_ind.chan.chan_mode;
-	cfr_hdr.u.meta_v1.length = cfr_ind.length;
-	cfr_hdr.u.meta_v1.timestamp = cfr_ind.timestamp;
-
-	mem_index = cfr_ind.index;
-
-	ucfg_cfr_capture_data((void *)soc->psoc, vdev_id, &cfr_hdr, mem_index);
-}
 #endif

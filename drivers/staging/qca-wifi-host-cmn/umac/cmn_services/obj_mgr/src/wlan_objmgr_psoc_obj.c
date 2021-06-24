@@ -25,7 +25,6 @@
 #include <wlan_objmgr_pdev_obj.h>
 #include <wlan_objmgr_vdev_obj.h>
 #include <wlan_objmgr_peer_obj.h>
-#include <wlan_objmgr_debug.h>
 #include <qdf_mem.h>
 #include <qdf_types.h>
 #include <qdf_module.h>
@@ -33,7 +32,6 @@
 #include "wlan_objmgr_psoc_obj_i.h"
 #include "wlan_objmgr_pdev_obj_i.h"
 #include "wlan_objmgr_vdev_obj_i.h"
-#include <wlan_utility.h>
 
 /**
  ** APIs to Create/Delete Global object APIs
@@ -104,7 +102,6 @@ static QDF_STATUS wlan_objmgr_psoc_obj_free(struct wlan_objmgr_psoc *psoc)
 	wlan_objmgr_psoc_peer_list_deinit(&psoc->soc_objmgr.peer_list);
 
 	qdf_spinlock_destroy(&psoc->psoc_lock);
-	wlan_minidump_remove(psoc);
 	qdf_mem_free(psoc);
 
 	return QDF_STATUS_SUCCESS;
@@ -185,8 +182,7 @@ struct wlan_objmgr_psoc *wlan_objmgr_psoc_obj_create(uint32_t phy_version,
 		wlan_objmgr_psoc_obj_delete(psoc);
 		return NULL;
 	}
-	wlan_minidump_log(psoc, sizeof(*psoc), psoc,
-			  WLAN_MD_OBJMGR_PSOC, "wlan_objmgr_psoc");
+
 	obj_mgr_info("Created psoc %d", psoc->soc_objmgr.psoc_id);
 
 	return psoc;
@@ -872,23 +868,32 @@ QDF_STATUS wlan_objmgr_psoc_vdev_attach(struct wlan_objmgr_psoc *psoc,
 {
 	struct wlan_objmgr_psoc_objmgr *objmgr;
 	uint8_t id = 0;
+	uint8_t map_index = 0;
+	uint8_t map_entry_size = 32;
+	uint8_t adjust_ix = 0;
 	QDF_STATUS status;
 
 	wlan_psoc_obj_lock(psoc);
 	objmgr = &psoc->soc_objmgr;
 	/* Find first free vdev id */
-	while ((id < objmgr->max_vdev_count)) {
-		if (qdf_test_bit(id, objmgr->wlan_vdev_id_map)) {
-			id++;
-			continue;
+	while ((id < objmgr->max_vdev_count) &&
+		(objmgr->wlan_vdev_id_map[map_index] & (1<<(id - adjust_ix)))) {
+		id++;
+		/*
+		 * The map is two DWORDS(32 bits), so, map_index
+		 * adjust_ix derived based on the id value
+		 */
+		if (id == ((map_index + 1) * map_entry_size)) {
+			map_index++;
+			adjust_ix = map_index * map_entry_size;
 		}
-		break;
 	}
-
 	/* If no free slot, return failure */
-	if (id < objmgr->max_vdev_count) {
+	if (id == objmgr->max_vdev_count) {
+		status = QDF_STATUS_E_FAILURE;
+	} else {
 		/* set free vdev id index */
-		qdf_set_bit(id, objmgr->wlan_vdev_id_map);
+		objmgr->wlan_vdev_id_map[map_index] |= (1<<(id-adjust_ix));
 		/* store vdev pointer in vdev list */
 		objmgr->wlan_vdev_list[id] = vdev;
 		/* increment vdev counter */
@@ -896,8 +901,6 @@ QDF_STATUS wlan_objmgr_psoc_vdev_attach(struct wlan_objmgr_psoc *psoc,
 		/* save vdev id */
 		vdev->vdev_objmgr.vdev_id = id;
 		status = QDF_STATUS_SUCCESS;
-	} else {
-		status = QDF_STATUS_E_FAILURE;
 	}
 	wlan_psoc_obj_unlock(psoc);
 
@@ -909,16 +912,26 @@ QDF_STATUS wlan_objmgr_psoc_vdev_detach(struct wlan_objmgr_psoc *psoc,
 {
 	struct wlan_objmgr_psoc_objmgr *objmgr;
 	uint8_t id = 0;
+	uint8_t map_index = 0;
+	uint8_t map_entry_size = 32;
+	uint8_t adjust_ix = 0;
 
 	id = vdev->vdev_objmgr.vdev_id;
 	/* Invalid vdev id */
 	if (id >= wlan_psoc_get_max_vdev_count(psoc))
 		return QDF_STATUS_E_FAILURE;
-
+	/*
+	 * Derive map_index and adjust_ix to find actual DWORD
+	 * the id map is present
+	 */
+	while ((id - adjust_ix) >= map_entry_size) {
+		map_index++;
+		adjust_ix = map_index * map_entry_size;
+	}
 	wlan_psoc_obj_lock(psoc);
 	objmgr = &psoc->soc_objmgr;
 	/* unset bit, to free the slot */
-	qdf_clear_bit(id, objmgr->wlan_vdev_id_map);
+	objmgr->wlan_vdev_id_map[map_index] &= ~(1<<(id-adjust_ix));
 	/* reset VDEV pointer to NULL in VDEV list array */
 	objmgr->wlan_vdev_list[id] = NULL;
 	/* decrement vdev count */
@@ -1080,7 +1093,6 @@ struct wlan_objmgr_vdev *wlan_objmgr_get_vdev_by_opmode_from_psoc_debug(
 			break;
 		}
 		wlan_vdev_obj_unlock(vdev);
-		vdev = NULL;
 	}
 	wlan_psoc_obj_unlock(psoc);
 
@@ -1120,7 +1132,6 @@ struct wlan_objmgr_vdev *wlan_objmgr_get_vdev_by_opmode_from_psoc(
 			break;
 		}
 		wlan_vdev_obj_unlock(vdev);
-		vdev = NULL;
 	}
 	wlan_psoc_obj_unlock(psoc);
 
@@ -2984,9 +2995,11 @@ void wlan_print_psoc_info(struct wlan_objmgr_psoc *psoc)
 	obj_mgr_debug("ref_cnt: %d", qdf_atomic_read(&psoc_objmgr->ref_cnt));
 	obj_mgr_debug("qdf_dev: %pK", psoc_objmgr->qdf_dev);
 
-	obj_mgr_debug("wlan_vdev_id_map:");
-	obj_mgr_debug_hex(psoc_objmgr->wlan_vdev_id_map,
-			  sizeof(psoc_objmgr->wlan_vdev_id_map));
+	obj_mgr_debug("wlan_vdev_id_map[%d]: 0x%x",
+		      index, psoc_objmgr->wlan_vdev_id_map[index]);
+	index++;
+	obj_mgr_debug("wlan_vdev_id_map[%d]: 0x%x",
+		      index, psoc_objmgr->wlan_vdev_id_map[index]);
 
 	wlan_objmgr_for_each_psoc_pdev(psoc, index, pdev) {
 		obj_mgr_debug("wlan_pdev_list[%d]: %pK", index, pdev);

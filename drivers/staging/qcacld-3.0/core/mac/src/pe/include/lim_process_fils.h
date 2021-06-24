@@ -217,6 +217,19 @@ bool lim_verify_fils_params_assoc_rsp(struct mac_context *mac_ctx,
 				      struct pe_session *session_entry,
 				      tpSirAssocRsp assoc_rsp,
 				      tLimMlmAssocCnf * assoc_cnf);
+
+/**
+ * lim_update_fils_rik() - API to update FILS RIK in RSO
+ * @pe_session: PE Session
+ * @req_buffer: Pointer to RSO request
+ *
+ * This API is used to calculate(if required) RIK and fill
+ * the same in RSO request to fw.
+ *
+ * Return: None
+ */
+void lim_update_fils_rik(struct pe_session *pe_session,
+			 struct roam_offload_scan_req *req_buffer);
 #else
 static inline bool lim_process_fils_auth_frame2(struct mac_context *mac_ctx,
 		struct pe_session *pe_session, tSirMacAuthFrameBody *rx_auth_frm_body)

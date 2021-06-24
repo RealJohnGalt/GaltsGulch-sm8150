@@ -24,7 +24,6 @@
 #include <wlan_objmgr_cmn.h>
 #include "target_if_direct_buf_rx_main.h"
 #include <qdf_module.h>
-#include <wlan_lmac_if_def.h>
 
 #if defined(WLAN_DEBUGFS) && defined(DIRECT_BUF_RX_DEBUG)
 /* Base debugfs entry for DBR module */

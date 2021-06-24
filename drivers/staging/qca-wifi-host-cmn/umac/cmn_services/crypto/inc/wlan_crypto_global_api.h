@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -23,7 +23,6 @@
 #define _WLAN_CRYPTO_GLOBAL_API_H_
 
 #include "wlan_crypto_global_def.h"
-#include <qdf_crypto.h>
 /**
  * wlan_crypto_set_vdev_param - called by ucfg to set crypto param
  * @vdev: vdev
@@ -289,29 +288,27 @@ bool wlan_crypto_is_mmie_valid(struct wlan_objmgr_vdev *vdev,
 
 /**
  * wlan_crypto_wpaie_check - called by mlme to check the wpaie
- * @crypto_params: crypto params
- * @frm: ie buffer
+ * @crypto params: crypto params
+ * @iebuf: ie buffer
  *
  * This function gets called by mlme to check the contents of wpa is
  * matching with given crypto params
  *
  * Return: QDF_STATUS_SUCCESS - in case of success
  */
-QDF_STATUS wlan_crypto_wpaie_check(struct wlan_crypto_params *crypto_params,
-				   const uint8_t *frm);
+QDF_STATUS wlan_crypto_wpaie_check(struct wlan_crypto_params *, uint8_t *frm);
 
 /**
  * wlan_crypto_rsnie_check - called by mlme to check the rsnie
- * @crypto_params: crypto params
- * @frm: ie buffer
+ * @crypto params: crypto params
+ * @iebuf: ie buffer
  *
  * This function gets called by mlme to check the contents of rsn is
  * matching with given crypto params
  *
  * Return: QDF_STATUS_SUCCESS - in case of success
  */
-QDF_STATUS wlan_crypto_rsnie_check(struct wlan_crypto_params *crypto_params,
-				   const uint8_t *frm);
+QDF_STATUS wlan_crypto_rsnie_check(struct wlan_crypto_params *, uint8_t *frm);
 /**
  * wlan_crypto_build_wpaie - called by mlme to build wpaie
  * @vdev: vdev
@@ -354,8 +351,8 @@ uint8_t *wlan_crypto_build_rsnie(struct wlan_objmgr_vdev *vdev,
 
 /**
  * wlan_crypto_wapiie_check - called by mlme to check the wapiie
- * @crypto_params: crypto params
- * @frm: ie buffer
+ * @crypto params: crypto params
+ * @iebuf: ie buffer
  *
  * This function gets called by mlme to check the contents of wapi is
  * matching with given crypto params
@@ -363,7 +360,7 @@ uint8_t *wlan_crypto_build_rsnie(struct wlan_objmgr_vdev *vdev,
  * Return: QDF_STATUS_SUCCESS - in case of success
  */
 QDF_STATUS wlan_crypto_wapiie_check(struct wlan_crypto_params *crypto_params,
-				    const uint8_t *frm);
+					uint8_t *frm);
 
 /**
  * wlan_crypto_build_wapiie - called by mlme to build wapi ie
@@ -715,74 +712,6 @@ bool wlan_crypto_check_wpa_match(struct wlan_objmgr_psoc *psoc,
 				 peer_crypto_params);
 
 /**
- * wlan_crypto_parse_rsnxe_ie() - parse RSNXE IE
- * @rsnxe_ie: RSNXE IE pointer
- * @cap_len: pointer to hold len of ext capability
- *
- * Return: pointer to RSNXE capability or NULL
- */
-const uint8_t *
-wlan_crypto_parse_rsnxe_ie(const uint8_t *rsnxe_ie, uint8_t *cap_len);
-
-/**
- * wlan_get_crypto_params_from_wapi_ie - Function to get crypto params
- * from wapi ie
- * @crypto_params: return crypto parameters
- * @ie_ptr: pointer to IEs
- * @ie_len: IE length
- *
- * This function is used to get the crypto parameters from wapi ie
- *
- * Context: Any context.
- * Return: QDF_STATUS
- */
-#ifdef FEATURE_WLAN_WAPI
-QDF_STATUS
-wlan_get_crypto_params_from_wapi_ie(struct wlan_crypto_params *crypto_params,
-				    const uint8_t *ie_ptr, uint16_t ie_len);
-
-#else
-static inline QDF_STATUS
-wlan_get_crypto_params_from_wapi_ie(struct wlan_crypto_params *crypto_params,
-				    const uint8_t *ie_ptr, uint16_t ie_len)
-{
-	return QDF_STATUS_E_NOSUPPORT;
-}
-#endif
-
-/**
- * wlan_get_crypto_params_from_wpa_ie - Function to get crypto params
- * from wpa ie
- * @crypto_params: return crypto parameters
- * @ie_ptr: pointer to IEs
- * @ie_len: IE length
- *
- * This function is used to get the crypto parameters from wpa ie
- *
- * Context: Any context.
- * Return: QDF_STATUS
- */
-QDF_STATUS
-wlan_get_crypto_params_from_wpa_ie(struct wlan_crypto_params *crypto_params,
-				   const uint8_t *ie_ptr, uint16_t ie_len);
-
-/**
- * wlan_get_crypto_params_from_rsn_ie - Function to get crypto params
- * from rsn ie
- * @crypto_params: return crypto parameters
- * @ie_ptr: pointer to IEs
- * @ie_len: IE length
- *
- * This function is used to get the crypto parameters from rsn ie
- *
- * Context: Any context.
- * Return: QDF_STATUS
- */
-QDF_STATUS
-wlan_get_crypto_params_from_rsn_ie(struct wlan_crypto_params *crypto_params,
-				   const uint8_t *ie_ptr, uint16_t ie_len);
-
-/**
  * wlan_set_vdev_crypto_prarams_from_ie - Sets vdev crypto params from IE info
  * @vdev: vdev pointer
  * @ie_ptr: pointer to IE
@@ -797,22 +726,18 @@ QDF_STATUS wlan_set_vdev_crypto_prarams_from_ie(struct wlan_objmgr_vdev *vdev,
 						uint16_t ie_len);
 #ifdef WLAN_CRYPTO_GCM_OS_DERIVATIVE
 static inline int wlan_crypto_aes_gmac(const uint8_t *key, size_t key_len,
-				       uint8_t *iv, size_t iv_len,
+				       const uint8_t *iv, size_t iv_len,
 				       const uint8_t *aad, size_t aad_len,
 				       uint8_t *tag)
 {
-	return qdf_crypto_aes_gmac(key, key_len, iv, aad,
-				   aad + AAD_LEN,
-				   aad_len - AAD_LEN -
-				   IEEE80211_MMIE_GMAC_MICLEN,
-				   tag);
+	return 0;
 }
 #endif
 #ifdef WLAN_CRYPTO_OMAC1_OS_DERIVATIVE
 static inline int omac1_aes_128(const uint8_t *key, const uint8_t *data,
 				size_t data_len, uint8_t *mac)
 {
-	return qdf_crypto_aes_128_cmac(key, data, data_len, mac);
+	return 0;
 }
 
 static inline int omac1_aes_256(const uint8_t *key, const uint8_t *data,
@@ -1041,20 +966,6 @@ QDF_STATUS wlan_crypto_set_del_pmksa(struct wlan_objmgr_vdev *vdev,
 				     struct wlan_crypto_pmksa *pmksa,
 				     bool set);
 
-/**
- * wlan_crypto_update_pmk_cache_ft - Updates the mobility domain information
- * for a BSSID in the PMKSA Cache table.
- * @vdev: vdev
- * @pmksa: pmksa to be updated.
- *
- * This function gets called from ucfg to update pmksa with mdid.
- * And flush the matching mdid entries.
- *
- * Return: QDF_STATUS_SUCCESS - in case of success
- */
-QDF_STATUS wlan_crypto_update_pmk_cache_ft(struct wlan_objmgr_vdev *vdev,
-					   struct wlan_crypto_pmksa *pmksa);
-
 #if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
 /**
  * wlan_crypto_selective_clear_sae_single_pmk_entries - Clear the PMK entries
@@ -1093,24 +1004,4 @@ void wlan_crypto_set_sae_single_pmk_bss_cap(struct wlan_objmgr_vdev *vdev,
 }
 #endif
 
-#ifdef WLAN_FEATURE_FILS_SK
-/**
- * lim_create_fils_rik()- This API create rik using rrk coming from
- * supplicant.
- * @rrk: input rrk
- * @rrk_len: rrk length
- * @rik: Created rik
- * @rik_len: rik length to be filled
- *
- * rIK = KDF (K, S), where
- * K = rRK and
- * S = rIK Label + "\0" + cryptosuite + length
- * The rIK Label is the 8-bit ASCII string:
- * Re-authentication Integrity Key@ietf.org
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS wlan_crypto_create_fils_rik(uint8_t *rrk, uint8_t rrk_len,
-				       uint8_t *rik, uint32_t *rik_len);
-#endif /* WLAN_FEATURE_FILS_SK */
 #endif /* end of _WLAN_CRYPTO_GLOBAL_API_H_ */

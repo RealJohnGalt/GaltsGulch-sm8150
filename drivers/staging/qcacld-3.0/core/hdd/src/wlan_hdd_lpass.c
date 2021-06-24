@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -84,11 +84,12 @@ static int wlan_hdd_gen_wlan_status_pack(struct wlan_status_data *data,
 					 uint8_t is_on, uint8_t is_connected)
 {
 	struct hdd_context *hdd_ctx = NULL;
+	uint8_t buflen = WLAN_SVC_COUNTRY_CODE_LEN;
 	int i;
 	uint32_t chan_id;
 	uint32_t *chan_freq_list, chan_freq_len;
 	struct svc_channel_info *chan_info;
-	bool lpass_support, wls_6ghz_capable = false;
+	bool lpass_support;
 	QDF_STATUS status;
 
 	if (!data) {
@@ -116,7 +117,7 @@ static int wlan_hdd_gen_wlan_status_pack(struct wlan_status_data *data,
 		hdd_err("Failed to get LPASS support config");
 		return -EIO;
 	}
-	ucfg_mlme_get_wls_6ghz_cap(hdd_ctx->psoc, &wls_6ghz_capable);
+
 	if (hdd_ctx->lpss_support && lpass_support)
 		data->lpss_support = 1;
 	else
@@ -130,29 +131,22 @@ static int wlan_hdd_gen_wlan_status_pack(struct wlan_status_data *data,
 	chan_freq_len = WLAN_SVC_MAX_NUM_CHAN;
 	sme_get_cfg_valid_channels(chan_freq_list, &chan_freq_len);
 
-	data->numChannels = 0;
-	for (i = 0; i < chan_freq_len; i++) {
-		if (!wls_6ghz_capable &&
-		    wlan_reg_is_6ghz_chan_freq(chan_freq_list[i]))
-			continue;
+	data->numChannels = chan_freq_len;
 
-		chan_id = wlan_reg_freq_to_chan(hdd_ctx->pdev,
-						chan_freq_list[i]);
-		if (!chan_id)
-			continue;
-
-		chan_info = &data->channel_info[data->numChannels];
-		data->channel_list[data->numChannels] = chan_id;
+	for (i = 0; i < data->numChannels; i++) {
+		chan_info = &data->channel_info[i];
+		data->channel_list[i] =
+			wlan_reg_freq_to_chan(hdd_ctx->pdev, chan_freq_list[i]);
+		chan_id = data->channel_list[i];
 		chan_info->chan_id = chan_id;
 		wlan_hdd_get_channel_info(hdd_ctx,
 					  chan_info,
 					  chan_freq_list[i]);
-		data->numChannels++;
 	}
 
 	qdf_mem_free(chan_freq_list);
 
-	wlan_reg_get_cc_and_src(hdd_ctx->psoc, data->country_code);
+	sme_get_country_code(hdd_ctx->mac_handle, data->country_code, &buflen);
 	data->is_on = is_on;
 	data->vdev_id = adapter->vdev_id;
 	data->vdev_mode = adapter->device_mode;

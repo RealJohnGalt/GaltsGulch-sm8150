@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, 2016-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2016-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -655,15 +655,6 @@ bool htc_is_endpoint_active(HTC_HANDLE HTCHandle,
 			      HTC_ENDPOINT_ID Endpoint);
 
 /**
- * htc_set_pkt_dbg - Set up debug flag for HTC packets
- * @HTCHandle - HTC handle
- * @dbg_flag - enable or disable flag
- *
- * Return: none
- */
-void htc_set_pkt_dbg(HTC_HANDLE handle, A_BOOL dbg_flag);
-
-/**
  * htc_set_nodrop_pkt - Set up nodrop pkt flag for mboxping nodrop pkt
  * @HTCHandle - HTC handle
  * @isNodropPkt - indicates whether it is nodrop pkt
@@ -858,21 +849,6 @@ void htc_print_credit_history(HTC_HANDLE htc, uint32_t count,
 			      qdf_abstract_print *print, void *print_priv)
 {
 	print(print_priv, "HTC Credit History Feature is disabled");
-}
-#endif
-
-#ifdef SYSTEM_PM_CHECK
-/**
- * htc_system_resume() - Send out any pending WMI/HTT
- *  messages pending in htc queues on system resume.
- * @htc: HTC handle
- *
- * Return: None
- */
-void htc_system_resume(HTC_HANDLE htc);
-#else
-static inline void htc_system_resume(HTC_HANDLE htc)
-{
 }
 #endif
 #endif /* _HTC_API_H_ */

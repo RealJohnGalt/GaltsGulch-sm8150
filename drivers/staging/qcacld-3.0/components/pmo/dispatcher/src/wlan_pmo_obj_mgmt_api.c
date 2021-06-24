@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -158,6 +158,7 @@ QDF_STATUS pmo_psoc_object_created_notification(
 
 	psoc_ctx = qdf_mem_malloc(sizeof(*psoc_ctx));
 	if (!psoc_ctx) {
+		pmo_err("Failed to allocate pmo_psoc");
 		status = QDF_STATUS_E_NOMEM;
 		goto out;
 	}
@@ -243,6 +244,7 @@ QDF_STATUS pmo_vdev_object_created_notification(
 
 	vdev_ctx = qdf_mem_malloc(sizeof(*vdev_ctx));
 	if (!vdev_ctx) {
+		pmo_err("Failed to allocate vdev_ctx");
 		status = QDF_STATUS_E_NOMEM;
 		goto out;
 	}
@@ -282,7 +284,7 @@ QDF_STATUS pmo_vdev_ready(struct wlan_objmgr_vdev *vdev)
 	/* Register default wow patterns with firmware */
 	pmo_register_wow_default_patterns(vdev);
 
-	wlan_objmgr_vdev_release_ref(vdev, WLAN_PMO_ID);
+	pmo_vdev_put_ref(vdev);
 
 	/*
 	 * The above APIs should return a status but don't.
@@ -841,26 +843,4 @@ pmo_unregister_get_beacon_interval_callback(struct wlan_objmgr_psoc *psoc)
 	pmo_psoc_put_ref(psoc);
 
 	return QDF_STATUS_SUCCESS;
-}
-
-bool
-wlan_pmo_get_sap_mode_bus_suspend(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	if (!pmo_psoc_ctx)
-		return false;
-
-	return pmo_psoc_ctx->psoc_cfg.is_bus_suspend_enabled_in_sap_mode;
-}
-
-bool
-wlan_pmo_get_go_mode_bus_suspend(struct wlan_objmgr_psoc *psoc)
-{
-	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
-
-	if (!pmo_psoc_ctx)
-		return false;
-
-	return pmo_psoc_ctx->psoc_cfg.is_bus_suspend_enabled_in_go_mode;
 }

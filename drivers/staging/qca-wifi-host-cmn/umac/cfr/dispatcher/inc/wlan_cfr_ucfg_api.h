@@ -22,7 +22,6 @@
 #include <wlan_objmgr_peer_obj.h>
 #include <wlan_objmgr_pdev_obj.h>
 #include <wlan_cfr_public_structs.h>
-#include <wlan_cfr_utils_api.h>
 
 #define MAX_CFR_PRD        (10*60*1000)        /* 10 minutes */
 
@@ -37,16 +36,6 @@
 int ucfg_cfr_start_capture(struct wlan_objmgr_pdev *pdev,
 			   struct wlan_objmgr_peer *peer,
 			   struct cfr_capture_params *cfr_params);
-
-/**
- * ucfg_cfr_get_capture_status() - function to populate capture status
- * @pdev: pointer to pdev object
- * @status: capture status
- *
- * Return: none
- */
-void ucfg_cfr_get_capture_status(struct wlan_objmgr_pdev *pdev,
-				 enum cfr_capt_status *status);
 
 /**
  * ucfg_cfr_stop_capture() - function to stop cfr capture for connected client
@@ -116,26 +105,6 @@ int ucfg_cfr_get_timer(struct wlan_objmgr_pdev *pdev);
  * Return: status of write CFR stop string
  */
 QDF_STATUS ucfg_cfr_stop_indication(struct wlan_objmgr_vdev *vdev);
-
-#ifdef WLAN_CFR_ADRASTEA
-/**
- * ucfg_cfr_capture_data() - API called when HTT msg for CFR dump ind received
- * @psoc: pointer to psoc object
- * @vdev_id : vdev id
- * @hdr: CFR header
- * @mem_index: start offset index of dump in mem
- *
- * Return: None
- */
-void ucfg_cfr_capture_data(struct wlan_objmgr_psoc *psoc, uint32_t vdev_id,
-			   struct csi_cfr_header *hdr, uint32_t mem_index);
-#else
-static inline
-void ucfg_cfr_capture_data(struct wlan_objmgr_psoc *psoc, uint32_t vdev_id,
-			   struct csi_cfr_header *hdr, uint32_t mem_index)
-{
-}
-#endif
 
 #ifdef WLAN_ENH_CFR_ENABLE
 /* Channel capture recipe filters */
@@ -220,40 +189,6 @@ ucfg_cfr_set_capture_duration(struct wlan_objmgr_vdev *vdev,
 QDF_STATUS
 ucfg_cfr_set_capture_interval(struct wlan_objmgr_vdev *vdev,
 			      struct cfr_wlanconfig_param *params);
-
-/**
- * ucfg_cfr_set_tara_filterin_as_fp() - function to FP/MO filtering for m_TA_RA
- * @vdev: pointer to vdev object
- * @params: user config
- *
- * Return: status
- */
-QDF_STATUS
-ucfg_cfr_set_tara_filterin_as_fp(struct wlan_objmgr_vdev *vdev,
-				 struct cfr_wlanconfig_param *params);
-
-/**
- * ucfg_cfr_set_capture_count() - function to configure capture count
- * @vdev: pointer to vdev object
- * @params: user config
- *
- * Return: status
- */
-QDF_STATUS
-ucfg_cfr_set_capture_count(struct wlan_objmgr_vdev *vdev,
-			   struct cfr_wlanconfig_param *params);
-
-/**
- * ucfg_cfr_set_capture_interval_mode_sel() - function to configure capture
- *					      interval mode nob
- * @vdev: pointer to vdev object
- * @params: user confi
- *
- * Return: status
- */
-QDF_STATUS
-ucfg_cfr_set_capture_interval_mode_sel(struct wlan_objmgr_vdev *vdev,
-				       struct cfr_wlanconfig_param *params);
 
 /**
  * ucfg_cfr_set_en_bitmap() - function to configure 16-bit bitmap in TA_RA mode

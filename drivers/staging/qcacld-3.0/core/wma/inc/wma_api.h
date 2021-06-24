@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -46,10 +46,6 @@ typedef void *WMA_HANDLE;
  * @GEN_PARAM_CAPTURE_TSF: read tsf
  * @GEN_PARAM_RESET_TSF_GPIO: reset tsf gpio
  * @GEN_VDEV_ROAM_SYNCH_DELAY: roam sync delay
- * @GEN_VDEV_PARAM_TX_AMPDU: Set tx ampdu size
- * @GEN_VDEV_PARAM_RX_AMPDU: Set rx ampdu size
- * @GEN_VDEV_PARAM_TX_AMSDU: Set tx amsdu size
- * @GEN_VDEV_PARAM_RX_AMSDU: Set rx amsdu size
  */
 enum GEN_PARAM {
 	GEN_VDEV_PARAM_AMPDU = 0x1,
@@ -58,10 +54,6 @@ enum GEN_PARAM {
 	GEN_PARAM_CAPTURE_TSF,
 	GEN_PARAM_RESET_TSF_GPIO,
 	GEN_VDEV_ROAM_SYNCH_DELAY,
-	GEN_VDEV_PARAM_TX_AMPDU,
-	GEN_VDEV_PARAM_RX_AMPDU,
-	GEN_VDEV_PARAM_TX_AMSDU,
-	GEN_VDEV_PARAM_RX_AMSDU,
 };
 
 /**
@@ -129,6 +121,10 @@ int  wma_rx_service_ready_event(void *handle, uint8_t *ev, uint32_t len);
 
 int wma_rx_service_ready_ext_event(void *handle, uint8_t *ev, uint32_t len);
 
+void wma_setneedshutdown(void);
+
+bool wma_needshutdown(void);
+
 QDF_STATUS wma_wait_for_ready_event(WMA_HANDLE handle);
 
 int wma_cli_get_command(int vdev_id, int param_id, int vpdev);
@@ -148,13 +144,13 @@ void wma_get_fw_phy_mode_for_freq_cb(uint32_t freq, uint32_t chan_width,
 				     uint32_t  *phy_mode);
 /**
  * wma_get_phy_mode_cb() - Callback to get current PHY Mode.
- * @freq: channel frequency
+ * @chan: channel number
  * @chan_width: maximum channel width possible
  * @phy_mode: PHY Mode
  *
  * Return: None
  */
-void wma_get_phy_mode_cb(qdf_freq_t freq, uint32_t chan_width,
+void wma_get_phy_mode_cb(uint8_t chan, uint32_t chan_width,
 			 enum wlan_phymode  *phy_mode);
 
 QDF_STATUS wma_set_htconfig(uint8_t vdev_id, uint16_t ht_capab, int value);
@@ -182,10 +178,6 @@ QDF_STATUS wma_get_connection_info(uint8_t vdev_id,
 QDF_STATUS wma_ndi_update_connection_info(uint8_t vdev_id,
 		struct nan_datapath_channel_info *ndp_chan_info);
 
-#ifdef WLAN_FEATURE_PKT_CAPTURE
-int wma_get_rmf_status(uint8_t vdev_id);
-#endif
-
 bool wma_is_vdev_up(uint8_t vdev_id);
 
 void *wma_get_beacon_buffer_by_vdev_id(uint8_t vdev_id, uint32_t *buffer_size);
@@ -197,11 +189,7 @@ QDF_STATUS wma_post_ctrl_msg(struct mac_context *mac, struct scheduler_msg *pMsg
 
 void wma_update_intf_hw_mode_params(uint32_t vdev_id, uint32_t mac_id,
 				uint32_t cfgd_hw_mode_index);
-#ifdef MPC_UT_FRAMEWORK
 void wma_set_dbs_capability_ut(uint32_t dbs);
-#else
-static inline void wma_set_dbs_capability_ut(uint32_t dbs) {}
-#endif
 QDF_STATUS wma_get_caps_for_phyidx_hwmode(struct wma_caps_per_phy *caps_per_phy,
 		enum hw_mode_dbs_capab hw_mode, enum cds_band_type band);
 bool wma_is_rx_ldpc_supported_for_channel(uint32_t ch_freq);
@@ -504,7 +492,6 @@ void wma_wmi_stop(void);
  * wma_get_mcs_idx() - get mcs index
  * @raw_rate: raw rate from fw
  * @rate_flags: rate flags
- * @is_he_mcs_12_13_supported: is he mcs12/13 supported
  * @nss: nss
  * @dcm: dcm
  * @guard_interval: guard interval
@@ -513,7 +500,6 @@ void wma_wmi_stop(void);
  *  Return: mcs index
  */
 uint8_t wma_get_mcs_idx(uint16_t raw_rate, enum tx_rate_info rate_flags,
-			bool is_he_mcs_12_13_supported,
 			uint8_t *nss, uint8_t *dcm,
 			enum txrate_gi *guard_interval,
 			enum tx_rate_info *mcs_rate_flag);
@@ -805,6 +791,16 @@ int wma_wlm_stats_rsp(void *wma_ctx, uint8_t *event, uint32_t len);
 #endif /* FEATURE_WLM_STATS */
 
 /**
+ * wma_update_roam_offload_flag() -  update roam offload flag to fw
+ * @wma:     wma handle
+ * @params: Roaming enable/disable params
+ *
+ * Return: none
+ */
+void wma_update_roam_offload_flag(void *handle,
+				  struct roam_init_params *params);
+
+/**
  * wma_self_peer_create() - create self peer in objmgr
  * @vdev_mlme: vdev mlme component private object
  *
@@ -824,15 +820,5 @@ QDF_STATUS wma_vdev_self_peer_create(struct vdev_mlme_obj *vdev_mlme);
  * Return: None
  */
 void wma_cleanup_vdev(struct wlan_objmgr_vdev *vdev);
-
-/**
- * wma_set_wakeup_logs_to_console() - Enable/disable wakeup logs to console
- * @value: boolean value
- *
- * API to enable/disable wow host wakeup event logs to console.
- *
- * Return: None
- */
-void wma_set_wakeup_logs_to_console(bool value);
 
 #endif /* WMA_API_H */
