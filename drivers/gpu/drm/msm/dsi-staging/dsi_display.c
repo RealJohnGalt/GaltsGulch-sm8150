@@ -40,7 +40,6 @@
 #include <linux/pm_wakeup.h>
 #include <linux/input.h>
 #include <linux/proc_fs.h>
-#include "../sde/sde_trace.h"
 #include "dsi_parser.h"
 #include "dsi_phy.h"
 
@@ -8173,7 +8172,6 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
 	int rc = 0;
 	int i;
 
-	SDE_ATRACE_BEGIN("dsi_display_pre_kickoff");
 	/* check and setup MISR */
 	if (display->misr_enable)
 		_dsi_display_setup_misr(display);
@@ -8215,7 +8213,6 @@ wait_failure:
 		mutex_unlock(&display->display_lock);
 	}
 
-	SDE_ATRACE_END("dsi_display_pre_kickoff");
 	return rc;
 }
 
@@ -8301,7 +8298,6 @@ int dsi_display_enable(struct dsi_display *display)
 	/* Engine states and panel states are populated during splash
 	 * resource init and hence we return early
 	 */
-	SDE_ATRACE_BEGIN("dsi_display_enable");
 
 	if (display->is_cont_splash_enabled) {
 
@@ -8389,7 +8385,6 @@ error:
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 
-	SDE_ATRACE_END("dsi_display_enable");
 	return rc;
 }
 
