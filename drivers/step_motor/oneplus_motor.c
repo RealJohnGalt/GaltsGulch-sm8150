@@ -864,7 +864,7 @@ static void manual_to_auto_up_work(struct work_struct *work)
 	MOTOR_LOG("call");
 	if (atomic_read(&chip->in_suspend)) {
 		MOTOR_ERR("in_suspend delay 20 ms \n");
-		queue_delayed_work(chip->manual2auto_wq, &chip->up_work, msecs_to_jiffies(20));
+		queue_delayed_work(system_power_efficient_wq, &chip->up_work, msecs_to_jiffies(20));
 		return;
 	}
 
@@ -890,7 +890,7 @@ static void manual_to_auto_down_work(struct work_struct* work)
 
 	if (atomic_read(&chip->in_suspend)) {
 		MOTOR_ERR("in_suspend delay 20 ms \n");
-		queue_delayed_work(chip->manual2auto_wq,&chip->down_work,msecs_to_jiffies(20));
+		queue_delayed_work(system_power_efficient_wq,&chip->down_work,msecs_to_jiffies(20));
 		return;
 	}
 
@@ -1861,10 +1861,10 @@ int oneplus_dhall_irq_handler(unsigned int id)
 
 	if (id == HALL_UP) {//push camera
 		g_the_chip->hall_up_irq_count ++;
-		queue_delayed_work(g_the_chip->manual2auto_wq, &g_the_chip->down_work, 0);
+		queue_delayed_work(system_power_efficient_wq, &g_the_chip->down_work, 0);
 	} else if (id == HALL_DOWN){
 		g_the_chip->hall_down_irq_count ++;
-		queue_delayed_work(g_the_chip->manual2auto_wq, &g_the_chip->up_work, 0);
+		queue_delayed_work(system_power_efficient_wq, &g_the_chip->up_work, 0);
 	}
 
 	return 0;
@@ -3152,12 +3152,6 @@ static int motor_platform_probe(struct platform_device* pdev)
 	chip->motor_run_work_wq = create_singlethread_workqueue("motor_run_work_wq");
 	if (chip->motor_run_work_wq == NULL) {
   		MOTOR_ERR("create_singlethread_workqueue failed, motor_run_work_wq == NULL \n");
-		//goto input_fail;
-	}
-
-	chip->manual2auto_wq = create_singlethread_workqueue("manual2auto_wq");
-	if (!chip->manual2auto_wq) {
-	    MOTOR_ERR("create_singlethread_workqueue failed, manual2auto_wq == NULL \n");
 		//goto input_fail;
 	}
 
