@@ -1,6 +1,7 @@
 #
 # Makefile for the touchscreen drivers.
 #
+ccflags-y += -Ofast
 subdir-ccflags-$(CONFIG_TOUCHPANEL_MTK_PLATFORM) += -I$(srctree)/drivers/misc/mediatek/include/
 
 obj-$(CONFIG_TOUCHPANEL_ONEPLUS) += util_interface/
