@@ -1877,10 +1877,8 @@ static void bq27411_modify_soc_smooth_parameter(
 	int rc = 0;
 	bool check_result = false, tried_again = false;
 
-	if (di->modify_soc_smooth == false
-		|| di->device_type == DEVICE_BQ27541) {
+	if (di->modify_soc_smooth == false)
 		return;
-	}
 
 	pr_debug("%s begin\n", __func__);
 	if (sealed()) {
