@@ -33,7 +33,6 @@
 #include <linux/devfreq_boost.h>
 #include <linux/pm_qos.h>
 #include <linux/sync_file.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 
 #include "drm_crtc_internal.h"
@@ -2251,8 +2250,7 @@ static int __drm_mode_atomic_ioctl(struct drm_device *dev, void *data,
 			(arg->flags & DRM_MODE_PAGE_FLIP_EVENT))
 		return -EINVAL;
 
-	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
-		cpu_input_boost_kick();
+	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY && !MSM_DRM_BLANK_UNBLANK_CUST)) {
 		devfreq_boost_kick(DEVFREQ_MSM_CPUBW);
 		devfreq_boost_kick(DEVFREQ_MSM_LLCCBW);
 	}
