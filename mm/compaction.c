@@ -23,7 +23,6 @@
 #include <linux/freezer.h>
 #include <linux/page_owner.h>
 #include <linux/psi.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 #include "internal.h"
 
@@ -1974,7 +1973,6 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
 	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
-	cpu_input_boost_kick_max(100);
 
 	for (zoneid = 0; zoneid <= cc.classzone_idx; zoneid++) {
 		int status;

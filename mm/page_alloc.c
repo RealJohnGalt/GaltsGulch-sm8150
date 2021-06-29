@@ -71,7 +71,6 @@
 #include <linux/nmi.h>
 #include <linux/khugepaged.h>
 #include <linux/psi.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 
 #include <asm/sections.h>
@@ -4206,7 +4205,6 @@ retry:
 		wake_all_kswapds(order, ac);
 
 	/* Boost when memory is low so allocation latency doesn't get too bad */
-	cpu_input_boost_kick_max(100);
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
 	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
 
@@ -4242,7 +4240,6 @@ retry:
 		goto nopage;
 
 	/* Boost when memory is low so allocation latency doesn't get too bad */
-	cpu_input_boost_kick_max(250);
 	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 250);
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 250);
 
