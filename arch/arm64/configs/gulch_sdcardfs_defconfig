@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.238 Kernel Configuration
+# Linux/arm64 4.14.237 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -4299,9 +4299,7 @@ CONFIG_ION=y
 # CONFIG_ION_CARVEOUT_HEAP is not set
 # CONFIG_ION_CHUNK_HEAP is not set
 # CONFIG_ION_CMA_HEAP is not set
-CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE=y
-CONFIG_ION_POOL_AUTO_REFILL=y
-CONFIG_ION_POOL_FILL_MARK=100
+# CONFIG_ION_DEFER_FREE_NO_SCHED_IDLE is not set
 # CONFIG_STAGING_BOARD is not set
 # CONFIG_DGNC is not set
 # CONFIG_GS_FPGABOOT is not set
