@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 237
+SUBLEVEL = 238
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -808,8 +808,8 @@ endif
 # not point out any real bugs.
 KBUILD_CFLAGS += $(call cc-disable-warning, pointer-to-enum-cast)
 KBUILD_CFLAGS += $(call cc-disable-warning, pointer-to-int-cast)
+KBUILD_CFLAGS += $(call cc-option, -fcatch-undefined-behavior)
 else
-
 KBUILD_CFLAGS += $(call cc-option,-fno-delete-null-pointer-checks,)
 # These warnings generated too much noise in a regular build.
 # Use make W=1 to enable them (see scripts/Makefile.extrawarn)
