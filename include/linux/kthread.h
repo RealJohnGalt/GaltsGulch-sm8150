@@ -62,13 +62,24 @@ bool kthread_is_per_cpu(struct task_struct *k);
 	struct task_struct *__k						   \
 		= kthread_create(threadfn, data, namefmt, ## __VA_ARGS__); \
 	if (!IS_ERR(__k)) {						   \
-		__k->flags |= PF_PERF_CRITICAL;				   \
 		BUILD_BUG_ON(perfmask != cpu_lp_mask &&			   \
 			     perfmask != cpu_perf_mask &&		   \
 			     perfmask != cpu_perf_first_mask &&		   \
-			     perfmask != cpu_perf_second_mask &&		   \
+			     perfmask != cpu_perf_second_mask &&	   \
 			     perfmask != cpu_perf_third_mask &&		   \
 			     perfmask != cpu_prime_mask);		   \
+		if (perfmask == cpu_prime_mask)				   \
+			__k->pc_flags |= PC_PRIME_AFFINE;		   \
+		else if (perfmask == cpu_perf_mask)			   \
+			__k->pc_flags |= PC_PERF_AFFINE;		   \
+		else if (perfmask == cpu_perf_first_mask)		   \
+			__k->pc_flags |= PC_PERF_FIRST_AFFINE;		   \
+		else if (perfmask == cpu_perf_second_mask)		   \
+			__k->pc_flags |= PC_PERF_SECOND_AFFINE;		   \
+		else if (perfmask == cpu_perf_third_mask)		   \
+			__k->pc_flags |= PC_PERF_THIRD_AFFINE;		   \
+		else							   \
+			__k->pc_flags |= PC_LITTLE_AFFINE;		   \
 		kthread_bind_mask(__k, perfmask);			   \
 		wake_up_process(__k);					   \
 	}								   \
