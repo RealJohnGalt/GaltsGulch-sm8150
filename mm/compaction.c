@@ -1921,7 +1921,9 @@ static void compact_nodes(void)
 		compact_node(nid);
 }
 
+#ifdef CONFIG_ZRAM
 void zram_compact(void);
+#endif
 
 static void do_compaction(struct work_struct *work)
 {
@@ -1934,8 +1936,10 @@ static void do_compaction(struct work_struct *work)
 	/* Do full compaction */
 	compact_nodes();
 
+#ifdef CONFIG_ZRAM
 	/* Do ZRAM compaction */
 	zram_compact();
+#endif
 
 	/* Force compaction timeout */
 	compaction_forced_timeout = jiffies + msecs_to_jiffies(compaction_timeout_ms);
