@@ -2983,7 +2983,7 @@ static void dynamic_cpuset_worker(struct work_struct *work)
 		goto out_unlock;
 
 	if (need_hp)
-		update_cpumask(cs, trialcs, "4-6");
+		update_cpumask(cs, trialcs, "5-6");
 	else
 		update_cpumask(cs, trialcs, "0-6");
 
