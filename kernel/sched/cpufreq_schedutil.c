@@ -26,7 +26,7 @@ static unsigned int default_efficient_freq_lp[] = {1708800};
 static u64 default_up_delay_lp[] = {2000 * NSEC_PER_MSEC};
 
 static unsigned int default_efficient_freq_hp[] = {1401600};
-static u64 default_up_delay_hp[] = {200 * NSEC_PER_MSEC};
+static u64 default_up_delay_hp[] = {2000 * NSEC_PER_MSEC};
 
 //While 1804800 is most efficient, there are real world latency reasons
 //to prefer 2227200.
