@@ -190,7 +190,7 @@ unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
 
 /* Migration margin */
 unsigned int sched_capacity_margin[NR_CPUS] = {
-			[0 ... NR_CPUS-1] = 1685}; /* ~20% margin */
+			[0 ... NR_CPUS-1] = 1280}; /* ~20% margin */
 
 #ifdef CONFIG_SCHED_WALT
 /* 1ms default for 20ms window size scaled to 1024 */
