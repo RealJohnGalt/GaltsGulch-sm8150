@@ -349,7 +349,7 @@ static int msm_drm_notifier_callback(struct notifier_block *self,
 	struct msm_drm_notifier *evdata = data;
 	int *blank;
 
-	if (event != MSM_DRM_EVENT_BLANK && event != MSM_DRM_EARLY_EVENT_BLANK)
+	if (event != MSM_DRM_EVENT_BLANK)
 		goto out;
 
 	if (!evdata || !evdata->data || evdata->id != MSM_DRM_PRIMARY_DISPLAY)
@@ -357,15 +357,14 @@ static int msm_drm_notifier_callback(struct notifier_block *self,
 
 	blank = evdata->data;
 	switch (*blank) {
-	case MSM_DRM_BLANK_POWERDOWN_CUST:
 	case MSM_DRM_BLANK_POWERDOWN:
-	case MSM_DRM_BLANK_NORMAL:
+	case MSM_DRM_BLANK_LP:
 		if (!screen_on)
 			break;
 		screen_on = false;
 		set_min_pressure(95);
 		break;
-	case MSM_DRM_BLANK_UNBLANK_CUST:
+	case MSM_DRM_BLANK_UNBLANK:
 		if (screen_on)
 			break;
 		screen_on = true;
