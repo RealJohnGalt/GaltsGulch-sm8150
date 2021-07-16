@@ -28,8 +28,10 @@ static u64 default_up_delay_lp[] = {2000 * NSEC_PER_MSEC};
 static unsigned int default_efficient_freq_hp[] = {1401600};
 static u64 default_up_delay_hp[] = {2000 * NSEC_PER_MSEC};
 
-static unsigned int default_efficient_freq_pr[] = {1804800};
-static u64 default_up_delay_pr[] = {3000 * NSEC_PER_MSEC};
+//While 1804800 is most efficient, there are real world latency reasons
+//to prefer 2227200.
+static unsigned int default_efficient_freq_pr[] = {2227200};
+static u64 default_up_delay_pr[] = {4000 * NSEC_PER_MSEC};
 
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
