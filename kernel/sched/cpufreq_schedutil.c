@@ -23,15 +23,15 @@
 #define SUGOV_KTHREAD_PRIORITY	50
 
 static unsigned int default_efficient_freq_lp[] = {1708800};
-static u64 default_up_delay_lp[] = {500 * NSEC_PER_MSEC};
+static u64 default_up_delay_lp[] = {100 * NSEC_PER_MSEC};
 
 static unsigned int default_efficient_freq_hp[] = {1401600};
-static u64 default_up_delay_hp[] = {500 * NSEC_PER_MSEC};
+static u64 default_up_delay_hp[] = {200 * NSEC_PER_MSEC};
 
 //While 1804800 is most efficient, there are real world latency reasons
 //to prefer 2227200.
 static unsigned int default_efficient_freq_pr[] = {2227200};
-static u64 default_up_delay_pr[] = {4000 * NSEC_PER_MSEC};
+static u64 default_up_delay_pr[] = {500 * NSEC_PER_MSEC};
 
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
