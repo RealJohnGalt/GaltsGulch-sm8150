@@ -367,17 +367,21 @@ static int irq_setup(struct gf_dev *gf_dev)
 static void gf_kernel_key_input(struct gf_dev *gf_dev, struct gf_key *gf_key)
 {
 	uint32_t key_input = 0;
-	if (GF_KEY_HOME == gf_key->key) {
-		key_input = GF_KEY_INPUT_HOME;
-	} else if (GF_KEY_POWER == gf_key->key) {
-		key_input = GF_KEY_INPUT_POWER;
-	} else if (GF_KEY_CAMERA == gf_key->key) {
-		key_input = GF_KEY_INPUT_CAMERA;
-	} else if (GF_KEY_LONGPRESS == gf_key->key) {
-		key_input = GF_KEY_INPUT_LONG_PRESS;
-	} else {
-		/* add special key define */
-		key_input = gf_key->key;
+	switch(gf_key->key) {
+		case GF_KEY_HOME :
+			key_input = GF_KEY_INPUT_HOME;
+			break;
+		case GF_KEY_POWER :
+			key_input = GF_KEY_INPUT_POWER;
+			break;
+		case GF_KEY_CAMERA :
+			key_input = GF_KEY_INPUT_CAMERA;
+			break;
+		case GF_KEY_LONGPRESS :
+			key_input = GF_KEY_INPUT_LONG_PRESS;
+			break;
+		default:
+			key_input = gf_key->key;
 	}
 	pr_info("%s: received key event[%d], key=%d, value=%d\n",
 			__func__, key_input, gf_key->key, gf_key->value);
