@@ -151,7 +151,8 @@ void ion_buffer_destroy(struct ion_buffer *buffer);
 struct ion_device {
 	struct miscdevice dev;
 	struct plist_head heaps;
-	struct rw_semaphore heap_rwsem;
+	struct ion_heap_data *heap_data;
+	u32 heap_count;
 };
 
 /* refer to include/linux/pm.h */
@@ -258,14 +259,14 @@ static inline bool ion_buffer_cached(struct ion_buffer *buffer)
  *
  * returns a valid device or -PTR_ERR
  */
-struct ion_device *ion_device_create(void);
+struct ion_device *ion_device_create(struct ion_heap_data *heap_data);
 
 /**
  * ion_device_add_heap - adds a heap to the ion device
  * @dev:		the device
  * @heap:		the heap to add
  */
-void ion_device_add_heap(struct ion_device *idev, struct ion_heap *heap);
+void ion_add_heap(struct ion_device *idev, struct ion_heap *heap);
 
 /**
  * some helpers for common operations on buffers using the sg_table

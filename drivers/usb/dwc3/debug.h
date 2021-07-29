@@ -672,6 +672,7 @@ static inline const char *dwc3_gadget_generic_cmd_status_string(int status)
 	}
 }
 
+#ifdef CONFIG_DEBUG_KERNEL
 void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num,
 		const char *name, int status, const char *extra);
 void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
@@ -692,20 +693,6 @@ void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num,
 			struct dwc3_request *req);
 void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num,
 			struct dwc3_request *req);
-
-#ifdef CONFIG_DEBUG_KERNEL
-void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num,
-		const char *name, int status, const char *extra);
-void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
-		const u32 count, int status);
-void dwc3_dbg_event(struct dwc3 *dwc, u8 ep_num,
-		const char *name, int status);
-void dwc3_dbg_queue(struct dwc3 *dwc, u8 ep_num,
-		const struct usb_request *req, int status);
-void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
-		const struct usb_ctrlrequest *req);
-void dwc3_dbg_print_reg(struct dwc3 *dwc,
-		const char *name, int reg);
 #else
 static inline void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num,
 		const char *name, int status, const char *extra)
@@ -734,6 +721,25 @@ static inline void dwc3_dbg_setup(struct dwc3 *dwc, u8 ep_num,
 
 static inline void dwc3_dbg_print_reg(struct dwc3 *dwc,
 		const char *name, int reg)
+{
+}
+
+static inline void dwc3_dbg_dma_queue(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req)
+{
+}
+
+static inline void dwc3_dbg_dma_dequeue(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req)
+{
+}
+static inline void dwc3_dbg_dma_map(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req)
+{
+}
+
+static inline void dwc3_dbg_dma_unmap(struct dwc3 *dwc, u8 ep_num,
+			struct dwc3_request *req)
 {
 }
 #endif
