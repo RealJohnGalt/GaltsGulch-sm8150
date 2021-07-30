@@ -77,7 +77,8 @@ EXPORT_SYMBOL_GPL(mm_iommu_preregistered);
 /*
  * Taken from alloc_migrate_target with changes to remove CMA allocations
  */
-struct page *new_iommu_non_cma_page(struct page *page, unsigned long private)
+struct page *new_iommu_non_cma_page(struct page *page, unsigned long private,
+					int **resultp)
 {
 	gfp_t gfp_mask = GFP_USER;
 	struct page *new_page;
