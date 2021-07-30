@@ -7,7 +7,8 @@
 #include <linux/migrate_mode.h>
 #include <linux/hugetlb.h>
 
-typedef struct page *new_page_t(struct page *page, unsigned long private);
+typedef struct page *new_page_t(struct page *page, unsigned long private,
+				int **reason);
 typedef void free_page_t(struct page *page, unsigned long private);
 
 /*
