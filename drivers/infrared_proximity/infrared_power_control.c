@@ -156,11 +156,11 @@ static ssize_t infrared_shut_down_state2_show(struct device *dev,
 			g_infrared_state->infrared_shutdown_state2);
 }
 
-static DEVICE_ATTR(infrared_power_enable, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(infrared_power_enable, 0644,
 	infrared_power_enable_show, infrared_power_enable_store);
-static DEVICE_ATTR(infrared_shut_down_state, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(infrared_shut_down_state, 0644,
 	infrared_shut_down_state_show, infrared_shut_down_state_store);
-static DEVICE_ATTR(infrared_shut_down_state2, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(infrared_shut_down_state2, 0644,
 	infrared_shut_down_state2_show, infrared_shut_down_state2_store);
 static struct attribute *__attributes[] = {
 	&dev_attr_infrared_power_enable.attr,
