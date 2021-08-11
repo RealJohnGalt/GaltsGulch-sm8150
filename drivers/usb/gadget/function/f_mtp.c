@@ -40,7 +40,6 @@
 #include <linux/usb/f_mtp.h>
 #include <linux/configfs.h>
 #include <linux/usb/composite.h>
-#include <linux/pm_qos.h>
 
 #include "configfs.h"
 
@@ -106,8 +105,6 @@ enum buf_type {
 #define DRIVER_NAME "mtp"
 
 #define MAX_ITERATION		100
-#define FILE_LENGTH	(10 * 1024 * 1024)
-#define PM_QOS_TIMEOUT	3000000
 
 static bool mtp_receive_flag;
 unsigned int mtp_rx_req_len = MTP_RX_BUFFER_INIT_SIZE;
@@ -120,12 +117,6 @@ unsigned int mtp_tx_reqs = MTP_TX_REQ_MAX;
 module_param(mtp_tx_reqs, uint, 0644);
 
 static const char mtp_shortname[] = DRIVER_NAME "_usb";
-static struct pm_qos_request little_cpu_mtp_freq;
-static struct pm_qos_request devfreq_mtp_request;
-static struct pm_qos_request big_cpu_mtp_freq;
-static struct pm_qos_request big_plus_cpu_mtp_freq;
-static struct delayed_work cpu_freq_qos_work;
-static struct workqueue_struct *cpu_freq_qos_queue;
 
 struct mtp_dev {
 	struct usb_function function;
@@ -1009,9 +1000,6 @@ static void receive_file_work(struct work_struct *data)
 		r = -EIO;
 		goto fail;
 	}
-	if (delayed_work_pending(&cpu_freq_qos_work))
-		cancel_delayed_work(&cpu_freq_qos_work);
-
 	while (count > 0 || write_req) {
 		if (count > 0) {
 			/* queue a request */
@@ -1096,17 +1084,10 @@ static void receive_file_work(struct work_struct *data)
 	}
 fail:
 	mutex_unlock(&dev->read_mutex);
-	queue_delayed_work(cpu_freq_qos_queue, &cpu_freq_qos_work,
-		msecs_to_jiffies(1000)*3);
-	//DBG(cdev, "receive_file_work returning %d\n", r);
-
 	mtp_log("returning %d\n", r);
 	/* write the result */
 	dev->xfer_result = r;
 	smp_wmb();
-}
-static void update_qos_request(struct work_struct *data)
-{
 }
 
 static int mtp_send_event(struct mtp_dev *dev, struct mtp_event *event)
@@ -1800,8 +1781,6 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 	INIT_WORK(&dev->send_file_work, send_file_work);
 	INIT_WORK(&dev->receive_file_work, receive_file_work);
 
-	cpu_freq_qos_queue = create_singlethread_workqueue("f_mtp_qos");
-	INIT_DELAYED_WORK(&cpu_freq_qos_work, update_qos_request);
 	_mtp_dev = dev;
 
 	ret = misc_register(&mtp_device);
@@ -1812,11 +1791,6 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 	return 0;
 
 err2:
-	pm_qos_remove_request(&big_plus_cpu_mtp_freq);
-	pm_qos_remove_request(&big_cpu_mtp_freq);
-	pm_qos_remove_request(&little_cpu_mtp_freq);
-	pm_qos_remove_request(&devfreq_mtp_request);
-	destroy_workqueue(cpu_freq_qos_queue);
 	destroy_workqueue(dev->wq);
 err1:
 	_mtp_dev = NULL;
@@ -1839,11 +1813,6 @@ static void mtp_cleanup(void)
 		return;
 
 	mtp_debugfs_remove();
-	pm_qos_remove_request(&big_plus_cpu_mtp_freq);
-	pm_qos_remove_request(&big_cpu_mtp_freq);
-	pm_qos_remove_request(&little_cpu_mtp_freq);
-	pm_qos_remove_request(&devfreq_mtp_request);
-	destroy_workqueue(cpu_freq_qos_queue);
 	misc_deregister(&mtp_device);
 	destroy_workqueue(dev->wq);
 	_mtp_dev = NULL;
