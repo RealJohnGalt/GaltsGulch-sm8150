@@ -1838,14 +1838,6 @@ static int sec_tp_probe(struct i2c_client *client,
 	}
 	//ts->tp_resume_order = LCD_TP_RESUME;
 
-	/* 6. setup pm_qos requests*/
-	ts->pm_i2c_req.type = PM_QOS_REQ_AFFINE_IRQ;
-	ts->pm_i2c_req.irq = geni_i2c_get_adap_irq(client);
-	irq_set_perf_affinity(ts->pm_i2c_req.irq, IRQF_PRIME_AFFINE);
-
-	ts->pm_touch_req.type = PM_QOS_REQ_AFFINE_IRQ;
-	ts->pm_touch_req.irq = client->irq;
-
 	TPD_INFO("%s, probe normal end\n", __func__);
 	return 0;
 
