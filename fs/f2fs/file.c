@@ -299,18 +299,6 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 				f2fs_exist_written_data(sbi, ino, UPDATE_INO))
 			goto flush_out;
 		goto out;
-	} else {
-		/*
-		 * for OPU case, during fsync(), node can be persisted before
-		 * data when lower device doesn't support write barrier, result
-		 * in data corruption after SPO.
-		 * So for strict fsync mode, force to use atomic write sematics
-		 * to keep write order in between data/node and last node to
-		 * avoid potential data corruption.
-		 */
-		if (F2FS_OPTION(sbi).fsync_mode ==
-				FSYNC_MODE_STRICT && !atomic)
-			atomic = true;
 	}
 go_write:
 	/*
@@ -770,14 +758,6 @@ int f2fs_truncate_blocks(struct inode *inode, u64 from, bool lock)
 		return err;
 
 #ifdef CONFIG_F2FS_FS_COMPRESSION
-	/*
-	 * For compressed file, after release compress blocks, don't allow write
-	 * direct, but we should allow write direct after truncate to zero.
-	 */
-	if (f2fs_compressed_file(inode) && !free_from
-			&& is_inode_flag_set(inode, FI_COMPRESS_RELEASED))
-		clear_inode_flag(inode, FI_COMPRESS_RELEASED);
-
 	if (from != free_from) {
 		err = f2fs_truncate_partial_cluster(inode, from, lock);
 		if (err)
@@ -4399,7 +4379,7 @@ static ssize_t f2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			 * back to buffered IO.
 			 */
 			if (!f2fs_force_buffered_io(inode, iocb, from) &&
-					f2fs_lfs_mode(F2FS_I_SB(inode)))
+					allow_outplace_dio(inode, iocb, from))
 				goto write;
 		}
 		preallocated = true;
