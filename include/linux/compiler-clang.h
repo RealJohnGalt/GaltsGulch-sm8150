@@ -47,18 +47,6 @@
 #endif
 
 /*
- * Optional: only supported since GCC >= 7.1, clang >= 13.0.
- *
- *      gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-no_005fprofile_005finstrument_005ffunction-function-attribute
- *    clang: https://clang.llvm.org/docs/AttributeReference.html#no-profile-instrument-function
- */
-#if __has_attribute(__no_profile_instrument_function__)
-# define __no_profile                  __attribute__((__no_profile_instrument_function__))
-#else
-# define __no_profile
-#endif
-
-/*
  * Not all versions of clang implement the the type-generic versions
  * of the builtin overflow checkers. Fortunately, clang implements
  * __has_builtin allowing us to avoid awkward version

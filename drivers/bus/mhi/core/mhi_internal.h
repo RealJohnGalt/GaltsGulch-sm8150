@@ -848,7 +848,7 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
 void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
 int mhi_init_sfr(struct mhi_controller *mhi_cntrl);
-void mhi_create_sysfs(struct mhi_controller *mhi_cntrl);
+int mhi_create_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl);
 int mhi_early_notify_device(struct device *dev, void *data);
 void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
@@ -861,7 +861,7 @@ static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
 
 	if (mhi_tsync && mhi_cntrl->tsync_log)
 		mhi_cntrl->tsync_log(mhi_cntrl,
-				     readq_no_log(mhi_tsync->time_reg));
+				     readq(mhi_tsync->time_reg));
 }
 
 /* memory allocation methods */
