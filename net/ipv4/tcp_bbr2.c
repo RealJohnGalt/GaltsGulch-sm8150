@@ -181,7 +181,6 @@ struct bbr {
 			min_rtt_win_sec:5,	/* max allowed value: 31 */
 			probe_rtt_mode_ms:9,	/* max allowed value: 511 */
 			full_bw_cnt:3,		/* max allowed value: 7 */
-			bw_rtts:5,		/* max allowed value: 31 */
 			cwnd_tso_budget:1,	/* allowed values: {0, 1} */
 			ecn_reprobe_swiftly:1,	/* boolean */
 			drain_to_target:1,	/* boolean */
@@ -240,8 +239,6 @@ struct bbr_context {
 	u32 log:1;
 };
 
-/* Window length of bw filter (in rounds). Max allowed value is 31 (0x1F) */
-static int bbr_bw_rtts = CYCLE_LEN + 2;
 /* Window length of min_rtt filter (in sec). Max allowed value is 31 (0x1F) */
 static u32 bbr_min_rtt_win_sec = 10;
 /* Minimum time (in ms) spent at bbr_cwnd_min_target in BBR_PROBE_RTT mode.
@@ -309,8 +306,6 @@ static int bbr_pacing_gain[] = {
 	BBR_UNIT, BBR_UNIT, BBR_UNIT,	/* cruise at 1.0*bw to utilize pipe, */
 	BBR_UNIT, BBR_UNIT, BBR_UNIT	/* without creating excess queue... */
 };
-/* Randomize the starting gain cycling phase over N phases: */
-static u32 bbr_cycle_rand = 7;
 
 /* Try to keep at least this many packets in flight, if things go smoothly. For
  * smooth functioning, a sliding window protocol ACKing every other packet
@@ -382,7 +377,6 @@ static bool bbr_usage_based_cwnd;		/* default: disabled */
  */
 static bool bbr_ecn_enable = false;
 
-module_param_named(bw_rtts,           bbr_bw_rtts,           int,    0644);
 module_param_named(min_tso_rate,      bbr_min_tso_rate,      int,    0644);
 module_param_named(tso_rtt_shift,     bbr_tso_rtt_shift,     int,    0644);
 module_param_named(high_gain,         bbr_high_gain,         int,    0644);
@@ -391,7 +385,6 @@ module_param_named(startup_cwnd_gain, bbr_startup_cwnd_gain, int,    0644);
 module_param_named(cwnd_gain,         bbr_cwnd_gain,         int,    0644);
 module_param_array_named(pacing_gain, bbr_pacing_gain,       int,
 			 &bbr_pacing_gain_size, 0644);
-module_param_named(cycle_rand,        bbr_cycle_rand,        uint,   0644);
 module_param_named(cwnd_min_target,   bbr_cwnd_min_target,   uint,   0644);
 module_param_named(probe_rtt_cwnd_gain,
 		   bbr_probe_rtt_cwnd_gain,		     uint,   0664);
@@ -1095,7 +1088,6 @@ static void bbr_init(struct sock *sk)
 	bbr->params.min_rtt_win_sec = min(0x1FU, bbr_min_rtt_win_sec);
 	bbr->params.probe_rtt_mode_ms = min(0x1FFU, bbr_probe_rtt_mode_ms);
 	bbr->params.full_bw_cnt = min(0x7U, bbr_full_bw_cnt);
-	bbr->params.bw_rtts = min(0x1F, bbr_bw_rtts);
 	bbr->params.full_bw_thresh = min(0x3FFU, bbr_full_bw_thresh);
 	bbr->params.extra_acked_gain = min(0x7FF, bbr_extra_acked_gain);
 	bbr->params.extra_acked_win_rtts = min(0x1FU, bbr_extra_acked_win_rtts);
@@ -2426,6 +2418,9 @@ static void bbr2_init(struct sock *sk)
 	bbr->alpha_last_delivered_ce = 0;
 
 	tp->fast_ack_mode = min_t(u32, 0x2U, bbr_fast_ack_mode);
+
+	if ((tp->ecn_flags & TCP_ECN_OK) && bbr_ecn_enable)
+		tp->ecn_flags |= TCP_ECN_ECT_PERMANENT;
 }
 
 /* Core TCP stack informs us that the given skb was just marked lost. */
@@ -2569,14 +2564,11 @@ static void bbr2_set_state(struct sock *sk, u8 new_state)
 			/* bbr_adapt_lower_bounds() needs cwnd before
 			 * we suffered an RTO, to update inflight_lo:
 			 */
-			WARN_ON_ONCE(bbr->prior_cwnd == 0);
-			WARN_ON_ONCE(bbr->prior_cwnd == ~0U);
-			bbr->inflight_lo = bbr->prior_cwnd;
+			bbr->inflight_lo =
+				max(tp->snd_cwnd, bbr->prior_cwnd);
 		}
 	} else if (bbr->prev_ca_state == TCP_CA_Loss &&
 		   new_state != TCP_CA_Loss) {
-		WARN_ON_ONCE(bbr->prior_cwnd == 0);
-		WARN_ON_ONCE(bbr->prior_cwnd == ~0U);
 		tp->snd_cwnd = max(tp->snd_cwnd, bbr->prior_cwnd);
 		bbr->try_fast_path = 0; /* bound cwnd using latest model */
 	}
