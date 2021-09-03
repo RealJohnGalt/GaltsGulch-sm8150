@@ -34,7 +34,7 @@ static int fingerprint_detect_request_named_gpio(
 	return 0;
 }
 
-static inline ssize_t sensor_version_get(struct device *device,
+static ssize_t sensor_version_get(struct device *device,
 			     struct device_attribute *attribute,
 			     char *buffer)
 {
