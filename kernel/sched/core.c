@@ -771,7 +771,7 @@ static void set_load_weight(struct task_struct *p)
 static DEFINE_MUTEX(uclamp_mutex);
 
 /* Max allowed minimum utilization */
-unsigned int sysctl_sched_uclamp_util_min = SCHED_CAPACITY_SCALE;
+unsigned int sysctl_sched_uclamp_util_min = 884;
 
 /* Max allowed maximum utilization */
 unsigned int sysctl_sched_uclamp_util_max = SCHED_CAPACITY_SCALE;
@@ -791,7 +791,7 @@ unsigned int sysctl_sched_uclamp_util_max = SCHED_CAPACITY_SCALE;
  * This knob will not override the system default sched_util_clamp_min defined
  * above.
  */
-unsigned int sysctl_sched_uclamp_util_min_rt_default = 500;
+unsigned int sysctl_sched_uclamp_util_min_rt_default = 604;
 
 /* All clamps are required to be less or equal than these values */
 static struct uclamp_se uclamp_default[UCLAMP_CNT];
@@ -4053,7 +4053,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 	return ns;
 }
 
-unsigned int capacity_margin_freq = 1280; /* ~20% margin */
+unsigned int capacity_margin_freq = 1685; /* ~40% margin */
 
 /*
  * This function gets called by the timer code, with HZ frequency.
