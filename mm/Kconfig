@@ -902,3 +902,5 @@ config MULTIPLE_KSWAPD
 	 (echo <num> > /proc/sys/vm/kswapd_threads)
 
 	 Values not in the range of 1..16 are ignored.
+
+source "mm/damon/Kconfig"
