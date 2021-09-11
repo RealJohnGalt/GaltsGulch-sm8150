@@ -45,6 +45,8 @@ qcom,OP_3800mAh {
 	qcom,tcss-enable;
 	/* scale SSOC with BSOC to mitigate jumps */
 	qcom,bass-enable;
+        /* Disable learned capacity */
+        qcom,cl-disable = <1>;
 	qcom,fg-profile-data = [
 		09 00 C7 EA
 		C4 DC 8E E2
