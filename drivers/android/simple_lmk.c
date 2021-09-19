@@ -251,6 +251,9 @@ static void scan_and_kill(void)
 		/* Signals can't wake frozen tasks; only a thaw operation can */
 		__thaw_task(vtsk);
 
+		/* Signals can't wake frozen tasks; only a thaw operation can */
+		__thaw_task(vtsk);
+
 		/* Finally release the victim's task lock acquired earlier */
 		task_unlock(vtsk);
 	}
