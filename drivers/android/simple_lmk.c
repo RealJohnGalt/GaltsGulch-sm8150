@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt) "simple_lmk: " fmt
 
+#include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
 #include <linux/moduleparam.h>
@@ -247,6 +248,9 @@ static void scan_and_kill(void)
 		/* Only allow the victim to run on small CPUs */
 		set_cpus_allowed_ptr(vtsk, cpu_lp_mask);
 
+		/* Signals can't wake frozen tasks; only a thaw operation can */
+		__thaw_task(vtsk);
+
 		/* Finally release the victim's task lock acquired earlier */
 		task_unlock(vtsk);
 	}
@@ -270,9 +274,10 @@ static int simple_lmk_reclaim_thread(void *data)
 	};
 
 	sched_setscheduler_nocheck(current, SCHED_FIFO, &sched_max_rt_prio);
+	set_freezable();
 
 	while (1) {
-		wait_event(oom_waitq, atomic_read(&needs_reclaim));
+		wait_event_freezable(oom_waitq, atomic_read(&needs_reclaim));
 		scan_and_kill();
 		atomic_set_release(&needs_reclaim, 0);
 	}
