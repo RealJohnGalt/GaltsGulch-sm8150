@@ -1,7 +1,6 @@
 #
 # Makefile for the touchscreen drivers.
 #
-ccflags-y += -Ofast
 subdir-ccflags-$(CONFIG_TOUCHPANEL_MTK_PLATFORM) += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -Wunused-variable 
 ifneq ($(cc-name),clang)
