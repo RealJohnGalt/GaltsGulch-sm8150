@@ -1559,12 +1559,9 @@ static void cpuset_attach(struct cgroup_taskset *tset)
 	struct cgroup_subsys_state *css;
 	struct cpuset *cs;
 	struct cpuset *oldcs = cpuset_attach_old_cs;
-	char name_buf[NAME_MAX + 1];
 
 	cgroup_taskset_first(tset, &css);
 	cs = css_cs(css);
-
-	cgroup_name(css->cgroup, name_buf, sizeof(name_buf));
 
 	mutex_lock(&cpuset_mutex);
 
@@ -1582,9 +1579,6 @@ static void cpuset_attach(struct cgroup_taskset *tset)
 		 * fail.  TODO: have a better way to handle failure here
 		 */
 		WARN_ON_ONCE(update_cpus_allowed(cs, task, cpus_attach));
-
-		if (!strcmp(name_buf, "background"))
-			set_user_nice(task, 10);
 
 		cpuset_change_task_nodemask(task, &cpuset_attach_nodemask_to);
 		cpuset_update_task_spread_flag(cs, task);
@@ -2083,11 +2077,11 @@ static void uclamp_set(struct kernfs_open_file *of,
 
 	static struct ucl_param tgts[] = {
 		{"top-app",    	     	"10", "100", 1, 1},
-		{"foreground", 	     	"0",  "60",  0, 0},
+		{"foreground", 	     	"0",  "70",  1, 0},
 		{"background", 	     	"20", "100", 0, 0},
 		{"system-background", 	"0",  "30",  0, 0},
 		{"camera-daemon",	"50", "100", 1, 1},
-		{"display",		"10", "80",  1, 1},
+		{"display",		"10", "100", 1, 1},
 		{"restricted",		"0",  "30",  0, 0},
 	};
 
