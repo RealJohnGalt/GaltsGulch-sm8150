@@ -726,6 +726,12 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-vectorizer=stripmine \
 		   -mllvm -polly-invariant-load-hoisting
 endif
+
+ifdef CONFIG_INLINE_OPTIMIZATION
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=2500
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=1500
+endif
+
 else
 KBUILD_CFLAGS   += -O2
 KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
