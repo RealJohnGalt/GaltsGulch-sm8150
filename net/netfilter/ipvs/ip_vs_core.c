@@ -1838,6 +1838,7 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
 	struct ip_vs_proto_data *pd;
 	struct ip_vs_conn *cp;
 	int ret, pkts;
+	int conn_reuse_mode;
 	struct sock *sk;
 
 	/* Already marked as IPVS request or reply? */
@@ -1913,17 +1914,16 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
 	 */
 	cp = pp->conn_in_get(ipvs, af, skb, &iph);
 
-	if (!iph.fragoffs && is_new_conn(skb, &iph) && cp) {
-		int conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
-		bool old_ct = false, resched = false;
+	conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
+	if (conn_reuse_mode && !iph.fragoffs && is_new_conn(skb, &iph) && cp) {
+		bool uses_ct = false, resched = false;
 
 		if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
 		    unlikely(!atomic_read(&cp->dest->weight))) {
 			resched = true;
-			old_ct = ip_vs_conn_uses_old_conntrack(cp, skb);
-		} else if (conn_reuse_mode &&
-			   is_new_conn_expected(cp, conn_reuse_mode)) {
-			old_ct = ip_vs_conn_uses_old_conntrack(cp, skb);
+			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
+		} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
+			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
 			if (!atomic_read(&cp->n_control)) {
 				resched = true;
 			} else {
@@ -1931,17 +1931,15 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
 				 * that uses conntrack while it is still
 				 * referenced by controlled connection(s).
 				 */
-				resched = !old_ct;
+				resched = !uses_ct;
 			}
 		}
 
 		if (resched) {
-			if (!old_ct)
-				cp->flags &= ~IP_VS_CONN_F_NFCT;
 			if (!atomic_read(&cp->n_control))
 				ip_vs_conn_expire_now(cp);
 			__ip_vs_conn_put(cp);
-			if (old_ct)
+			if (uses_ct)
 				return NF_DROP;
 			cp = NULL;
 		}

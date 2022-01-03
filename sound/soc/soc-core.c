@@ -4099,7 +4099,7 @@ int snd_soc_of_parse_audio_routing(struct snd_soc_card *card,
 	if (!routes) {
 		dev_err(card->dev,
 			"ASoC: Could not allocate DAPM route table\n");
-		return -ENOMEM;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < num_routes; i++) {

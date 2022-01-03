@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/python
 # -*- python -*-
 # -*- coding: utf-8 -*-
 #   twatch - Experimental use of the perf python interface

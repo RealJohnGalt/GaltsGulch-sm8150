@@ -75,7 +75,6 @@ struct sock_mapping {
 	atomic_t write;
 	atomic_t io;
 	atomic_t release;
-	atomic_t eoi;
 	void (*saved_data_ready)(struct sock *sk);
 	struct pvcalls_ioworker ioworker;
 };
@@ -97,7 +96,7 @@ static int pvcalls_back_release_active(struct xenbus_device *dev,
 				       struct pvcalls_fedata *fedata,
 				       struct sock_mapping *map);
 
-static bool pvcalls_conn_back_read(void *opaque)
+static void pvcalls_conn_back_read(void *opaque)
 {
 	struct sock_mapping *map = (struct sock_mapping *)opaque;
 	struct msghdr msg;
@@ -117,17 +116,17 @@ static bool pvcalls_conn_back_read(void *opaque)
 	virt_mb();
 
 	if (error)
-		return false;
+		return;
 
 	size = pvcalls_queued(prod, cons, array_size);
 	if (size >= array_size)
-		return false;
+		return;
 	spin_lock_irqsave(&map->sock->sk->sk_receive_queue.lock, flags);
 	if (skb_queue_empty(&map->sock->sk->sk_receive_queue)) {
 		atomic_set(&map->read, 0);
 		spin_unlock_irqrestore(&map->sock->sk->sk_receive_queue.lock,
 				flags);
-		return true;
+		return;
 	}
 	spin_unlock_irqrestore(&map->sock->sk->sk_receive_queue.lock, flags);
 	wanted = array_size - size;
@@ -155,7 +154,7 @@ static bool pvcalls_conn_back_read(void *opaque)
 	ret = inet_recvmsg(map->sock, &msg, wanted, MSG_DONTWAIT);
 	WARN_ON(ret > wanted);
 	if (ret == -EAGAIN) /* shouldn't happen */
-		return true;
+		return;
 	if (!ret)
 		ret = -ENOTCONN;
 	spin_lock_irqsave(&map->sock->sk->sk_receive_queue.lock, flags);
@@ -174,10 +173,10 @@ static bool pvcalls_conn_back_read(void *opaque)
 	virt_wmb();
 	notify_remote_via_irq(map->irq);
 
-	return true;
+	return;
 }
 
-static bool pvcalls_conn_back_write(struct sock_mapping *map)
+static void pvcalls_conn_back_write(struct sock_mapping *map)
 {
 	struct pvcalls_data_intf *intf = map->ring;
 	struct pvcalls_data *data = &map->data;
@@ -194,7 +193,7 @@ static bool pvcalls_conn_back_write(struct sock_mapping *map)
 	array_size = XEN_FLEX_RING_SIZE(map->ring_order);
 	size = pvcalls_queued(prod, cons, array_size);
 	if (size == 0)
-		return false;
+		return;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_flags |= MSG_DONTWAIT;
@@ -216,11 +215,12 @@ static bool pvcalls_conn_back_write(struct sock_mapping *map)
 
 	atomic_set(&map->write, 0);
 	ret = inet_sendmsg(map->sock, &msg, size);
-	if (ret == -EAGAIN) {
+	if (ret == -EAGAIN || (ret >= 0 && ret < size)) {
 		atomic_inc(&map->write);
 		atomic_inc(&map->io);
-		return true;
 	}
+	if (ret == -EAGAIN)
+		return;
 
 	/* write the data, then update the indexes */
 	virt_wmb();
@@ -233,13 +233,9 @@ static bool pvcalls_conn_back_write(struct sock_mapping *map)
 	}
 	/* update the indexes, then notify the other end */
 	virt_wmb();
-	if (prod != cons + ret) {
+	if (prod != cons + ret)
 		atomic_inc(&map->write);
-		atomic_inc(&map->io);
-	}
 	notify_remote_via_irq(map->irq);
-
-	return true;
 }
 
 static void pvcalls_back_ioworker(struct work_struct *work)
@@ -248,7 +244,6 @@ static void pvcalls_back_ioworker(struct work_struct *work)
 		struct pvcalls_ioworker, register_work);
 	struct sock_mapping *map = container_of(ioworker, struct sock_mapping,
 		ioworker);
-	unsigned int eoi_flags = XEN_EOI_FLAG_SPURIOUS;
 
 	while (atomic_read(&map->io) > 0) {
 		if (atomic_read(&map->release) > 0) {
@@ -256,18 +251,10 @@ static void pvcalls_back_ioworker(struct work_struct *work)
 			return;
 		}
 
-		if (atomic_read(&map->read) > 0 &&
-		    pvcalls_conn_back_read(map))
-			eoi_flags = 0;
-		if (atomic_read(&map->write) > 0 &&
-		    pvcalls_conn_back_write(map))
-			eoi_flags = 0;
-
-		if (atomic_read(&map->eoi) > 0 && !atomic_read(&map->write)) {
-			atomic_set(&map->eoi, 0);
-			xen_irq_lateeoi(map->irq, eoi_flags);
-			eoi_flags = XEN_EOI_FLAG_SPURIOUS;
-		}
+		if (atomic_read(&map->read) > 0)
+			pvcalls_conn_back_read(map);
+		if (atomic_read(&map->write) > 0)
+			pvcalls_conn_back_write(map);
 
 		atomic_dec(&map->io);
 	}
@@ -364,9 +351,12 @@ static struct sock_mapping *pvcalls_new_active_socket(
 		goto out;
 	map->bytes = page;
 
-	ret = bind_interdomain_evtchn_to_irqhandler_lateeoi(
-			fedata->dev->otherend_id, evtchn,
-			pvcalls_back_conn_event, 0, "pvcalls-backend", map);
+	ret = bind_interdomain_evtchn_to_irqhandler(fedata->dev->otherend_id,
+						    evtchn,
+						    pvcalls_back_conn_event,
+						    0,
+						    "pvcalls-backend",
+						    map);
 	if (ret < 0)
 		goto out;
 	map->irq = ret;
@@ -900,18 +890,15 @@ static irqreturn_t pvcalls_back_event(int irq, void *dev_id)
 {
 	struct xenbus_device *dev = dev_id;
 	struct pvcalls_fedata *fedata = NULL;
-	unsigned int eoi_flags = XEN_EOI_FLAG_SPURIOUS;
 
-	if (dev) {
-		fedata = dev_get_drvdata(&dev->dev);
-		if (fedata) {
-			pvcalls_back_work(fedata);
-			eoi_flags = 0;
-		}
-	}
+	if (dev == NULL)
+		return IRQ_HANDLED;
 
-	xen_irq_lateeoi(irq, eoi_flags);
+	fedata = dev_get_drvdata(&dev->dev);
+	if (fedata == NULL)
+		return IRQ_HANDLED;
 
+	pvcalls_back_work(fedata);
 	return IRQ_HANDLED;
 }
 
@@ -921,15 +908,12 @@ static irqreturn_t pvcalls_back_conn_event(int irq, void *sock_map)
 	struct pvcalls_ioworker *iow;
 
 	if (map == NULL || map->sock == NULL || map->sock->sk == NULL ||
-		map->sock->sk->sk_user_data != map) {
-		xen_irq_lateeoi(irq, 0);
+		map->sock->sk->sk_user_data != map)
 		return IRQ_HANDLED;
-	}
 
 	iow = &map->ioworker;
 
 	atomic_inc(&map->write);
-	atomic_inc(&map->eoi);
 	atomic_inc(&map->io);
 	queue_work(iow->wq, &iow->register_work);
 
@@ -964,7 +948,7 @@ static int backend_connect(struct xenbus_device *dev)
 		goto error;
 	}
 
-	err = bind_interdomain_evtchn_to_irq_lateeoi(dev->otherend_id, evtchn);
+	err = bind_interdomain_evtchn_to_irq(dev->otherend_id, evtchn);
 	if (err < 0)
 		goto error;
 	fedata->irq = err;

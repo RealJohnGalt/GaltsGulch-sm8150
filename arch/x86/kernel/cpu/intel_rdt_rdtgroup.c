@@ -393,86 +393,82 @@ unlock:
 	return ret ?: nbytes;
 }
 
-/**
- * rdtgroup_remove - the helper to remove resource group safely
- * @rdtgrp: resource group to remove
- *
- * On resource group creation via a mkdir, an extra kernfs_node reference is
- * taken to ensure that the rdtgroup structure remains accessible for the
- * rdtgroup_kn_unlock() calls where it is removed.
- *
- * Drop the extra reference here, then free the rdtgroup structure.
- *
- * Return: void
- */
-static void rdtgroup_remove(struct rdtgroup *rdtgrp)
-{
-	kernfs_put(rdtgrp->kn);
-	kfree(rdtgrp);
-}
+struct task_move_callback {
+	struct callback_head	work;
+	struct rdtgroup		*rdtgrp;
+};
 
-static void _update_task_closid_rmid(void *task)
+static void move_myself(struct callback_head *head)
 {
+	struct task_move_callback *callback;
+	struct rdtgroup *rdtgrp;
+
+	callback = container_of(head, struct task_move_callback, work);
+	rdtgrp = callback->rdtgrp;
+
 	/*
-	 * If the task is still current on this CPU, update PQR_ASSOC MSR.
-	 * Otherwise, the MSR is updated when the task is scheduled in.
+	 * If resource group was deleted before this task work callback
+	 * was invoked, then assign the task to root group and free the
+	 * resource group.
 	 */
-	if (task == current)
-		intel_rdt_sched_in();
-}
+	if (atomic_dec_and_test(&rdtgrp->waitcount) &&
+	    (rdtgrp->flags & RDT_DELETED)) {
+		current->closid = 0;
+		current->rmid = 0;
+		kfree(rdtgrp);
+	}
 
-static void update_task_closid_rmid(struct task_struct *t)
-{
-	if (IS_ENABLED(CONFIG_SMP) && task_curr(t))
-		smp_call_function_single(task_cpu(t), _update_task_closid_rmid, t, 1);
-	else
-		_update_task_closid_rmid(t);
+	preempt_disable();
+	/* update PQR_ASSOC MSR to make resource group go into effect */
+	intel_rdt_sched_in();
+	preempt_enable();
+
+	kfree(callback);
 }
 
 static int __rdtgroup_move_task(struct task_struct *tsk,
 				struct rdtgroup *rdtgrp)
 {
-	/* If the task is already in rdtgrp, no need to move the task. */
-	if ((rdtgrp->type == RDTCTRL_GROUP && tsk->closid == rdtgrp->closid &&
-	     tsk->rmid == rdtgrp->mon.rmid) ||
-	    (rdtgrp->type == RDTMON_GROUP && tsk->rmid == rdtgrp->mon.rmid &&
-	     tsk->closid == rdtgrp->mon.parent->closid))
-		return 0;
+	struct task_move_callback *callback;
+	int ret;
+
+	callback = kzalloc(sizeof(*callback), GFP_KERNEL);
+	if (!callback)
+		return -ENOMEM;
+	callback->work.func = move_myself;
+	callback->rdtgrp = rdtgrp;
 
 	/*
-	 * Set the task's closid/rmid before the PQR_ASSOC MSR can be
-	 * updated by them.
-	 *
-	 * For ctrl_mon groups, move both closid and rmid.
-	 * For monitor groups, can move the tasks only from
-	 * their parent CTRL group.
+	 * Take a refcount, so rdtgrp cannot be freed before the
+	 * callback has been invoked.
 	 */
-
-	if (rdtgrp->type == RDTCTRL_GROUP) {
-		tsk->closid = rdtgrp->closid;
-		tsk->rmid = rdtgrp->mon.rmid;
-	} else if (rdtgrp->type == RDTMON_GROUP) {
-		if (rdtgrp->mon.parent->closid == tsk->closid)
+	atomic_inc(&rdtgrp->waitcount);
+	ret = task_work_add(tsk, &callback->work, true);
+	if (ret) {
+		/*
+		 * Task is exiting. Drop the refcount and free the callback.
+		 * No need to check the refcount as the group cannot be
+		 * deleted before the write function unlocks rdtgroup_mutex.
+		 */
+		atomic_dec(&rdtgrp->waitcount);
+		kfree(callback);
+	} else {
+		/*
+		 * For ctrl_mon groups move both closid and rmid.
+		 * For monitor groups, can move the tasks only from
+		 * their parent CTRL group.
+		 */
+		if (rdtgrp->type == RDTCTRL_GROUP) {
+			tsk->closid = rdtgrp->closid;
 			tsk->rmid = rdtgrp->mon.rmid;
-		else
-			return -EINVAL;
+		} else if (rdtgrp->type == RDTMON_GROUP) {
+			if (rdtgrp->mon.parent->closid == tsk->closid)
+				tsk->rmid = rdtgrp->mon.rmid;
+			else
+				ret = -EINVAL;
+		}
 	}
-
-	/*
-	 * Ensure the task's closid and rmid are written before determining if
-	 * the task is current that will decide if it will be interrupted.
-	 */
-	barrier();
-
-	/*
-	 * By now, the task's closid and rmid are set. If the task is current
-	 * on a CPU, the PQR_ASSOC MSR needs to be updated to make the resource
-	 * group go into effect. If the task is not current, the MSR will be
-	 * updated when the task is scheduled in.
-	 */
-	update_task_closid_rmid(tsk);
-
-	return 0;
+	return ret;
 }
 
 static int rdtgroup_task_write_permission(struct task_struct *task,
@@ -834,6 +830,7 @@ static int rdtgroup_mkdir_info_resdir(struct rdt_resource *r, char *name,
 	if (IS_ERR(kn_subdir))
 		return PTR_ERR(kn_subdir);
 
+	kernfs_get(kn_subdir);
 	ret = rdtgroup_kn_set_ugid(kn_subdir);
 	if (ret)
 		return ret;
@@ -856,6 +853,7 @@ static int rdtgroup_create_info_dir(struct kernfs_node *parent_kn)
 	kn_info = kernfs_create_dir(parent_kn, "info", parent_kn->mode, NULL);
 	if (IS_ERR(kn_info))
 		return PTR_ERR(kn_info);
+	kernfs_get(kn_info);
 
 	for_each_alloc_enabled_rdt_resource(r) {
 		fflags =  r->fflags | RF_CTRL_INFO;
@@ -871,6 +869,12 @@ static int rdtgroup_create_info_dir(struct kernfs_node *parent_kn)
 		if (ret)
 			goto out_destroy;
 	}
+
+	/*
+	 * This extra ref will be put in kernfs_remove() and guarantees
+	 * that @rdtgrp->kn is always accessible.
+	 */
+	kernfs_get(kn_info);
 
 	ret = rdtgroup_kn_set_ugid(kn_info);
 	if (ret)
@@ -899,6 +903,12 @@ mongroup_create_dir(struct kernfs_node *parent_kn, struct rdtgroup *prgrp,
 
 	if (dest_kn)
 		*dest_kn = kn;
+
+	/*
+	 * This extra ref will be put in kernfs_remove() and guarantees
+	 * that @rdtgrp->kn is always accessible.
+	 */
+	kernfs_get(kn);
 
 	ret = rdtgroup_kn_set_ugid(kn);
 	if (ret)
@@ -1116,7 +1126,8 @@ void rdtgroup_kn_unlock(struct kernfs_node *kn)
 	if (atomic_dec_and_test(&rdtgrp->waitcount) &&
 	    (rdtgrp->flags & RDT_DELETED)) {
 		kernfs_unbreak_active_protection(kn);
-		rdtgroup_remove(rdtgrp);
+		kernfs_put(rdtgrp->kn);
+		kfree(rdtgrp);
 	} else {
 		kernfs_unbreak_active_protection(kn);
 	}
@@ -1167,6 +1178,7 @@ static struct dentry *rdt_mount(struct file_system_type *fs_type,
 			dentry = ERR_PTR(ret);
 			goto out_info;
 		}
+		kernfs_get(kn_mongrp);
 
 		ret = mkdir_mondata_all(rdtgroup_default.kn,
 					&rdtgroup_default, &kn_mondata);
@@ -1174,6 +1186,7 @@ static struct dentry *rdt_mount(struct file_system_type *fs_type,
 			dentry = ERR_PTR(ret);
 			goto out_mongrp;
 		}
+		kernfs_get(kn_mondata);
 		rdtgroup_default.mon.mon_data_kn = kn_mondata;
 	}
 
@@ -1316,7 +1329,7 @@ static void free_all_child_rdtgrp(struct rdtgroup *rdtgrp)
 		if (atomic_read(&sentry->waitcount) != 0)
 			sentry->flags = RDT_DELETED;
 		else
-			rdtgroup_remove(sentry);
+			kfree(sentry);
 	}
 }
 
@@ -1354,7 +1367,7 @@ static void rmdir_all_sub(void)
 		if (atomic_read(&rdtgrp->waitcount) != 0)
 			rdtgrp->flags = RDT_DELETED;
 		else
-			rdtgroup_remove(rdtgrp);
+			kfree(rdtgrp);
 	}
 	/* Notify online CPUs to update per cpu storage and PQR_ASSOC MSR */
 	update_closid_rmid(cpu_online_mask, &rdtgroup_default);
@@ -1448,6 +1461,11 @@ static int mkdir_mondata_subdir(struct kernfs_node *parent_kn,
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
 
+	/*
+	 * This extra ref will be put in kernfs_remove() and guarantees
+	 * that kn is always accessible.
+	 */
+	kernfs_get(kn);
 	ret = rdtgroup_kn_set_ugid(kn);
 	if (ret)
 		goto out_destroy;
@@ -1608,8 +1626,8 @@ static int mkdir_rdt_prepare(struct kernfs_node *parent_kn,
 	/*
 	 * kernfs_remove() will drop the reference count on "kn" which
 	 * will free it. But we still need it to stick around for the
-	 * rdtgroup_kn_unlock(kn) call. Take one extra reference here,
-	 * which will be dropped by kernfs_put() in rdtgroup_remove().
+	 * rdtgroup_kn_unlock(kn} call below. Take one extra reference
+	 * here, which will be dropped inside rdtgroup_kn_unlock().
 	 */
 	kernfs_get(kn);
 
@@ -1643,7 +1661,6 @@ static int mkdir_rdt_prepare(struct kernfs_node *parent_kn,
 out_idfree:
 	free_rmid(rdtgrp->mon.rmid);
 out_destroy:
-	kernfs_put(rdtgrp->kn);
 	kernfs_remove(rdtgrp->kn);
 out_free_rgrp:
 	kfree(rdtgrp);
@@ -1656,7 +1673,7 @@ static void mkdir_rdt_prepare_clean(struct rdtgroup *rgrp)
 {
 	kernfs_remove(rgrp->kn);
 	free_rmid(rgrp->mon.rmid);
-	rdtgroup_remove(rgrp);
+	kfree(rgrp);
 }
 
 /*
@@ -1822,6 +1839,11 @@ static int rdtgroup_rmdir_mon(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 	WARN_ON(list_empty(&prdtgrp->mon.crdtgrp_list));
 	list_del(&rdtgrp->mon.crdtgrp_list);
 
+	/*
+	 * one extra hold on this, will drop when we kfree(rdtgrp)
+	 * in rdtgroup_kn_unlock()
+	 */
+	kernfs_get(kn);
 	kernfs_remove(rdtgrp->kn);
 
 	return 0;
@@ -1858,6 +1880,11 @@ static int rdtgroup_rmdir_ctrl(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 
 	list_del(&rdtgrp->rdtgroup_list);
 
+	/*
+	 * one extra hold on this, will drop when we kfree(rdtgrp)
+	 * in rdtgroup_kn_unlock()
+	 */
+	kernfs_get(kn);
 	kernfs_remove(rdtgrp->kn);
 
 	/*

@@ -1477,9 +1477,6 @@ static void f2fs_put_super(struct super_block *sb)
 	int i;
 	bool dropped;
 
-	/* unregister procfs/sysfs entries in advance to avoid race case */
-	f2fs_unregister_sysfs(sbi);
-
 	f2fs_quota_off_umount(sb);
 
 	/* prevent remaining shrinker jobs */
@@ -1553,6 +1550,8 @@ static void f2fs_put_super(struct super_block *sb)
 	f2fs_destroy_post_read_wq(sbi);
 
 	kvfree(sbi->ckpt);
+
+	f2fs_unregister_sysfs(sbi);
 
 	sb->s_fs_info = NULL;
 	if (sbi->s_chksum_driver)
@@ -2080,9 +2079,6 @@ restore_flag:
 
 static void f2fs_enable_checkpoint(struct f2fs_sb_info *sbi)
 {
-	/* we should flush all the data to keep data consistency */
-	sync_inodes_sb(sbi->sb);
-
 	down_write(&sbi->gc_lock);
 	f2fs_dirty_to_prefree(sbi);
 

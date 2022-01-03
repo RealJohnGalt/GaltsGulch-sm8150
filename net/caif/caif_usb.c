@@ -116,11 +116,6 @@ static struct cflayer *cfusbl_create(int phyid, u8 ethaddr[ETH_ALEN],
 	return (struct cflayer *) this;
 }
 
-static void cfusbl_release(struct cflayer *layer)
-{
-	kfree(layer);
-}
-
 static struct packet_type caif_usb_type __read_mostly = {
 	.type = cpu_to_be16(ETH_P_802_EX1),
 };
@@ -133,7 +128,6 @@ static int cfusbl_device_notify(struct notifier_block *me, unsigned long what,
 	struct cflayer *layer, *link_support;
 	struct usbnet *usbnet;
 	struct usb_device *usbdev;
-	int res;
 
 	/* Check whether we have a NCM device, and find its VID/PID. */
 	if (!(dev->dev.parent && dev->dev.parent->driver &&
@@ -176,11 +170,8 @@ static int cfusbl_device_notify(struct notifier_block *me, unsigned long what,
 	if (dev->num_tx_queues > 1)
 		pr_warn("USB device uses more than one tx queue\n");
 
-	res = caif_enroll_dev(dev, &common, link_support, CFUSB_MAX_HEADLEN,
+	caif_enroll_dev(dev, &common, link_support, CFUSB_MAX_HEADLEN,
 			&layer, &caif_usb_type.func);
-	if (res)
-		goto err;
-
 	if (!pack_added)
 		dev_add_pack(&caif_usb_type);
 	pack_added = true;
@@ -190,9 +181,6 @@ static int cfusbl_device_notify(struct notifier_block *me, unsigned long what,
 	layer->name[sizeof(layer->name) - 1] = 0;
 
 	return 0;
-err:
-	cfusbl_release(link_support);
-	return res;
 }
 
 static struct notifier_block caif_device_notifier = {

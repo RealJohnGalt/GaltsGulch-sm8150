@@ -9,8 +9,6 @@
 
 #if IS_ENABLED(CONFIG_IPV6)
 
-#if !IS_BUILTIN(CONFIG_IPV6)
-
 static ip6_icmp_send_t __rcu *ip6_icmp_send;
 
 int inet6_register_icmp_sender(ip6_icmp_send_t *fn)
@@ -33,25 +31,25 @@ int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn)
 }
 EXPORT_SYMBOL(inet6_unregister_icmp_sender);
 
-void __icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
-		   const struct inet6_skb_parm *parm)
+void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
 {
 	ip6_icmp_send_t *send;
 
 	rcu_read_lock();
 	send = rcu_dereference(ip6_icmp_send);
-	if (send)
-		send(skb, type, code, info, NULL, parm);
+
+	if (!send)
+		goto out;
+	send(skb, type, code, info, NULL);
+out:
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL(__icmpv6_send);
-#endif
+EXPORT_SYMBOL(icmpv6_send);
 
 #if IS_ENABLED(CONFIG_NF_NAT)
 #include <net/netfilter/nf_conntrack.h>
 void icmpv6_ndo_send(struct sk_buff *skb_in, u8 type, u8 code, __u32 info)
 {
-	struct inet6_skb_parm parm = { 0 };
 	struct sk_buff *cloned_skb = NULL;
 	enum ip_conntrack_info ctinfo;
 	struct in6_addr orig_ip;
@@ -59,7 +57,7 @@ void icmpv6_ndo_send(struct sk_buff *skb_in, u8 type, u8 code, __u32 info)
 
 	ct = nf_ct_get(skb_in, &ctinfo);
 	if (!ct || !(ct->status & IPS_SRC_NAT)) {
-		__icmpv6_send(skb_in, type, code, info, &parm);
+		icmpv6_send(skb_in, type, code, info);
 		return;
 	}
 
@@ -74,7 +72,7 @@ void icmpv6_ndo_send(struct sk_buff *skb_in, u8 type, u8 code, __u32 info)
 
 	orig_ip = ipv6_hdr(skb_in)->saddr;
 	ipv6_hdr(skb_in)->saddr = ct->tuplehash[0].tuple.src.u3.in6;
-	__icmpv6_send(skb_in, type, code, info, &parm);
+	icmpv6_send(skb_in, type, code, info);
 	ipv6_hdr(skb_in)->saddr = orig_ip;
 out:
 	consume_skb(cloned_skb);

@@ -229,10 +229,8 @@ static int read_mos_reg(struct usb_serial *serial, unsigned int serial_portnum,
 	int status;
 
 	buf = kmalloc(1, GFP_KERNEL);
-	if (!buf) {
-		*data = 0;
+	if (!buf)
 		return -ENOMEM;
-	}
 
 	status = usb_control_msg(usbdev, pipe, request, requesttype, value,
 				     index, buf, 1, MOS_WDR_TIMEOUT);
@@ -642,8 +640,6 @@ static void parport_mos7715_restore_state(struct parport *pp,
 		spin_unlock(&release_lock);
 		return;
 	}
-	mos_parport->shadowDCR = s->u.pc.ctr;
-	mos_parport->shadowECR = s->u.pc.ecr;
 	write_parport_reg_nonblock(mos_parport, MOS7720_DCR,
 				   mos_parport->shadowDCR);
 	write_parport_reg_nonblock(mos_parport, MOS7720_ECR,
@@ -1254,10 +1250,8 @@ static int mos7720_write(struct tty_struct *tty, struct usb_serial_port *port,
 	if (urb->transfer_buffer == NULL) {
 		urb->transfer_buffer = kmalloc(URB_TRANSFER_BUFFER_SIZE,
 					       GFP_ATOMIC);
-		if (!urb->transfer_buffer) {
-			bytes_sent = -ENOMEM;
+		if (!urb->transfer_buffer)
 			goto exit;
-		}
 	}
 	transfer_size = min(count, URB_TRANSFER_BUFFER_SIZE);
 

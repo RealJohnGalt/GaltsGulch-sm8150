@@ -568,7 +568,7 @@ void crypto_destroy_tfm(void *mem, struct crypto_tfm *tfm)
 {
 	struct crypto_alg *alg;
 
-	if (IS_ERR_OR_NULL(mem))
+	if (unlikely(!mem))
 		return;
 
 	alg = tfm->__crt_alg;

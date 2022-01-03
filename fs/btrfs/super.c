@@ -939,8 +939,8 @@ out:
 	return error;
 }
 
-char *btrfs_get_subvol_name_from_objectid(struct btrfs_fs_info *fs_info,
-					  u64 subvol_objectid)
+static char *get_subvol_name_from_objectid(struct btrfs_fs_info *fs_info,
+					   u64 subvol_objectid)
 {
 	struct btrfs_root *root = fs_info->tree_root;
 	struct btrfs_root *fs_root;
@@ -1221,7 +1221,6 @@ static int btrfs_show_options(struct seq_file *seq, struct dentry *dentry)
 {
 	struct btrfs_fs_info *info = btrfs_sb(dentry->d_sb);
 	char *compress_type;
-	const char *subvol_name;
 
 	if (btrfs_test_opt(info, DEGRADED))
 		seq_puts(seq, ",degraded");
@@ -1308,13 +1307,8 @@ static int btrfs_show_options(struct seq_file *seq, struct dentry *dentry)
 #endif
 	seq_printf(seq, ",subvolid=%llu",
 		  BTRFS_I(d_inode(dentry))->root->root_key.objectid);
-	subvol_name = btrfs_get_subvol_name_from_objectid(info,
-			BTRFS_I(d_inode(dentry))->root->root_key.objectid);
-	if (!IS_ERR(subvol_name)) {
-		seq_puts(seq, ",subvol=");
-		seq_escape(seq, subvol_name, " \t\n\\");
-		kfree(subvol_name);
-	}
+	seq_puts(seq, ",subvol=");
+	seq_dentry(seq, dentry, " \t\n\\");
 	return 0;
 }
 
@@ -1433,8 +1427,8 @@ static struct dentry *mount_subvol(const char *subvol_name, u64 subvol_objectid,
 				goto out;
 			}
 		}
-		subvol_name = btrfs_get_subvol_name_from_objectid(
-					btrfs_sb(mnt->mnt_sb), subvol_objectid);
+		subvol_name = get_subvol_name_from_objectid(btrfs_sb(mnt->mnt_sb),
+							    subvol_objectid);
 		if (IS_ERR(subvol_name)) {
 			root = ERR_CAST(subvol_name);
 			subvol_name = NULL;
@@ -1783,14 +1777,6 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 		btrfs_dev_replace_suspend_for_unmount(fs_info);
 		btrfs_scrub_cancel(fs_info);
 		btrfs_pause_balance(fs_info);
-
-		/*
-		 * Pause the qgroup rescan worker if it is running. We don't want
-		 * it to be still running after we are in RO mode, as after that,
-		 * by the time we unmount, it might have left a transaction open,
-		 * so we would leak the transaction and/or crash.
-		 */
-		btrfs_qgroup_wait_for_completion(fs_info, false);
 
 		ret = btrfs_commit_super(fs_info);
 		if (ret)

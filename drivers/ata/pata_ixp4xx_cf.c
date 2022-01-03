@@ -169,12 +169,8 @@ static int ixp4xx_pata_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq > 0)
+	if (irq)
 		irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-	else if (irq < 0)
-		return irq;
-	else
-		return -EINVAL;
 
 	/* Setup expansion bus chip selects */
 	*data->cs0_cfg = data->cs0_bits;

@@ -1857,7 +1857,6 @@ out_free_netdev:
 	free_netdev(netdev);
 out_pci_release:
 	pci_release_mem_regions(pdev);
-	pci_disable_pcie_error_reporting(pdev);
 out_pci_disable:
 	pci_disable_device(pdev);
 	return err;
@@ -1905,16 +1904,13 @@ static int alx_resume(struct device *dev)
 
 	if (!netif_running(alx->dev))
 		return 0;
+	netif_device_attach(alx->dev);
 
 	rtnl_lock();
 	err = __alx_open(alx, true);
 	rtnl_unlock();
-	if (err)
-		return err;
 
-	netif_device_attach(alx->dev);
-
-	return 0;
+	return err;
 }
 
 static SIMPLE_DEV_PM_OPS(alx_pm_ops, alx_suspend, alx_resume);

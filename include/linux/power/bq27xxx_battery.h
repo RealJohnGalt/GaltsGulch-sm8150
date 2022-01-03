@@ -47,6 +47,7 @@ struct bq27xxx_reg_cache {
 	int capacity;
 	int energy;
 	int flags;
+	int power_avg;
 	int health;
 };
 

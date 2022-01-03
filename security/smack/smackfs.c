@@ -721,7 +721,9 @@ static void smk_cipso_doi(void)
 		printk(KERN_WARNING "%s:%d remove rc = %d\n",
 		       __func__, __LINE__, rc);
 
-	doip = kmalloc(sizeof(struct cipso_v4_doi), GFP_KERNEL | __GFP_NOFAIL);
+	doip = kmalloc(sizeof(struct cipso_v4_doi), GFP_KERNEL);
+	if (doip == NULL)
+		panic("smack:  Failed to initialize cipso DOI.\n");
 	doip->map.std = NULL;
 	doip->doi = smk_cipso_doi_value;
 	doip->type = CIPSO_V4_MAP_PASS;
@@ -740,7 +742,7 @@ static void smk_cipso_doi(void)
 	if (rc != 0) {
 		printk(KERN_WARNING "%s:%d map add rc = %d\n",
 		       __func__, __LINE__, rc);
-		netlbl_cfg_cipsov4_del(doip->doi, &nai);
+		kfree(doip);
 		return;
 	}
 }
@@ -857,7 +859,6 @@ static int smk_open_cipso(struct inode *inode, struct file *file)
 static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos, int format)
 {
-	struct netlbl_lsm_catmap *old_cat;
 	struct smack_known *skp;
 	struct netlbl_lsm_secattr ncats;
 	char mapcatset[SMK_CIPSOLEN];
@@ -881,8 +882,6 @@ static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 		return -EINVAL;
 	if (format == SMK_FIXED24_FMT &&
 	    (count < SMK_CIPSOMIN || count > SMK_CIPSOMAX))
-		return -EINVAL;
-	if (count > PAGE_SIZE)
 		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
@@ -913,7 +912,7 @@ static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 	}
 
 	ret = sscanf(rule, "%d", &maplevel);
-	if (ret != 1 || maplevel < 0 || maplevel > SMACK_CIPSO_MAXLEVEL)
+	if (ret != 1 || maplevel > SMACK_CIPSO_MAXLEVEL)
 		goto out;
 
 	rule += SMK_DIGITLEN;
@@ -934,10 +933,6 @@ static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 
 	for (i = 0; i < catlen; i++) {
 		rule += SMK_DIGITLEN;
-		if (rule > data + count) {
-			rc = -EOVERFLOW;
-			goto out;
-		}
 		ret = sscanf(rule, "%u", &cat);
 		if (ret != 1 || cat > SMACK_CIPSO_MAXCATNUM)
 			goto out;
@@ -947,11 +942,9 @@ static ssize_t smk_set_cipso(struct file *file, const char __user *buf,
 
 	rc = smk_netlbl_mls(maplevel, mapcatset, &ncats, SMK_CIPSOLEN);
 	if (rc >= 0) {
-		old_cat = skp->smk_netlabel.attr.mls.cat;
+		netlbl_catmap_free(skp->smk_netlabel.attr.mls.cat);
 		skp->smk_netlabel.attr.mls.cat = ncats.attr.mls.cat;
 		skp->smk_netlabel.attr.mls.lvl = ncats.attr.mls.lvl;
-		synchronize_rcu();
-		netlbl_catmap_free(old_cat);
 		rc = count;
 	}
 
@@ -1194,7 +1187,7 @@ static ssize_t smk_write_net4addr(struct file *file, const char __user *buf,
 		return -EPERM;
 	if (*ppos != 0)
 		return -EINVAL;
-	if (count < SMK_NETLBLADDRMIN || count > PAGE_SIZE - 1)
+	if (count < SMK_NETLBLADDRMIN)
 		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
@@ -1454,7 +1447,7 @@ static ssize_t smk_write_net6addr(struct file *file, const char __user *buf,
 		return -EPERM;
 	if (*ppos != 0)
 		return -EINVAL;
-	if (count < SMK_NETLBLADDRMIN || count > PAGE_SIZE - 1)
+	if (count < SMK_NETLBLADDRMIN)
 		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
@@ -1861,10 +1854,6 @@ static ssize_t smk_write_ambient(struct file *file, const char __user *buf,
 	if (!smack_privileged(CAP_MAC_ADMIN))
 		return -EPERM;
 
-	/* Enough data must be present */
-	if (count == 0 || count > PAGE_SIZE)
-		return -EINVAL;
-
 	data = memdup_user_nul(buf, count);
 	if (IS_ERR(data))
 		return PTR_ERR(data);
@@ -2036,9 +2025,6 @@ static ssize_t smk_write_onlycap(struct file *file, const char __user *buf,
 	if (!smack_privileged(CAP_MAC_ADMIN))
 		return -EPERM;
 
-	if (count > PAGE_SIZE)
-		return -EINVAL;
-
 	data = memdup_user_nul(buf, count);
 	if (IS_ERR(data))
 		return PTR_ERR(data);
@@ -2125,9 +2111,6 @@ static ssize_t smk_write_unconfined(struct file *file, const char __user *buf,
 
 	if (!smack_privileged(CAP_MAC_ADMIN))
 		return -EPERM;
-
-	if (count > PAGE_SIZE)
-		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
 	if (IS_ERR(data))
@@ -2682,10 +2665,6 @@ static ssize_t smk_write_syslog(struct file *file, const char __user *buf,
 	if (!smack_privileged(CAP_MAC_ADMIN))
 		return -EPERM;
 
-	/* Enough data must be present */
-	if (count == 0 || count > PAGE_SIZE)
-		return -EINVAL;
-
 	data = memdup_user_nul(buf, count);
 	if (IS_ERR(data))
 		return PTR_ERR(data);
@@ -2767,6 +2746,7 @@ static int smk_open_relabel_self(struct inode *inode, struct file *file)
 static ssize_t smk_write_relabel_self(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
+	struct task_smack *tsp = current_security();
 	char *data;
 	int rc;
 	LIST_HEAD(list_tmp);
@@ -2778,12 +2758,9 @@ static ssize_t smk_write_relabel_self(struct file *file, const char __user *buf,
 		return -EPERM;
 
 	/*
-	 * No partial write.
 	 * Enough data must be present.
 	 */
 	if (*ppos != 0)
-		return -EINVAL;
-	if (count == 0 || count > PAGE_SIZE)
 		return -EINVAL;
 
 	data = memdup_user_nul(buf, count);
@@ -2794,21 +2771,11 @@ static ssize_t smk_write_relabel_self(struct file *file, const char __user *buf,
 	kfree(data);
 
 	if (!rc || (rc == -EINVAL && list_empty(&list_tmp))) {
-		struct cred *new;
-		struct task_smack *tsp;
-
-		new = prepare_creds();
-		if (!new) {
-			rc = -ENOMEM;
-			goto out;
-		}
-		tsp = new->security;
 		smk_destroy_label_list(&tsp->smk_relabel);
 		list_splice(&list_tmp, &tsp->smk_relabel);
-		commit_creds(new);
 		return count;
 	}
-out:
+
 	smk_destroy_label_list(&list_tmp);
 	return rc;
 }

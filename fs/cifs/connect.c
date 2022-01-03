@@ -756,8 +756,6 @@ static void clean_demultiplex_info(struct TCP_Server_Info *server)
 	list_del_init(&server->tcp_ses_list);
 	spin_unlock(&cifs_tcp_ses_lock);
 
-	cancel_delayed_work_sync(&server->echo);
-
 	spin_lock(&GlobalMid_Lock);
 	server->tcpStatus = CifsExiting;
 	spin_unlock(&GlobalMid_Lock);
@@ -3079,10 +3077,9 @@ cifs_match_super(struct super_block *sb, void *data)
 	spin_lock(&cifs_tcp_ses_lock);
 	cifs_sb = CIFS_SB(sb);
 	tlink = cifs_get_tlink(cifs_sb_master_tlink(cifs_sb));
-	if (tlink == NULL) {
-		/* can not match superblock if tlink were ever null */
+	if (IS_ERR(tlink)) {
 		spin_unlock(&cifs_tcp_ses_lock);
-		return 0;
+		return rc;
 	}
 	tcon = tlink_tcon(tlink);
 	ses = tcon->ses;

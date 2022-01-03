@@ -145,8 +145,6 @@ struct console {
 	short	flags;
 	short	index;
 	int	cflag;
-	uint	ispeed;
-	uint	ospeed;
 	void	*data;
 	struct	 console *next;
 };

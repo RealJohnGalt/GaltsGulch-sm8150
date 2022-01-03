@@ -44,9 +44,7 @@ static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
 		return &md_dst->u.tun_info;
 
 	dst = skb_dst(skb);
-	if (dst && dst->lwtstate &&
-	    (dst->lwtstate->type == LWTUNNEL_ENCAP_IP ||
-	     dst->lwtstate->type == LWTUNNEL_ENCAP_IP6))
+	if (dst && dst->lwtstate)
 		return lwt_tun_info(dst->lwtstate);
 
 	return NULL;

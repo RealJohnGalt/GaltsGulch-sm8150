@@ -737,7 +737,7 @@ static int bcm2835_spi_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err;
 
-	master = devm_spi_alloc_master(&pdev->dev, sizeof(*bs));
+	master = spi_alloc_master(&pdev->dev, sizeof(*bs));
 	if (!master) {
 		dev_err(&pdev->dev, "spi_alloc_master() failed\n");
 		return -ENOMEM;
@@ -759,20 +759,23 @@ static int bcm2835_spi_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	bs->regs = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(bs->regs))
-		return PTR_ERR(bs->regs);
+	if (IS_ERR(bs->regs)) {
+		err = PTR_ERR(bs->regs);
+		goto out_master_put;
+	}
 
 	bs->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(bs->clk)) {
 		err = PTR_ERR(bs->clk);
 		dev_err(&pdev->dev, "could not get clk: %d\n", err);
-		return err;
+		goto out_master_put;
 	}
 
 	bs->irq = platform_get_irq(pdev, 0);
 	if (bs->irq <= 0) {
 		dev_err(&pdev->dev, "could not get IRQ: %d\n", bs->irq);
-		return bs->irq ? bs->irq : -ENODEV;
+		err = bs->irq ? bs->irq : -ENODEV;
+		goto out_master_put;
 	}
 
 	clk_prepare_enable(bs->clk);
@@ -787,20 +790,21 @@ static int bcm2835_spi_probe(struct platform_device *pdev)
 			       dev_name(&pdev->dev), master);
 	if (err) {
 		dev_err(&pdev->dev, "could not request IRQ: %d\n", err);
-		goto out_dma_release;
+		goto out_clk_disable;
 	}
 
 	err = spi_register_master(master);
 	if (err) {
 		dev_err(&pdev->dev, "could not register SPI master: %d\n", err);
-		goto out_dma_release;
+		goto out_clk_disable;
 	}
 
 	return 0;
 
-out_dma_release:
-	bcm2835_dma_release(master);
+out_clk_disable:
 	clk_disable_unprepare(bs->clk);
+out_master_put:
+	spi_master_put(master);
 	return err;
 }
 

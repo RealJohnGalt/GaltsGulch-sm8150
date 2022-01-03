@@ -277,6 +277,9 @@ int blkdev_report_zones_ioctl(struct block_device *bdev, fmode_t mode,
 	if (!blk_queue_is_zoned(q))
 		return -ENOTTY;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
 	if (copy_from_user(&rep, argp, sizeof(struct blk_zone_report)))
 		return -EFAULT;
 
@@ -334,6 +337,9 @@ int blkdev_reset_zones_ioctl(struct block_device *bdev, fmode_t mode,
 
 	if (!blk_queue_is_zoned(q))
 		return -ENOTTY;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
 
 	if (!(mode & FMODE_WRITE))
 		return -EBADF;

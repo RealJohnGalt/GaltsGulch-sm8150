@@ -123,7 +123,7 @@ static int xen_pcibk_do_attach(struct xen_pcibk_device *pdev, int gnt_ref,
 
 	pdev->sh_info = vaddr;
 
-	err = bind_interdomain_evtchn_to_irqhandler_lateeoi(
+	err = bind_interdomain_evtchn_to_irqhandler(
 		pdev->xdev->otherend_id, remote_evtchn, xen_pcibk_handle_event,
 		0, DRV_NAME, pdev);
 	if (err < 0) {
@@ -358,8 +358,7 @@ out:
 	return err;
 }
 
-static int xen_pcibk_reconfigure(struct xen_pcibk_device *pdev,
-				 enum xenbus_state state)
+static int xen_pcibk_reconfigure(struct xen_pcibk_device *pdev)
 {
 	int err = 0;
 	int num_devs;
@@ -373,7 +372,9 @@ static int xen_pcibk_reconfigure(struct xen_pcibk_device *pdev,
 	dev_dbg(&pdev->xdev->dev, "Reconfiguring device ...\n");
 
 	mutex_lock(&pdev->dev_lock);
-	if (xenbus_read_driver_state(pdev->xdev->nodename) != state)
+	/* Make sure we only reconfigure once */
+	if (xenbus_read_driver_state(pdev->xdev->nodename) !=
+	    XenbusStateReconfiguring)
 		goto out;
 
 	err = xenbus_scanf(XBT_NIL, pdev->xdev->nodename, "num_devs", "%d",
@@ -498,10 +499,6 @@ static int xen_pcibk_reconfigure(struct xen_pcibk_device *pdev,
 		}
 	}
 
-	if (state != XenbusStateReconfiguring)
-		/* Make sure we only reconfigure once. */
-		goto out;
-
 	err = xenbus_switch_state(pdev->xdev, XenbusStateReconfigured);
 	if (err) {
 		xenbus_dev_fatal(pdev->xdev, err,
@@ -527,7 +524,7 @@ static void xen_pcibk_frontend_changed(struct xenbus_device *xdev,
 		break;
 
 	case XenbusStateReconfiguring:
-		xen_pcibk_reconfigure(pdev, XenbusStateReconfiguring);
+		xen_pcibk_reconfigure(pdev);
 		break;
 
 	case XenbusStateConnected:
@@ -666,15 +663,6 @@ static void xen_pcibk_be_watch(struct xenbus_watch *watch,
 		xen_pcibk_setup_backend(pdev);
 		break;
 
-	case XenbusStateInitialised:
-		/*
-		 * We typically move to Initialised when the first device was
-		 * added. Hence subsequent devices getting added may need
-		 * reconfiguring.
-		 */
-		xen_pcibk_reconfigure(pdev, XenbusStateInitialised);
-		break;
-
 	default:
 		break;
 	}
@@ -700,7 +688,7 @@ static int xen_pcibk_xenbus_probe(struct xenbus_device *dev,
 
 	/* watch the backend node for backend configuration information */
 	err = xenbus_watch_path(dev, dev->nodename, &pdev->be_watch,
-				NULL, xen_pcibk_be_watch);
+				xen_pcibk_be_watch);
 	if (err)
 		goto out;
 

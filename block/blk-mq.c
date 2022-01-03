@@ -2487,12 +2487,10 @@ EXPORT_SYMBOL(blk_mq_init_allocated_queue);
 
 void blk_mq_free_queue(struct request_queue *q)
 {
-	struct blk_mq_tag_set *set = q->tag_set;
+	struct blk_mq_tag_set	*set = q->tag_set;
 
-	/* Checks hctx->flags & BLK_MQ_F_TAG_QUEUE_SHARED. */
-	blk_mq_exit_hw_queues(q, set, set->nr_hw_queues);
-	/* May clear BLK_MQ_F_TAG_QUEUE_SHARED in hctx->flags. */
 	blk_mq_del_queue_tag_set(q);
+	blk_mq_exit_hw_queues(q, set, set->nr_hw_queues);
 }
 
 /* Basically redo blk_mq_init_queue with queue frozen */

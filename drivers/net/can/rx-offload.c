@@ -281,7 +281,7 @@ int can_rx_offload_queue_sorted(struct can_rx_offload *offload,
 
 	if (skb_queue_len(&offload->skb_queue) >
 	    offload->skb_queue_len_max) {
-		dev_kfree_skb_any(skb);
+		kfree_skb(skb);
 		return -ENOBUFS;
 	}
 
@@ -326,7 +326,7 @@ int can_rx_offload_queue_tail(struct can_rx_offload *offload,
 {
 	if (skb_queue_len(&offload->skb_queue) >
 	    offload->skb_queue_len_max) {
-		dev_kfree_skb_any(skb);
+		kfree_skb(skb);
 		return -ENOBUFS;
 	}
 

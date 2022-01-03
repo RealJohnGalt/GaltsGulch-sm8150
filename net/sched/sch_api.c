@@ -397,8 +397,7 @@ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
 {
 	struct qdisc_rate_table *rtab;
 
-	if (tab == NULL || r->rate == 0 ||
-	    r->cell_log == 0 || r->cell_log >= 32 ||
+	if (tab == NULL || r->rate == 0 || r->cell_log == 0 ||
 	    nla_len(tab) != TC_RTAB_SIZE)
 		return NULL;
 
@@ -1938,7 +1937,7 @@ static int tc_dump_tclass_qdisc(struct Qdisc *q, struct sk_buff *skb,
 
 static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
 			       struct tcmsg *tcm, struct netlink_callback *cb,
-			       int *t_p, int s_t, bool recur)
+			       int *t_p, int s_t)
 {
 	struct Qdisc *q;
 	int b;
@@ -1949,7 +1948,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
 	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
 		return -1;
 
-	if (!qdisc_dev(root) || !recur)
+	if (!qdisc_dev(root))
 		return 0;
 
 	if (tcm->tcm_parent) {
@@ -1984,13 +1983,13 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
 	s_t = cb->args[0];
 	t = 0;
 
-	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t, true) < 0)
+	if (tc_dump_tclass_root(dev->qdisc, skb, tcm, cb, &t, s_t) < 0)
 		goto done;
 
 	dev_queue = dev_ingress_queue(dev);
 	if (dev_queue &&
 	    tc_dump_tclass_root(dev_queue->qdisc_sleeping, skb, tcm, cb,
-				&t, s_t, false) < 0)
+				&t, s_t) < 0)
 		goto done;
 
 done:

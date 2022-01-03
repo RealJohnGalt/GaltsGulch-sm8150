@@ -5,10 +5,8 @@ FILES=                                          \
          test-bionic.bin                        \
          test-dwarf.bin                         \
          test-dwarf_getlocations.bin            \
-         test-eventfd.bin                       \
          test-fortify-source.bin                \
          test-sync-compare-and-swap.bin         \
-         test-get_current_dir_name.bin          \
          test-glibc.bin                         \
          test-gtk2.bin                          \
          test-gtk2-infobar.bin                  \
@@ -39,7 +37,6 @@ FILES=                                          \
          test-libunwind-debug-frame-arm.bin     \
          test-libunwind-debug-frame-aarch64.bin \
          test-pthread-attr-setaffinity-np.bin   \
-         test-pthread-barrier.bin		\
          test-stackprotector-all.bin            \
          test-timerfd.bin                       \
          test-libdw-dwarf-unwind.bin            \
@@ -52,13 +49,14 @@ FILES=                                          \
          test-get_cpuid.bin                     \
          test-sdt.bin                           \
          test-cxx.bin                           \
-         test-gettid.bin			\
          test-jvmti.bin				\
          test-sched_getcpu.bin			\
          test-setns.bin
 
 FILES := $(addprefix $(OUTPUT),$(FILES))
 
+CC ?= $(CROSS_COMPILE)gcc
+CXX ?= $(CROSS_COMPILE)g++
 PKG_CONFIG ?= $(CROSS_COMPILE)pkg-config
 LLVM_CONFIG ?= llvm-config
 
@@ -81,9 +79,6 @@ $(OUTPUT)test-hello.bin:
 $(OUTPUT)test-pthread-attr-setaffinity-np.bin:
 	$(BUILD) -D_GNU_SOURCE -lpthread
 
-$(OUTPUT)test-pthread-barrier.bin:
-	$(BUILD) -lpthread
-
 $(OUTPUT)test-stackprotector-all.bin:
 	$(BUILD) -fstack-protector-all
 
@@ -95,12 +90,6 @@ $(OUTPUT)test-bionic.bin:
 
 $(OUTPUT)test-libelf.bin:
 	$(BUILD) -lelf
-
-$(OUTPUT)test-eventfd.bin:
-	$(BUILD)
-
-$(OUTPUT)test-get_current_dir_name.bin:
-	$(BUILD)
 
 $(OUTPUT)test-glibc.bin:
 	$(BUILD)
@@ -246,9 +235,6 @@ $(OUTPUT)test-sdt.bin:
 
 $(OUTPUT)test-cxx.bin:
 	$(BUILDXX) -std=gnu++11
-
-$(OUTPUT)test-gettid.bin:
-	$(BUILD)
 
 $(OUTPUT)test-jvmti.bin:
 	$(BUILD)

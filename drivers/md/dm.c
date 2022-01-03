@@ -474,7 +474,7 @@ static int dm_blk_ioctl(struct block_device *bdev, fmode_t mode,
 		 * subset of the parent bdev; require extra privileges.
 		 */
 		if (!capable(CAP_SYS_RAWIO)) {
-			DMDEBUG_LIMIT(
+			DMWARN_LIMIT(
 	"%s: sending ioctl %x to DM device without required privilege.",
 				current->comm, cmd);
 			r = -ENOIOCTLCMD;

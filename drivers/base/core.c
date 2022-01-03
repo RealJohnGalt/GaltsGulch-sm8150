@@ -96,16 +96,6 @@ void device_links_read_unlock(int not_used)
 }
 #endif /* !CONFIG_SRCU */
 
-static bool device_is_ancestor(struct device *dev, struct device *target)
-{
-	while (target->parent) {
-		target = target->parent;
-		if (dev == target)
-			return true;
-	}
-	return false;
-}
-
 /**
  * device_is_dependent - Check if one device depends on another one
  * @dev: Device to check dependencies for.
@@ -119,12 +109,7 @@ static int device_is_dependent(struct device *dev, void *target)
 	struct device_link *link;
 	int ret;
 
-	/*
-	 * The "ancestors" check is needed to catch the case when the target
-	 * device has not been completely initialized yet and it is still
-	 * missing from the list of children of its parent device.
-	 */
-	if (dev == target || device_is_ancestor(dev, target))
+	if (WARN_ON(dev == target))
 		return 1;
 
 	ret = device_for_each_child(dev, target, device_is_dependent);
@@ -132,7 +117,7 @@ static int device_is_dependent(struct device *dev, void *target)
 		return ret;
 
 	list_for_each_entry(link, &dev->links.consumers, s_node) {
-		if (link->consumer == target)
+		if (WARN_ON(link->consumer == target))
 			return 1;
 
 		ret = device_is_dependent(link->consumer, target);
@@ -1450,7 +1435,6 @@ void device_initialize(struct device *dev)
 	device_pm_init(dev);
 	set_dev_node(dev, -1);
 #ifdef CONFIG_GENERIC_MSI_IRQ
-	raw_spin_lock_init(&dev->msi_lock);
 	INIT_LIST_HEAD(&dev->msi_list);
 #endif
 	INIT_LIST_HEAD(&dev->links.consumers);
@@ -3097,10 +3081,9 @@ static inline bool fwnode_is_primary(struct fwnode_handle *fwnode)
  */
 void set_primary_fwnode(struct device *dev, struct fwnode_handle *fwnode)
 {
-	struct device *parent = dev->parent;
-	struct fwnode_handle *fn = dev->fwnode;
-
 	if (fwnode) {
+		struct fwnode_handle *fn = dev->fwnode;
+
 		if (fwnode_is_primary(fn))
 			fn = fn->secondary;
 
@@ -3110,13 +3093,8 @@ void set_primary_fwnode(struct device *dev, struct fwnode_handle *fwnode)
 		}
 		dev->fwnode = fwnode;
 	} else {
-		if (fwnode_is_primary(fn)) {
-			dev->fwnode = fn->secondary;
-			if (!(parent && fn == parent->fwnode))
-				fn->secondary = NULL;
-		} else {
-			dev->fwnode = NULL;
-		}
+		dev->fwnode = fwnode_is_primary(dev->fwnode) ?
+			dev->fwnode->secondary : NULL;
 	}
 }
 EXPORT_SYMBOL_GPL(set_primary_fwnode);
