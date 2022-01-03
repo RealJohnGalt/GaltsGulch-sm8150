@@ -442,7 +442,7 @@ static int f2fs_set_meta_page_dirty(struct page *page)
 	if (!PageDirty(page)) {
 		__set_page_dirty_nobuffers(page);
 		inc_page_count(F2FS_P_SB(page), F2FS_DIRTY_META);
-		set_page_private_reference(page);
+		f2fs_set_page_private(page, 0);
 		return 1;
 	}
 	return 0;
@@ -463,29 +463,16 @@ static void __add_ino_entry(struct f2fs_sb_info *sbi, nid_t ino,
 						unsigned int devidx, int type)
 {
 	struct inode_management *im = &sbi->im[type];
-	struct ino_entry *e = NULL, *new = NULL;
+	struct ino_entry *e, *tmp;
 
-	if (type == FLUSH_INO) {
-		rcu_read_lock();
-		e = radix_tree_lookup(&im->ino_root, ino);
-		rcu_read_unlock();
-	}
-
-retry:
-	if (!e)
-		new = f2fs_kmem_cache_alloc(ino_entry_slab,
-						GFP_NOFS, true, NULL);
+	tmp = f2fs_kmem_cache_alloc(ino_entry_slab, GFP_NOFS);
 
 	radix_tree_preload(GFP_NOFS | __GFP_NOFAIL);
 
 	spin_lock(&im->ino_lock);
 	e = radix_tree_lookup(&im->ino_root, ino);
 	if (!e) {
-		if (!new) {
-			spin_unlock(&im->ino_lock);
-			goto retry;
-		}
-		e = new;
+		e = tmp;
 		if (unlikely(radix_tree_insert(&im->ino_root, ino, e)))
 			f2fs_bug_on(sbi, 1);
 
@@ -503,8 +490,8 @@ retry:
 	spin_unlock(&im->ino_lock);
 	radix_tree_preload_end();
 
-	if (new && e != new)
-		kmem_cache_free(ino_entry_slab, new);
+	if (e != tmp)
+		kmem_cache_free(ino_entry_slab, tmp);
 }
 
 static void __remove_ino_entry(struct f2fs_sb_info *sbi, nid_t ino, int type)
@@ -1029,7 +1016,7 @@ void f2fs_update_dirty_page(struct inode *inode, struct page *page)
 	inode_inc_dirty_pages(inode);
 	spin_unlock(&sbi->inode_lock[type]);
 
-	set_page_private_reference(page);
+	f2fs_set_page_private(page, 0);
 }
 
 void f2fs_remove_dirty_inode(struct inode *inode)
@@ -1646,11 +1633,8 @@ int f2fs_write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 
 	/* write cached NAT/SIT entries to NAT/SIT area */
 	err = f2fs_flush_nat_entries(sbi, cpc);
-	if (err) {
-		f2fs_err(sbi, "f2fs_flush_nat_entries failed err:%d, stop checkpoint", err);
-		f2fs_bug_on(sbi, !f2fs_cp_error(sbi));
+	if (err)
 		goto stop;
-	}
 
 	f2fs_flush_sit_entries(sbi, cpc);
 
@@ -1658,13 +1642,10 @@ int f2fs_write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	f2fs_save_inmem_curseg(sbi);
 
 	err = do_checkpoint(sbi, cpc);
-	if (err) {
-		f2fs_err(sbi, "do_checkpoint failed err:%d, stop checkpoint", err);
-		f2fs_bug_on(sbi, !f2fs_cp_error(sbi));
+	if (err)
 		f2fs_release_discard_addrs(sbi);
-	} else {
+	else
 		f2fs_clear_prefree_segments(sbi, cpc);
-	}
 
 	f2fs_restore_inmem_curseg(sbi);
 stop:
