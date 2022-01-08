@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -2797,8 +2797,6 @@ void cds_incr_arp_stats_tx_tgt_delivered(void)
 {
 	struct hdd_context *hdd_ctx;
 	struct hdd_adapter *adapter, *next_adapter = NULL;
-	wlan_net_dev_ref_dbgid dbgid =
-			NET_DEV_HOLD_CDS_INCR_ARP_STATS_TX_TGT_DELIVERED;
 
 	hdd_ctx = gp_cds_context->hdd_context;
 	if (!hdd_ctx) {
@@ -2806,15 +2804,14 @@ void cds_incr_arp_stats_tx_tgt_delivered(void)
 		return;
 	}
 
-	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
-					   dbgid) {
+	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter) {
 		if (adapter->device_mode == QDF_STA_MODE) {
-			hdd_adapter_dev_put_debug(adapter, dbgid);
+			dev_put(adapter->dev);
 			if (next_adapter)
-				hdd_adapter_dev_put_debug(next_adapter, dbgid);
+				dev_put(next_adapter->dev);
 			break;
 		}
-		hdd_adapter_dev_put_debug(adapter, dbgid);
+		dev_put(adapter->dev);
 	}
 
 	if (adapter)
@@ -2830,8 +2827,6 @@ void cds_incr_arp_stats_tx_tgt_acked(void)
 {
 	struct hdd_context *hdd_ctx;
 	struct hdd_adapter *adapter, *next_adapter = NULL;
-	wlan_net_dev_ref_dbgid dbgid =
-			NET_DEV_HOLD_CDS_INCR_ARP_STATS_TX_TGT_ACKED;
 
 	hdd_ctx = gp_cds_context->hdd_context;
 	if (!hdd_ctx) {
@@ -2839,15 +2834,14 @@ void cds_incr_arp_stats_tx_tgt_acked(void)
 		return;
 	}
 
-	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
-					   dbgid) {
+	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter) {
 		if (adapter->device_mode == QDF_STA_MODE) {
-			hdd_adapter_dev_put_debug(adapter, dbgid);
+			dev_put(adapter->dev);
 			if (next_adapter)
-				hdd_adapter_dev_put_debug(next_adapter, dbgid);
+				dev_put(next_adapter->dev);
 			break;
 		}
-		hdd_adapter_dev_put_debug(adapter, dbgid);
+		dev_put(adapter->dev);
 	}
 
 	if (adapter)

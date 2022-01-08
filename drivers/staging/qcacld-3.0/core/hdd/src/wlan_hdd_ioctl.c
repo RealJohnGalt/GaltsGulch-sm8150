@@ -6294,7 +6294,6 @@ static int drv_cmd_max_tx_power(struct hdd_adapter *adapter,
 	struct qdf_mac_addr bssid = QDF_MAC_ADDR_BCAST_INIT;
 	struct qdf_mac_addr selfmac = QDF_MAC_ADDR_BCAST_INIT;
 	struct hdd_adapter *next_adapter = NULL;
-	wlan_net_dev_ref_dbgid dbgid = NET_DEV_HOLD_DRV_CMD_MAX_TX_POWER;
 
 	ret = hdd_parse_setmaxtxpower_command(value, &tx_power);
 	if (ret) {
@@ -6302,8 +6301,7 @@ static int drv_cmd_max_tx_power(struct hdd_adapter *adapter,
 		return ret;
 	}
 
-	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter,
-					   dbgid) {
+	hdd_for_each_adapter_dev_held_safe(hdd_ctx, adapter, next_adapter) {
 		/* Assign correct self MAC address */
 		qdf_copy_macaddr(&bssid,
 				 &adapter->mac_addr);
@@ -6321,14 +6319,13 @@ static int drv_cmd_max_tx_power(struct hdd_adapter *adapter,
 		if (QDF_STATUS_SUCCESS != status) {
 			hdd_err("Set max tx power failed");
 			ret = -EINVAL;
-			hdd_adapter_dev_put_debug(adapter, dbgid);
+			dev_put(adapter->dev);
 			if (next_adapter)
-				hdd_adapter_dev_put_debug(next_adapter,
-							  dbgid);
+				dev_put(next_adapter->dev);
 			goto exit;
 		}
 		hdd_debug("Set max tx power success");
-		hdd_adapter_dev_put_debug(adapter, dbgid);
+		dev_put(adapter->dev);
 	}
 
 exit:
@@ -7652,7 +7649,7 @@ static int hdd_parse_disable_chan_cmd(struct hdd_adapter *adapter, uint8_t *ptr)
 		 * Restore and Free the cache channels when the command is
 		 * received with num channels as 0
 		 */
-		wlan_hdd_restore_channels(hdd_ctx);
+		wlan_hdd_restore_channels(hdd_ctx, false);
 		return 0;
 	}
 
