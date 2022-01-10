@@ -1205,15 +1205,10 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 		chg->real_charger_type = POWER_SUPPLY_TYPE_DASH;
 		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_DASH;
 	} else {
-		if (chg->pd_active) {
-			chg->real_charger_type = POWER_SUPPLY_TYPE_USB_PD;
-		} else if (chg->qc3p5_detected) {
-			chg->real_charger_type = POWER_SUPPLY_TYPE_USB_HVDCP_3P5;
-		} else {
-			chg->usb_psy_desc.type = apsd_result->pst;
-			chg->real_charger_type = chg->pd_active ?
+		chg->usb_psy_desc.type = apsd_result->pst;
+		/* if PD is active, APSD is disabled so won't have a valid result */
+		chg->real_charger_type = chg->pd_active ?
 				POWER_SUPPLY_TYPE_USB_PD : apsd_result->pst;
-		}
 	}
 	smblib_err(chg, "APSD=%s PD=%d dash_on=%d real_charger_type=%d\n",
 					apsd_result->name, chg->pd_active,
@@ -8135,7 +8130,7 @@ static void retrigger_dash_work(struct work_struct *work)
 		chg->ck_dash_count = 0;
 		return;
 	}
-	if (chg->chg_disabled) {
+	if (chg->chg_disabled || chg->pd_active) {
 		chg->ck_dash_count = 0;
 		return;
 	}
@@ -8238,10 +8233,10 @@ static void op_check_allow_switch_dash_work(struct work_struct *work)
 		return;
 	if (chg->usb_enum_status)
 		return;
-	if (chg->pd_active) {
-		switch_fast_chg(chg);
-		return;
-	}
+	//if (chg->pd_active) {
+	//	switch_fast_chg(chg);
+	//	return;
+	//}
 	apsd_result = smblib_get_apsd_result(chg);
 	if (((apsd_result->bit != SDP_CHARGER_BIT
 		&& apsd_result->bit != CDP_CHARGER_BIT)
@@ -8518,8 +8513,10 @@ void set_chg_ibat_vbat_max(
 	vote(chg->fv_votable,
 			DEFAULT_VOTER, true, vfloat * 1000);
 	temp_region = op_battery_temp_region_get(chg);
-	if (chg->pd_active &&
-		temp_region == BATT_TEMP_NORMAL) {
+	if (chg->pd_active && (
+		temp_region == BATT_TEMP_NORMAL
+		|| temp_region == BATT_TEMP_PRE_NORMAL
+		|| temp_region == BATT_TEMP_LITTLE_COOL)) {
 		vote(chg->fcc_votable,
 			DEFAULT_VOTER, true, PD_PANELOFF_CURRENT_UA);
 	} else {
