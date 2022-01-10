@@ -4579,7 +4579,7 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 			}
 		}
 
-		if (__is_large_section(sbi)) {
+		if (sbi->segs_per_sec > 1) {
 			get_sec_entry(sbi, start)->valid_blocks +=
 							se->valid_blocks;
 			get_sec_entry(sbi, start)->valid_blocks -=
