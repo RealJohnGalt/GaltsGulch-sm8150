@@ -3922,7 +3922,7 @@ int kswapd_run(int nid)
 	if (pgdat->kswapd)
 		return 0;
 
-	pgdat->kshrinkd = kthread_run_perf_critical(cpu_lp_mask,
+	pgdat->kshrinkd = kthread_run_perf_critical(cpu_perf_first_mask,
 					kshrinkd, pgdat, "kshrinkd%d", nid);
 	if (IS_ERR(pgdat->kshrinkd)) {
 		/* failure at boot is fatal */
@@ -3933,7 +3933,7 @@ int kswapd_run(int nid)
 		return ret;
 	}
 
-	pgdat->kswapd = kthread_run_perf_critical(cpu_lp_mask, kswapd,
+	pgdat->kswapd = kthread_run_perf_critical(cpu_perf_first_mask, kswapd,
 					pgdat, "kswapd%d", nid);
 	if (IS_ERR(pgdat->kswapd)) {
 		/* failure at boot is fatal */

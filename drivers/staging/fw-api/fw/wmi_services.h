@@ -524,40 +524,6 @@ typedef  enum  {
     WMI_SERVICE_GO_CONNECTED_D3WOW = 279,   /* Indicates FW support for D3WoW for P2P GO connected case */
     WMI_SERVICE_EXT_TPC_REG_SUPPORT = 280, /* Support for new 6G TPC power limits */
     WMI_SERVICE_REG_CC_EXT_EVENT_SUPPORT = 281, /* Support for Extended REG_CC Event with additional params for 6G */
-    WMI_SERVICE_NDI_TXBF_SUPPORT = 282, /* Indicates FW support for Tx beamforming with NDI VDEV */
-    WMI_SERVICE_ENABLE_LOWER_6G_EDGE_CH_SUPP = 283, /* Indicates FW support for enabling lower 6 GHz edge channel 5935 */
-    WMI_SERVICE_DISABLE_UPPER_6G_EDGE_CH_SUPP = 284, /* Indicates FW support for disabling upper 6 GHz edge channel 7115 */
-    WMI_SERVICE_FORCED_DTIM_SUPP = 285, /* Indicates FW supports forced DTIM configuration */
-    WMI_SERVICE_DCS_AWGN_INT_SUPPORT = 286, /* Indicates FW supports AWGN Int */
-    WMI_SERVICE_IGMP_OFFLOAD_SUPPORT = 287, /* FW supports igmp offload during APPS suspend */
-    WMI_SERVICE_11AX_TDLS_SUPPORT = 288, /* Indicates FW supports 11ax TDLS. Host should enable 11ax on TDLS only when FW indicates the support. */
-    WMI_SERVICE_11BE = 289, /* Indicates FW supports 11be */
-    WMI_SERVICE_BIG_DATA_SUPPORT = 290, /* Indicates FW supports Big Data feature */
-    WMI_SERVICE_EAPOL_OVER_NWIFI = 291, /* Indicates FW supports sending eapol frames in native wifi mode even when the vdev is brought up in raw ethernet mode */
-    WMI_SERVICE_AMPDU_TX_BUF_SIZE_256_SUPPORT = 292, /* Indicates FW supports MAX 256 MPDUs in A-MPDU instead of 64 */
-    WMI_SERVICE_HALPHY_CAL_STATUS = 293, /* Indicates FW supports sending online HALPHY Calibration status to host */
-    WMI_SERVICE_HALPHY_CAL_ENABLE_DISABLE_SUPPORT = 294, /* Indicates Calibraton enable/disable support by FW */
-    WMI_SERVICE_AFC_SUPPORT = 295, /* Indicates FW supports AFC_CMD,AFC_EVENT */
-    WMI_SERVICE_RTT_AP_INITIATOR_STAGGERED_MODE_SUPPORTED = 296, /* FW supports RTT in AP Initiator for Staggered beacon mode */
-    WMI_SERVICE_RTT_AP_INITIATOR_BURSTED_MODE_SUPPORTED = 297, /* FW supports RTT in AP Initiator for BURSTED beacon mode */
-    WMI_SERVICE_P2P_P2P_CONCURRENCY_SUPPORT = 298, /* Indicates FW supports P2P + P2P conncurency both in SCC, MCC, SBS and DBS */
-    WMI_SERVICE_MGMT_RX_REO_SUPPORTED = 299, /* Indicates FW supports Management RX Reorder */
-    WMI_SERVICE_EMA_MULTIPLE_GROUP_SUPPORT = 300, /* FW support for EMA multi group support */
-    WMI_SERVICE_LARGE_BEACON_SUPPORT = 301, /* FW support for Large beacon support greater then 1.5K */
-    WMI_SERVICE_AOA_FOR_RCC_SUPPORTED = 302,
-    WMI_SERVICE_DYN_NSS_MASK_SUPPORT = 303, /* Indicates FW support for DYN NSS feature */
-    WMI_SERVICE_HW_MODE_POLICY_OFFLOAD_SUPPORT = 304, /* FW supports HW mode selection offload */
-    WMI_SERVICE_THERMAL_THROT_STATS_TEMP_RANGE_SUPPORT = 305, /* FW supports thermal throttling temperature range stats based on wmi_thermal_stats_action */
-    /*
-     * Indicates FW support for spatial reuse enhancements.
-     * Below commands are added for the enhancements:
-     *     WMI_PDEV_PARAM_OBSS_MIN_DURATION_CHECK_FOR_SR,
-     *     WMI_PDEV_PARAM_TRUNCATE_SR,
-     *     WMI_PDEV_PARAM_CTRL_FRAME_OBSS_PD_THRESHOLD
-     */
-    WMI_SERVICE_SPATIAL_REUSE_ENHANCEMENT_SUPPORT = 306,
-    WMI_SERVICE_MU_SNIF = 307, /* FW support MU sniffer */
-    WMI_SERVICE_ICMP_OFFLOAD = 308, /* FW supports ping offload during APPS suspend */
 
 
     WMI_MAX_EXT2_SERVICE
@@ -655,7 +621,7 @@ typedef  enum  {
         if (svc_id < WMI_MAX_SERVICE) { \
             WMI_SERVICE_DISABLE(pwmi_svc_bmap, svc_id); \
         } else if (svc_id < WMI_MAX_EXT_SERVICE) { \
-            WMI_SERVICE_EXT_DISABLE(pwmi_svc_bmap, pwmi_svc_ext_bmap, svc_id); \
+            WMI_SERVICE_DISABLE(pwmi_svc_bmap, pwmi_svc_ext_bmap, svc_id); \
         } else { \
             int word = ((svc_id) - WMI_MAX_EXT_SERVICE) / 32; \
             int bit = (svc_id) & 0x1f; /* svc_id mod 32 */ \
