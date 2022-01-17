@@ -3527,7 +3527,6 @@ int oneplus_aod_dc = 0;
 	if (dim_status == oneplus_dim_status)
 		return count;
 	oneplus_dim_status = dim_status;
-	oneplus_dimlayer_hbm_enable = oneplus_dim_status != 0;
 	pr_err("notify dim %d,aod = %d press= %d aod_hide =%d\n",
 		oneplus_dim_status, dsi_display->panel->aod_status, oneplus_onscreenfp_status, aod_layer_hide);
 	if (oneplus_dim_status == 1 && HBM_flag) {
