@@ -145,6 +145,7 @@ struct elevator_type
 	size_t icq_align;	/* ditto */
 	struct elv_fs_entry *elevator_attrs;
 	char elevator_name[ELV_NAME_MAX];
+	const char *elevator_alias;
 	struct module *elevator_owner;
 	bool uses_mq;
 #ifdef CONFIG_BLK_DEBUG_FS
@@ -219,8 +220,6 @@ extern void elv_unregister(struct elevator_type *);
 extern ssize_t elv_iosched_show(struct request_queue *, char *);
 extern ssize_t elv_iosched_store(struct request_queue *, const char *, size_t);
 
-extern int elevator_init(struct request_queue *, char *);
-extern void elevator_exit(struct request_queue *, struct elevator_queue *);
 extern bool elv_bio_merge_ok(struct request *, struct bio *);
 extern struct elevator_queue *elevator_alloc(struct request_queue *,
 					struct elevator_type *);

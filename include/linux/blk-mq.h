@@ -162,7 +162,13 @@ enum {
 	BLK_MQ_F_TAG_SHARED	= 1 << 1,
 	BLK_MQ_F_SG_MERGE	= 1 << 2,
 	BLK_MQ_F_BLOCKING	= 1 << 5,
+	/* Do not allow an I/O scheduler to be configured. */
 	BLK_MQ_F_NO_SCHED	= 1 << 6,
+	/*
+	 * Select 'none' during queue registration in case of a single hwq
+	 * or shared hwqs instead of 'mq-deadline'.
+	 */
+	BLK_MQ_F_NO_SCHED_BY_DEFAULT	= 1 << 7,
 	BLK_MQ_F_ALLOC_POLICY_START_BIT = 8,
 	BLK_MQ_F_ALLOC_POLICY_BITS = 1,
 
@@ -249,7 +255,7 @@ void blk_mq_start_stopped_hw_queues(struct request_queue *q, bool async);
 void blk_mq_quiesce_queue(struct request_queue *q);
 void blk_mq_unquiesce_queue(struct request_queue *q);
 void blk_mq_delay_run_hw_queue(struct blk_mq_hw_ctx *hctx, unsigned long msecs);
-void blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async);
+bool blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async);
 void blk_mq_run_hw_queues(struct request_queue *q, bool async);
 void blk_mq_delay_queue(struct blk_mq_hw_ctx *hctx, unsigned long msecs);
 void blk_mq_tagset_busy_iter(struct blk_mq_tag_set *tagset,
