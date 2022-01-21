@@ -6039,19 +6039,21 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		apsd_result->bit, apsd_result->name, apsd_result->pst);
 	pr_debug("apsd done,current_now=%d\n",
 		(get_prop_batt_current_now(chg) / 1000));
-	if (apsd_result->bit == DCP_CHARGER_BIT
-		|| apsd_result->bit == OCP_CHARGER_BIT) {
-		schedule_delayed_work(&chg->check_switch_dash_work,
-					msecs_to_jiffies(50));
-	} else {
-		if (!chg->usb_type_redet_done) {
-			if (!chg->boot_usb_present && chg->probe_done)
-				schedule_delayed_work(&chg->re_det_work,
-					msecs_to_jiffies(TIME_1000MS));
+	if (!chg->fastchg_switch_disable) {
+		if (apsd_result->bit == DCP_CHARGER_BIT
+			|| apsd_result->bit == OCP_CHARGER_BIT) {
+			schedule_delayed_work(&chg->check_switch_dash_work,
+						msecs_to_jiffies(50));
 		} else {
-			schedule_delayed_work(
-			&chg->non_standard_charger_check_work,
-			msecs_to_jiffies(TIME_1000MS));
+			if (!chg->usb_type_redet_done) {
+				if (!chg->boot_usb_present && chg->probe_done)
+					schedule_delayed_work(&chg->re_det_work,
+						msecs_to_jiffies(TIME_1000MS));
+			} else {
+				schedule_delayed_work(
+				&chg->non_standard_charger_check_work,
+				msecs_to_jiffies(TIME_1000MS));
+			}
 		}
 	}
 	chg->op_apsd_done = true;
@@ -7655,6 +7657,7 @@ static void op_handle_usb_removal(struct smb_charger *chg)
 	chg->ck_unplug_count = 0;
 	chg->count_run = 0;
 	chg->chg_disabled = 0;
+	chg->fastchg_switch_disable = false;
 	vote(chg->fcc_votable,
 		DEFAULT_VOTER, true, SDP_CURRENT_UA);
 	vote(chg->chg_disable_votable,
@@ -7995,13 +7998,6 @@ static void set_usb_switch(struct smb_charger *chg, bool enable)
 		return;
 	}
 
-	if (chg->pd_active) {
-		pr_info("%s:pd_active return\n", __func__);
-		//Will work with any accessories that don't use high
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)
-			chg->disconnect_pd = true;
-		return;
-	}
 
 	if (enable) {
 		pr_debug("switch on fastchg\n");
@@ -8143,17 +8139,21 @@ static void retrigger_dash_work(struct work_struct *work)
 		return;
 	}
 
-	if (chg->ck_dash_count >= DASH_CHECK_COUNT) {
+	if (chg->ck_dash_count == DASH_CHECK_COUNT) {
 		pr_info("retrger dash\n");
 		chg->re_trigr_dash_done = true;
 		set_usb_switch(chg, false);
 		set_usb_switch(chg, true);
-		chg->ck_dash_count = 0;
-	} else {
-		chg->ck_dash_count++;
-		schedule_delayed_work(&chg->rechk_sw_dsh_work,
-				msecs_to_jiffies(TIME_200MS));
+	} else if (chg->ck_dash_count == 2 * DASH_CHECK_COUNT) {
+		set_usb_switch(chg, false);
+	} else if (chg->ck_dash_count > 2 * DASH_CHECK_COUNT) {
+		chg->fastchg_switch_disable = true;
+		return;
 	}
+
+	chg->ck_dash_count++;
+	schedule_delayed_work(&chg->rechk_sw_dsh_work,
+			msecs_to_jiffies(TIME_200MS));
 }
 
 static void op_chek_apsd_done_work(struct work_struct *work)
@@ -8240,6 +8240,8 @@ static void op_check_allow_switch_dash_work(struct work_struct *work)
 	if (!is_usb_present(chg))
 		return;
 	if (chg->usb_enum_status)
+		return;
+	if (chg->fastchg_switch_disable)
 		return;
 	if (chg->pd_active) {
 		switch_fast_chg(chg);
