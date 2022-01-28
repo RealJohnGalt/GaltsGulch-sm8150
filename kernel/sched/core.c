@@ -4081,7 +4081,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 	return ns;
 }
 
-unsigned int capacity_margin_freq = 1685; /* ~40% margin */
+unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
 /*
  * This function gets called by the timer code, with HZ frequency.
