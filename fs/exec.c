@@ -80,6 +80,7 @@ static DEFINE_RWLOCK(binfmt_lock);
 #define HWCOMPOSER_BIN_PREFIX "/vendor/bin/hw/android.hardware.graphics.composer"
 #define UDFPS_BIN_PREFIX "/vendor/bin/hw/android.hardware.biometrics.fingerprint"
 #define SFLINGER_BIN_PREFIX "/system/bin/surfaceflinger"
+#define NETD_BIN_PREFIX "/system/bin/netd"
 #define DEX2OAT64_BIN_PREFIX "/apex/com.android.art/bin/dex2oat64"
 #define ZYGOTE32_BIN "/system/bin/app_process32"
 #define ZYGOTE64_BIN "/system/bin/app_process64"
@@ -1716,6 +1717,27 @@ static int exec_binprm(struct linux_binprm *bprm)
 	return ret;
 }
 
+static noinline bool is_lmkd_reinit(struct user_arg_ptr *argv)
+{
+	const char __user *str;
+	char buf[10];
+	int len;
+
+	str = get_user_arg_ptr(*argv, 1);
+	if (IS_ERR(str))
+		return false;
+
+	// strnlen_user() counts NULL terminator
+	len = strnlen_user(str, MAX_ARG_STRLEN);
+	if (len != 9)
+		return false;
+
+	if (copy_from_user(buf, str, len))
+		return false;
+
+	return !strcmp(buf, "--reinit");
+}
+
 /*
  * sys_execve() executes a new program.
  */
@@ -1822,6 +1844,15 @@ static int do_execveat_common(int fd, struct filename *filename,
 	if (retval < 0)
 		goto out;
 
+	// Super nasty hack to disable lmkd reloading props
+	if (unlikely(strcmp(bprm.filename, "/system/bin/lmkd") == 0)) {
+		if (is_lmkd_reinit(&argv)) {
+			pr_info("sys_execve(): prevented /system/bin/lmkd --reinit\n");
+			retval = -ENOENT;
+			goto out;
+		}
+	}
+
 	retval = exec_binprm(&bprm);
 	if (retval < 0)
 		goto out;
@@ -1847,10 +1878,15 @@ static int do_execveat_common(int fd, struct filename *filename,
 			current->pc_flags |= PC_PRIME_AFFINE;
 			set_cpus_allowed_ptr(current, cpu_prime_mask);
 		} else if (unlikely(!strncmp(filename->name,
+					   NETD_BIN_PREFIX,
+					   strlen(NETD_BIN_PREFIX)))) {
+			current->pc_flags |= PC_PERF_AFFINE;
+			set_cpus_allowed_ptr(current, cpu_perf_mask);
+		} else if (unlikely(!strncmp(filename->name,
 					   DEX2OAT64_BIN_PREFIX,
 					   strlen(DEX2OAT64_BIN_PREFIX)))) {
 			current->pc_flags |= PC_PERF_AFFINE;
-			set_cpus_allowed_ptr(current, cpu_prime_mask);
+			set_cpus_allowed_ptr(current, cpu_perf_mask);
 		}
 	}
 
