@@ -80,6 +80,7 @@ static DEFINE_RWLOCK(binfmt_lock);
 #define HWCOMPOSER_BIN_PREFIX "/vendor/bin/hw/android.hardware.graphics.composer"
 #define UDFPS_BIN_PREFIX "/vendor/bin/hw/android.hardware.biometrics.fingerprint"
 #define SFLINGER_BIN_PREFIX "/system/bin/surfaceflinger"
+#define NETD_BIN_PREFIX "/system/bin/netd"
 #define DEX2OAT64_BIN_PREFIX "/apex/com.android.art/bin/dex2oat64"
 #define ZYGOTE32_BIN "/system/bin/app_process32"
 #define ZYGOTE64_BIN "/system/bin/app_process64"
@@ -1847,10 +1848,15 @@ static int do_execveat_common(int fd, struct filename *filename,
 			current->pc_flags |= PC_PRIME_AFFINE;
 			set_cpus_allowed_ptr(current, cpu_prime_mask);
 		} else if (unlikely(!strncmp(filename->name,
+					   NETD_BIN_PREFIX,
+					   strlen(NETD_BIN_PREFIX)))) {
+			current->pc_flags |= PC_PERF_AFFINE;
+			set_cpus_allowed_ptr(current, cpu_perf_mask);
+		} else if (unlikely(!strncmp(filename->name,
 					   DEX2OAT64_BIN_PREFIX,
 					   strlen(DEX2OAT64_BIN_PREFIX)))) {
 			current->pc_flags |= PC_PERF_AFFINE;
-			set_cpus_allowed_ptr(current, cpu_prime_mask);
+			set_cpus_allowed_ptr(current, cpu_perf_mask);
 		}
 	}
 
