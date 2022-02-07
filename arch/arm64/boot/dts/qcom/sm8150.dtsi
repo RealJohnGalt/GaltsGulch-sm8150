@@ -557,7 +557,7 @@
 	};
 
 	chosen {
-		bootargs = "quiet noirqdebug rcupdate.rcu_expedited=1 rcu_nocbs=0-3 kpti=off";
+		bootargs = "quiet noirqdebug rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off";
 	};
 
 	soc: soc { };
@@ -1923,7 +1923,6 @@
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
-		qcom,wakeup-enable;
 		qcom,scandump-sizes = <0x10100 0x10100 0x10100 0x10100
 		0x18100 0x18100 0x18100 0x18100>;
 	};

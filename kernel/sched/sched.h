@@ -26,6 +26,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/binfmts.h>
 #include <linux/mutex.h>
+#include <linux/bitops.h>
 #include <linux/psi.h>
 #include <linux/spinlock.h>
 #include <linux/stop_machine.h>
@@ -54,6 +55,10 @@ struct cpuidle_state;
 #define TASK_BITS (PID_MAX_DEFAULT + BITS_PER_LONG)
 
 extern __read_mostly bool sched_predl;
+extern unsigned int sched_capacity_margin_up[NR_CPUS];
+extern unsigned int sched_capacity_margin_down[NR_CPUS];
+extern unsigned int sched_capacity_margin_up_boosted[NR_CPUS];
+extern unsigned int sched_capacity_margin_down_boosted[NR_CPUS];
 
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;
