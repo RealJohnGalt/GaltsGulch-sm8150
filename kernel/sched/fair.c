@@ -188,6 +188,14 @@ int __weak arch_asym_cpu_priority(int cpu)
 unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
 #endif
 
+/*
+ * The margin used when comparing utilization with CPU capacity:
+ * util * margin < capacity * 1024
+ *
+ * (default: ~20%)
+ */
+static unsigned int capacity_margin			= 1280;
+
 /* Migration margins */
 unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
 			[0 ... MAX_MARGIN_LEVELS-1] = 1280}; /* ~20% margin */
