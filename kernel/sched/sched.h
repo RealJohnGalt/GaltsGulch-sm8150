@@ -55,6 +55,10 @@ struct cpuidle_state;
 #define TASK_BITS (PID_MAX_DEFAULT + BITS_PER_LONG)
 
 extern __read_mostly bool sched_predl;
+extern unsigned int sched_capacity_margin_up[NR_CPUS];
+extern unsigned int sched_capacity_margin_down[NR_CPUS];
+extern unsigned int sched_capacity_margin_up_boosted[NR_CPUS];
+extern unsigned int sched_capacity_margin_down_boosted[NR_CPUS];
 
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;

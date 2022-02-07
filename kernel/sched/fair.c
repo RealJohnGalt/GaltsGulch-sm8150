@@ -7665,11 +7665,15 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
 		margin = schedtune_task_boost(p) > 0 &&
 			  !schedtune_prefer_high_cap(p) &&
-			   p->prio <= DEFAULT_PRIO;
+			   p->prio <= DEFAULT_PRIO ?
+			sched_capacity_margin_down_boosted[task_cpu(p)] :
+			sched_capacity_margin_down[task_cpu(p)];
 	else
 		margin = schedtune_task_boost(p) > 0 &&
 			  !schedtune_prefer_high_cap(p) &&
-			   p->prio <= DEFAULT_PRIO;
+			   p->prio <= DEFAULT_PRIO ?
+			sched_capacity_margin_up_boosted[task_cpu(p)] :
+			sched_capacity_margin_up[task_cpu(p)];
 
 	return capacity * 1024 > boosted_task_util(p) * margin;
 }
