@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.264 Kernel Configuration
+# Linux/arm64 4.14.265 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -349,7 +349,6 @@ CONFIG_BLK_DEV_BSG=y
 # CONFIG_BLK_DEV_INTEGRITY is not set
 # CONFIG_BLK_DEV_ZONED is not set
 # CONFIG_BLK_DEV_THROTTLING is not set
-# CONFIG_BLK_DEV_THROTTLING_LOW is not set
 # CONFIG_BLK_CMDLINE_PARSER is not set
 # CONFIG_BLK_WBT is not set
 CONFIG_BLK_DEBUG_FS=y
@@ -2727,7 +2726,9 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_BATTERY_LEGO_EV3 is not set
 # CONFIG_BATTERY_SBS is not set
 # CONFIG_CHARGER_SBS is not set
-# CONFIG_BATTERY_BQ27XXX is not set
+CONFIG_BATTERY_BQ27XXX=y
+CONFIG_BATTERY_BQ27XXX_I2C=y
+# CONFIG_BATTERY_BQ27XXX_DT_UPDATES_NVM is not set
 # CONFIG_BATTERY_MAX17040 is not set
 # CONFIG_BATTERY_MAX17042 is not set
 # CONFIG_CHARGER_ISP1704 is not set
@@ -2751,9 +2752,6 @@ CONFIG_POWER_SUPPLY=y
 #
 # Qualcomm Technologies, Inc. Charger and Fuel Gauge support
 #
-CONFIG_FG_BQ27541=y
-# CONFIG_OP_DEBUG_CHG is not set
-CONFIG_ONEPLUS_FASTCHG=y
 # CONFIG_QPNP_FG_GEN3 is not set
 CONFIG_QPNP_FG_GEN4=y
 # CONFIG_QPNP_QG is not set
