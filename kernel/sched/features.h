@@ -17,7 +17,7 @@
  * wakeup-preemption), since its likely going to consume data we
  * touched, increases cache locality.
  */
-#define SCHED_FEAT_NEXT_BUDDY 1
+#define SCHED_FEAT_NEXT_BUDDY 0
 
 /*
  * Prefer to schedule the task that ran last (when we did
@@ -30,7 +30,7 @@
  * skip buddy i.e task called yield() is always skipped and the
  * next entity is selected to run irrespective of the vruntime
  */
-#define SCHED_FEAT_STRICT_SKIP_BUDDY 0
+#define SCHED_FEAT_STRICT_SKIP_BUDDY 1
 
 /*
  * Consider buddies to be cache hot, decreases the likelyness of a
@@ -62,7 +62,7 @@
  * When doing wakeups, attempt to limit superfluous scans of the LLC domain.
  */
 #define SCHED_FEAT_SIS_AVG_CPU 0
-#define SCHED_FEAT_SIS_PROP 1
+#define SCHED_FEAT_SIS_PROP 0
 
 /*
  * Issue a WARN when we do multiple update_rq_clock() calls
@@ -126,11 +126,11 @@
  */
 #define SCHED_FEAT_EAS_PREFER_IDLE 1
 #define SCHED_FEAT_FIND_BEST_TARGET 1
-#define SCHED_FEAT_FBT_STRICT_ORDER 0
+#define SCHED_FEAT_FBT_STRICT_ORDER 1
 
 /*
  * Inflate the effective utilization of SchedTune-boosted tasks, which
  * generally leads to usage of higher frequencies.
  * If disabled, boosts will only bias tasks to higher-capacity CPUs.
  */
-#define SCHED_FEAT_SCHEDTUNE_BOOST_UTIL 0
+#define SCHED_FEAT_SCHEDTUNE_BOOST_UTIL 1
