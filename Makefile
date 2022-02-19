@@ -726,13 +726,13 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-detect-keep-going \
 		   -mllvm -polly-position=before-vectorizer \
 		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-detect-profitability-min-per-loop-insts=40 \
+		   -mllvm -polly-detect-profitability-min-per-loop-insts=5 \
 		   -mllvm -polly-invariant-load-hoisting
 endif
 
 ifdef CONFIG_INLINE_OPTIMIZATION
-KBUILD_CFLAGS	+= -mllvm -inline-threshold=2500
-KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=2000
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=2800
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=2200
 endif
 
 else
