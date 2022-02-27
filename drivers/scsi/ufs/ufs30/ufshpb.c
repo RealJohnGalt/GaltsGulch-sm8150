@@ -2952,7 +2952,6 @@ static void ufshpb_destroy_region_tbl(struct ufshpb_lu *hpb)
 	RELEASE_INFO("End");
 }
 
-extern int ufs_fill_info(struct ufs_hba *hba);
 void ufshpb_release(struct ufsf_feature *ufsf, int state)
 {
 	struct ufshpb_lu *hpb;
@@ -2990,8 +2989,6 @@ void ufshpb_release(struct ufsf_feature *ufsf, int state)
 	}
 
 	ufsf->ufshpb_state = state;
-
-	ufs_fill_info(ufsf->hba);
 
 	RELEASE_INFO("end release");
 }
