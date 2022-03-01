@@ -238,8 +238,7 @@ static int ufshcd_hba_init_crypto_qti_spec(struct ufs_hba *hba,
 			hba->crypto_cap_array[cap_idx].sdus_mask * 512;
 	}
 
-	hba->ksm = keyslot_manager_create(hba->dev, ufshcd_num_keyslots(hba),
-					  ksm_ops,
+	hba->ksm = keyslot_manager_create(ufshcd_num_keyslots(hba), ksm_ops,
 					  BLK_CRYPTO_FEATURE_STANDARD_KEYS |
 					  BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
 					  crypto_modes_supported, hba);
@@ -273,9 +272,7 @@ int ufshcd_crypto_qti_init_crypto(struct ufs_hba *hba,
 	mmio_base = devm_ioremap_resource(hba->dev, mem_res);
 	if (IS_ERR(mmio_base)) {
 		pr_err("%s: Unable to get ufs_crypto mmio base\n", __func__);
-		hba->caps &= ~UFSHCD_CAP_CRYPTO;
-		hba->quirks |= UFSHCD_QUIRK_BROKEN_CRYPTO;
-		return err;
+		return PTR_ERR(mmio_base);
 	}
 
 	err = ufshcd_hba_init_crypto_qti_spec(hba, &ufshcd_crypto_qti_ksm_ops);
