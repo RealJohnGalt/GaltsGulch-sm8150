@@ -58,7 +58,7 @@
 		} while (0)
 #endif
 
-#if 0
+#if defined(WLAN_DEBUG) || defined(DEBUG) || defined(QDF_TRACE_PRINT_ENABLE)
 #define QDF_TRACE qdf_trace_msg
 #define QDF_VTRACE qdf_vtrace_msg
 #define QDF_TRACE_HEX_DUMP qdf_trace_hex_dump
