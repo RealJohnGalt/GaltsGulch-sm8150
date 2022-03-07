@@ -146,6 +146,7 @@ enum {
 	DP_RX_IDX = 0,
 	EXT_DISP_RX_IDX_MAX,
 };
+
 enum {
 	AFE_LOOPBACK_TX_IDX = 0,
 	AFE_LOOPBACK_TX_IDX_MAX,
@@ -353,6 +354,7 @@ static struct dev_config slim_tx_cfg[] = {
 	[SLIM_TX_7] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[SLIM_TX_8] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
+
 static struct dev_config afe_loopback_tx_cfg[] = {
 	[AFE_LOOPBACK_TX_IDX] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
@@ -548,8 +550,8 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Eight"};
 static const char *const hifi_text[] = {"Off", "On"};
 static const char *const qos_text[] = {"Disable", "Enable"};
-static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
 
+static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
@@ -627,6 +629,7 @@ static SOC_ENUM_SINGLE_EXT_DECL(hifi_function, hifi_text);
 
 static const char *const vreg_text[] = {"Disable", "Enable"};
 static SOC_ENUM_SINGLE_EXT_DECL(vreg_setting, vreg_text);
+
 static struct platform_device *spdev;
 
 static int msm_hifi_control;
@@ -890,10 +893,9 @@ static int slim_get_port_idx(struct snd_kcontrol *kcontrol)
 	} else if (strnstr(kcontrol->id.name,
 					   "SLIM_1_TX", sizeof("SLIM_1_TX"))) {
 		port_id = SLIM_TX_1;
-        }else if (strnstr(kcontrol->id.name,
-                                           "SLIM_2_TX", sizeof("SLIM_2_TX"))){
-                port_id = SLIM_TX_2;
-
+	} else if (strnstr(kcontrol->id.name,
+					   "SLIM_2_TX", sizeof("SLIM_2_TX"))) {
+		port_id = SLIM_TX_2;
 	} else {
 		pr_err("%s: unsupported channel: %s",
 			__func__, kcontrol->id.name);
@@ -3154,8 +3156,8 @@ static int msm_vreg_get(struct snd_kcontrol *kcontrol,
 }
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
-    SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
-            afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_2_RX Channels", slim_2_rx_chs,
@@ -3164,8 +3166,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_tx_ch_get, slim_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_1_TX Channels", slim_1_tx_chs,
 			slim_tx_ch_get, slim_tx_ch_put),
-    SOC_ENUM_EXT("SLIM_2_TX Channels", slim_2_tx_chs,
-             slim_tx_ch_get, slim_tx_ch_put),
+	SOC_ENUM_EXT("SLIM_2_TX Channels", slim_2_tx_chs,
+			slim_tx_ch_get, slim_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_5_RX Channels", slim_5_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_6_RX Channels", slim_6_rx_chs,
@@ -3188,8 +3190,6 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_TX Format", slim_0_tx_format,
 			slim_tx_bit_format_get, slim_tx_bit_format_put),
-    SOC_ENUM_EXT("SLIM_2_TX Format", slim_2_tx_format,
-            slim_tx_bit_format_get, slim_tx_bit_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_RX Format", usb_rx_format,
 			usb_audio_rx_format_get, usb_audio_rx_format_put),
 	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
@@ -3202,8 +3202,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX SampleRate", slim_0_tx_sample_rate,
 			slim_tx_sample_rate_get, slim_tx_sample_rate_put),
-    SOC_ENUM_EXT("SLIM_2_TX SampleRate", slim_2_tx_sample_rate,
-            slim_tx_sample_rate_get, slim_tx_sample_rate_put),
+	SOC_ENUM_EXT("SLIM_2_TX SampleRate", slim_2_tx_sample_rate,
+			slim_tx_sample_rate_get, slim_tx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_5_RX SampleRate", slim_5_rx_sample_rate,
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_6_RX SampleRate", slim_6_rx_sample_rate,
@@ -3451,7 +3451,6 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	NULL, tdm_slot_map_put),
 	SOC_ENUM_EXT("Bob Regulator", vreg_setting,
 			msm_vreg_get, msm_vreg_set),
-
 };
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
@@ -5267,7 +5266,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		ret = msm_mi2s_set_sclk(substream, true);
 		if (ret < 0) {
 			dev_err(rtd->card->dev,
-				"%s: afe lpass clock failed ",
+				"%s: afe lpass clock failed "
 				"to enable MI2S clock, err:%d\n",
 				__func__, ret);
 			goto clean_up;
@@ -5283,7 +5282,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			ret_pinctrl = msm_set_pinctrl(pinctrl_info,
 							STATE_MI2S_ACTIVE);
 			if (ret_pinctrl) {
-				pr_err("%s: MI2S TLMM pinctrl set failed %d",
+				pr_err("%s: MI2S TLMM pinctrl set failed %d, "
 					"switching to gpio\n",
 					__func__, ret_pinctrl);
 				if (pdata->mi2s_gpio_p[index])
@@ -5330,7 +5329,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			ret_pinctrl = msm_set_pinctrl(pinctrl_info,
 							STATE_DISABLE);
 			if (ret_pinctrl) {
-				pr_err("%s: MI2S TLMM pinctrl set failed %d",
+				pr_err("%s: MI2S TLMM pinctrl set failed %d, "
 					"switching to gpio\n",
 					__func__, ret_pinctrl);
 				if (pdata->mi2s_gpio_p[index])
@@ -7245,6 +7244,7 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 		.ignore_suspend = 1,
 	},
 };
+
 static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
  	{
  		.name = LPASS_BE_AFE_LOOPBACK_TX,
