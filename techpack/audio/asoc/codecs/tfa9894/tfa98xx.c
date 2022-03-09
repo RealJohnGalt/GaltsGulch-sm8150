@@ -290,7 +290,7 @@ static enum tfa_error tfa98xx_tfa_start(struct tfa98xx *tfa98xx, int next_profil
 		start_time = ktime_get_boottime();
 	}
 
-	dev_info(&tfa98xx->i2c->dev, "tfa98xx_tfa_start enter\n");
+	dev_dbg(&tfa98xx->i2c->dev, "tfa98xx_tfa_start enter\n");
 
 	err = tfa_dev_start(tfa98xx->tfa, next_profile, vstep);
 
@@ -1843,30 +1843,6 @@ static int tfa98xx_append_i2c_address(struct device *dev,
 	return 0;
 }
 
-static struct snd_soc_dapm_widget tfa98xx_dapm_widgets_common[] = {
-
-	SND_SOC_DAPM_AIF_IN("AIF IN", "AIF Playback", 0, SND_SOC_NOPM, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("AIF OUT", "AIF Capture", 0, SND_SOC_NOPM, 0, 0),
-
-	SND_SOC_DAPM_OUTPUT("OUTL"),
-	SND_SOC_DAPM_INPUT("AEC Loopback"),
-};
-
-static struct snd_soc_dapm_widget tfa98xx_dapm_widgets_stereo[] = {
-	SND_SOC_DAPM_OUTPUT("OUTR"),
-};
-
-static struct snd_soc_dapm_widget tfa98xx_dapm_widgets_saam[] = {
-	SND_SOC_DAPM_INPUT("SAAM MIC"),
-};
-
-static struct snd_soc_dapm_widget tfa9888_dapm_inputs[] = {
-	SND_SOC_DAPM_INPUT("DMIC1"),
-	SND_SOC_DAPM_INPUT("DMIC2"),
-	SND_SOC_DAPM_INPUT("DMIC3"),
-	SND_SOC_DAPM_INPUT("DMIC4"),
-};
-
 static const struct snd_soc_dapm_route tfa98xx_dapm_routes_common[] = {
 	{ "OUTL", NULL, "AIF IN" },
 	{ "AIF OUT", NULL, "AEC Loopback" },
@@ -1896,12 +1872,10 @@ static struct snd_soc_dapm_context *snd_soc_codec_get_dapm(struct snd_soc_codec 
 
 static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 {
+#if 0
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(tfa98xx->codec);
 	struct snd_soc_dapm_widget *widgets;
 	unsigned int num_dapm_widgets = ARRAY_SIZE(tfa98xx_dapm_widgets_common);
-
-    if(1)
-        return;
 
 	widgets = devm_kzalloc(&tfa98xx->i2c->dev,
 			sizeof(struct snd_soc_dapm_widget) *
@@ -1945,6 +1919,7 @@ static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 		snd_soc_dapm_add_routes(dapm, tfa98xx_dapm_routes_saam,
 					ARRAY_SIZE(tfa98xx_dapm_routes_saam));
 	}
+#endif
 }
 
 /* I2C wrapper functions */
@@ -2553,7 +2528,7 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 
 			/* Subsystem ready, tfa init complete */
 			tfa98xx->dsp_init = TFA98XX_DSP_INIT_DONE;
-			dev_info(&tfa98xx->i2c->dev,
+			dev_dbg(&tfa98xx->i2c->dev,
 						"tfa_dev_start success (%d)\n",
 						tfa98xx->init_count);
 			/* cancel other pending init works */
@@ -2808,7 +2783,7 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 
 	/* Supported */
 	rate = params_rate(params);
-	pr_info("Requested rate: %d, sample size: %d, physical size: %d\n",
+	pr_debug("Requested rate: %d, sample size: %d, physical size: %d\n",
 			rate, snd_pcm_format_width(params_format(params)),
 			snd_pcm_format_physical_width(params_format(params)));
 
@@ -2821,7 +2796,7 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 		pr_err("tfa98xx: invalid sample rate %d.\n", rate);
 		return -EINVAL;
 	}
-	pr_info("mixer profile:container profile = [%d:%d]\n", tfa98xx_mixer_profile, prof_idx);
+	pr_debug("mixer profile:container profile = [%d:%d]\n", tfa98xx_mixer_profile, prof_idx);
 
 
 	/* update 'real' profile (container profile) */
@@ -2856,7 +2831,7 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(struct tfa98xx *tfa98xx)
 		bytes[nr++] = (uint8_t)((dsp_cal_value >> 8) & 0xff);
 		bytes[nr++] = (uint8_t)(dsp_cal_value & 0xff);
 
-		dev_err(&tfa98xx->i2c->dev, "%s: cal value 0x%x\n", __func__, dsp_cal_value);
+		dev_dbg(&tfa98xx->i2c->dev, "%s: cal value 0x%x\n", __func__, dsp_cal_value);
 
 		/* Receiver RDC */
 		if (value > 4000)
@@ -2874,7 +2849,7 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(struct tfa98xx *tfa98xx)
 		bytes[nr++] = (uint8_t)((dsp_cal_value >> 8) & 0xff);
 		bytes[nr++] = (uint8_t)(dsp_cal_value & 0xff);
 
-		dev_err(&tfa98xx->i2c->dev, "%s: cal value 0x%x\n", __func__, dsp_cal_value);
+		dev_dbg(&tfa98xx->i2c->dev, "%s: cal value 0x%x\n", __func__, dsp_cal_value);
 
 		/* Speaker RDC */
 		if (value > 4000)
@@ -2888,7 +2863,7 @@ enum Tfa98xx_Error tfa98xx_adsp_send_calib_values(struct tfa98xx *tfa98xx)
 		bytes[nr++] = 0x81;
 		bytes[nr++] = 0x05;
 
-		dev_err(&tfa98xx->i2c->dev, "%s: send_tfa_cal_in_band \n", __func__);
+		dev_dbg(&tfa98xx->i2c->dev, "%s: send_tfa_cal_in_band \n", __func__);
 
 		ret = send_tfa_cal_in_band(&bytes[1], sizeof(bytes) - 1);
 
@@ -2907,41 +2882,41 @@ int tfa98xx_keyreg_print(struct tfa98xx *tfa98xx)
 
        ret = regmap_read(tfa98xx->regmap, 0, &SYS_CONTROL0);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 0-SYS_CONTROL0\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 0-SYS_CONTROL0\n");
               return -EIO;
        }
 
        ret = regmap_read(tfa98xx->regmap, 0x10, &STATUS_FLAGS0);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 10h-STATUS_FLAGS0\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 10h-STATUS_FLAGS0\n");
               return -EIO;
        }
 
        ret = regmap_read(tfa98xx->regmap, 0x11, &STATUS_FLAGS1);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 11h-STATUS_FLAGS0\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 11h-STATUS_FLAGS0\n");
               return -EIO;
        }
 
        ret = regmap_read(tfa98xx->regmap, 0x13, &STATUS_FLAGS3);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 13h-STATUS_FLAGS3\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 13h-STATUS_FLAGS3\n");
               return -EIO;
        }
 
        ret = regmap_read(tfa98xx->regmap, 0x14, &STATUS_FLAGS4);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 14h-STATUS_FLAGS4\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 14h-STATUS_FLAGS4\n");
               return -EIO;
        }
 
        ret = regmap_read(tfa98xx->regmap, 0x6e, &STATUS_FLAGS5);
        if (ret < 0) {
-              dev_err(&tfa98xx->i2c->dev, "Failed to read 6eh-STATUS_FLAGS5\n", ret);
+              dev_err(&tfa98xx->i2c->dev, "Failed to read 6eh-STATUS_FLAGS5\n");
               return -EIO;
        }
 
-       dev_err(&tfa98xx->i2c->dev, "[00h:0x%x],[10h:0x%x],[11h:0x%x],[13h:0x%x],[14h:0x%x],[6eh:0x%x],\n",
+       dev_dbg(&tfa98xx->i2c->dev, "[00h:0x%x],[10h:0x%x],[11h:0x%x],[13h:0x%x],[14h:0x%x],[6eh:0x%x],\n",
               SYS_CONTROL0, STATUS_FLAGS0, STATUS_FLAGS1, STATUS_FLAGS3,STATUS_FLAGS4, STATUS_FLAGS5);
        return 0;
 
@@ -2953,7 +2928,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 	struct snd_soc_codec *codec = dai->codec;
 	struct tfa98xx *tfa98xx = snd_soc_codec_get_drvdata(codec);
 
-	dev_info(&tfa98xx->i2c->dev, "%s: state: %d\n", __func__, mute);
+	dev_dbg(&tfa98xx->i2c->dev, "%s: state: %d\n", __func__, mute);
 
 	if (no_start) {
 		pr_info("no_start parameter set no tfa_dev_start or tfa_dev_stop, returning\n");
@@ -2970,7 +2945,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 			tfa98xx->cstream = 0;
 
 		/* liuhaituo@MM.Audio 2018/7/5 add for debug */
-		pr_err("%s: pstream = %d\n", __func__, tfa98xx->pstream);
+		pr_debug("%s: pstream = %d\n", __func__, tfa98xx->pstream);
 
 		if (tfa98xx->pstream != 0 || tfa98xx->cstream != 0)
 			return 0;
@@ -2986,7 +2961,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 		cancel_delayed_work_sync(&tfa98xx->init_work);
 
 
-		pr_err("%s: tfa98xx->dsp_fw_state = %d\n", __func__, tfa98xx->dsp_fw_state);
+		pr_debug("%s: tfa98xx->dsp_fw_state = %d\n", __func__, tfa98xx->dsp_fw_state);
 
 		if (tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK)
 			return 0;

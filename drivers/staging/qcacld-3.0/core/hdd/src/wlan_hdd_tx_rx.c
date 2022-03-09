@@ -1017,6 +1017,11 @@ static void __hdd_hard_start_xmit(struct sk_buff *skb,
 		goto drop_pkt;
 	}
 
+	if (hdd_ctx->hdd_wlan_suspended) {
+		hdd_err_rl("Device is system suspended, drop pkt");
+		goto drop_pkt;
+	}
+
 	wlan_hdd_classify_pkt(skb);
 	if (QDF_NBUF_CB_GET_PACKET_TYPE(skb) == QDF_NBUF_CB_PACKET_TYPE_ARP) {
 		if (qdf_nbuf_data_is_arp_req(skb) &&
@@ -1992,6 +1997,13 @@ QDF_STATUS hdd_rx_pkt_thread_enqueue_cbk(void *adapter,
 	}
 
 	vdev_id = hdd_adapter->vdev_id;
+
+	if (vdev_id >= WLAN_UMAC_VDEV_ID_MAX) {
+		hdd_info_rl("Vdev invalid. Dropping packets");
+		qdf_nbuf_list_free(nbuf_list);
+		return QDF_STATUS_E_NETDOWN;
+	}
+
 	head_ptr = nbuf_list;
 	while (head_ptr) {
 		qdf_nbuf_cb_update_vdev_id(head_ptr, vdev_id);
@@ -3224,6 +3236,7 @@ void hdd_reset_tcp_adv_win_scale(struct hdd_context *hdd_ctx)
  *
  * Return: True if vote level is high
  */
+#ifdef RX_PERFORMANCE
 bool hdd_is_current_high_throughput(struct hdd_context *hdd_ctx)
 {
 	if (hdd_ctx->cur_vote_level < PLD_BUS_WIDTH_MEDIUM)
@@ -3231,6 +3244,7 @@ bool hdd_is_current_high_throughput(struct hdd_context *hdd_ctx)
 	else
 		return true;
 }
+#endif
 #endif
 
 #ifdef QCA_LL_LEGACY_TX_FLOW_CONTROL
