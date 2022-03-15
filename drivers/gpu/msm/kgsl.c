@@ -5009,7 +5009,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 	if (!strcmp(device->name, "kgsl_3d0_irq"))
-		irqflags |= IRQF_PERF_FIRST_AFFINE;
+		irqflags |= IRQF_PERF_AFFINE;
 
 	status = devm_request_irq(device->dev, device->pwrctrl.interrupt_num,
 				  kgsl_irq_handler, irqflags,
