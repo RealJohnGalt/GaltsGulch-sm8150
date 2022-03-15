@@ -856,7 +856,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	 * other important events.
 	 */
 	kthread_init_worker(&priv->pp_event_worker);
-	priv->pp_event_thread = kthread_run_perf_critical(cpu_prime_mask,
+	priv->pp_event_thread = kthread_run_perf_critical(cpu_hp_mask,
 			kthread_worker_fn, &priv->pp_event_worker, "pp_event");
 
 	ret = sched_setscheduler(priv->pp_event_thread,
