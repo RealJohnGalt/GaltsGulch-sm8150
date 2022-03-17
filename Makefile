@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 267
+SUBLEVEL = 271
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -726,19 +726,23 @@ KBUILD_CFLAGS	+= -mllvm -polly \
 		   -mllvm -polly-detect-keep-going \
 		   -mllvm -polly-position=before-vectorizer \
 		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-detect-profitability-min-per-loop-insts=40 \
+		   -mllvm -polly-detect-profitability-min-per-loop-insts=5 \
 		   -mllvm -polly-invariant-load-hoisting
 endif
 
 ifdef CONFIG_INLINE_OPTIMIZATION
-KBUILD_CFLAGS	+= -mllvm -inline-threshold=2500
-KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=2000
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=3100
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=2400
 endif
 
 else
 KBUILD_CFLAGS   += -O2
 KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
 endif
+endif
+
+ifdef CONFIG_MINIMAL_TRACING_FOR_IORAP
+KBUILD_CFLAGS   += -DNOTRACE
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one

@@ -222,6 +222,7 @@ static int audio_open(struct inode *inode, struct file *file)
 {
 	struct q6audio_aio *audio = NULL;
 	int rc = 0;
+
 #ifdef CONFIG_DEBUG_FS
 	/* 4 bytes represents decoder number, 1 byte for terminate string */
 	char name[sizeof "msm_g711_" + 5];
@@ -291,12 +292,12 @@ static int audio_open(struct inode *inode, struct file *file)
 
 #ifdef CONFIG_DEBUG_FS
 	snprintf(name, sizeof(name), "msm_g711_%04x", audio->ac->session);
-#ifdef CONFIG_DEBUG_FS
+
 	audio->dentry = config_debugfs_create_file(name, (void *)audio);
 
 	if (IS_ERR_OR_NULL(audio->dentry))
 		pr_debug("%s: debugfs_create_file failed\n", __func__);
-#endif
+
 	pr_debug("%s: g711dec success mode[%d]session[%d]\n", __func__,
 						audio->feedback,
 						audio->ac->session);

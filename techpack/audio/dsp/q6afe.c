@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -583,11 +583,11 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		param_id = (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3) ?
 				   payload[3] :
 				   payload[2];
+
 		if (param_id == AFE_PARAM_ID_DEV_TIMING_STATS) {
 			av_dev_drift_afe_cb_handler(data->opcode, data->payload,
 						    data->payload_size);
 		} else {
-
 #ifdef CONFIG_SND_SOC_TFA9874_OR_HAPTIC
 			if (atomic_read(&this_afe.tfa_state) == 1 &&
 				data->payload_size == sizeof(uint32_t)) {
@@ -602,9 +602,8 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				wake_up(&this_afe.wait[data->token]);
 
 			return 0;
-		}
+			}
 #endif
-
 			if (sp_make_afe_callback(data->opcode, data->payload,
 						 data->payload_size))
 				return -EINVAL;
@@ -613,12 +612,11 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			wake_up(&this_afe.wait[data->token]);
 		else
 			return -EINVAL;
-		} else if (data->opcode == ULTRASOUND_OPCODE) {
+	} else if (data->opcode == ULTRASOUND_OPCODE) {
 		    if (NULL != data->payload)
 			    elliptic_process_apr_payload(data->payload);
 		    else
 			    pr_err("[EXPORT_SYMBOLLUS]: payload ptr is Invalid");
-
 	} else if (data->opcode == AFE_EVENT_MBHC_DETECTION_SW_WA) {
 		msm_aud_evt_notifier_call_chain(SWR_WAKE_IRQ_EVENT, NULL);
 	} else if (data->opcode ==
@@ -643,7 +641,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			/* payload[1] contains the error status for response */
 			if (payload[1] != 0) {
 				atomic_set(&this_afe.status, payload[1]);
-				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+				pr_debug("%s: cmd = 0x%x returned error = 0x%x\n",
 					__func__, payload[0], payload[1]);
 			}
 			switch (payload[0]) {
@@ -1007,7 +1005,7 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 					__func__);
 				ret = -ETIMEDOUT;
 			} else if (atomic_read(&this_afe.status) > 0) {
-				pr_err("%s: DSP returned error[%s]\n", __func__,
+				pr_debug("%s: DSP returned error[%s]\n", __func__,
 					adsp_err_get_err_str(atomic_read(
 					&this_afe.status)));
 				ret = adsp_err_get_lnx_err_code(
@@ -1579,7 +1577,7 @@ static void afe_send_custom_topology(void)
 	this_afe.set_custom_topology = 0;
 	cal_block = cal_utils_get_only_cal_block(this_afe.cal_data[cal_index]);
 	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block)) {
-		pr_debug("%s cal_block not found!!\n", __func__);
+		pr_err("%s cal_block not found!!\n", __func__);
 		goto unlock;
 	}
 
@@ -1699,7 +1697,6 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 	case AFE_PARAM_ID_TFADSP_TX_SET_ENABLE:
 		param_info.module_id = AFE_MODULE_ID_TFADSP_TX;
 		break;
-
 #endif
 	default:
 		pr_err("%s: default case 0x%x\n", __func__, param_id);
@@ -1714,7 +1711,7 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 					       q6audio_get_port_index(src_port),
 					       param_info, (u8 *) prot_config);
 	if (ret)
-		pr_err("%s: port = 0x%x param = 0x%x failed %d\n", __func__,
+		pr_debug("%s: port = 0x%x param = 0x%x failed %d\n", __func__,
 		       src_port, param_id, ret);
 
 fail_cmd:
@@ -2428,7 +2425,7 @@ static int send_afe_cal_type(int cal_index, int port_id)
 				this_afe.cal_data[cal_index]);
 
 	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block)) {
-		pr_err("%s cal_block not found!!\n", __func__);
+		pr_debug_ratelimited("%s cal_block not found!!\n", __func__);
 		ret = -EINVAL;
 		goto unlock;
 	}
@@ -7448,6 +7445,7 @@ static int afe_get_sp_th_vi_v_vali_data(
 
 	mutex_lock(&this_afe.afe_cmd_lock);
 	memset(&param_hdr, 0, sizeof(param_hdr));
+	memset(th_vi_v_vali, 0, sizeof(*th_vi_v_vali));
 
 	param_hdr.module_id = AFE_MODULE_SPEAKER_PROTECTION_V2_TH_VI;
 	param_hdr.instance_id = INSTANCE_ID_0;
@@ -8033,6 +8031,9 @@ static int afe_set_cal_sp_th_vi_cfg(int32_t cal_type, size_t data_size,
 
 	if (cal_data == NULL ||
 	    data_size > sizeof(*cal_data) ||
+	    (data_size < sizeof(cal_data->cal_hdr) +
+		sizeof(cal_data->cal_data) +
+		sizeof(cal_data->cal_info.mode)) ||
 	    this_afe.cal_data[AFE_FB_SPKR_PROT_TH_VI_CAL] == NULL)
 		goto done;
 
@@ -8177,6 +8178,9 @@ static int afe_get_cal_sp_th_vi_param(int32_t cal_type, size_t data_size,
 
 	if (cal_data == NULL ||
 	    data_size > sizeof(*cal_data) ||
+	    (data_size < sizeof(cal_data->cal_hdr) +
+		sizeof(cal_data->cal_data) +
+		sizeof(cal_data->cal_info.mode)) ||
 	    this_afe.cal_data[AFE_FB_SPKR_PROT_TH_VI_CAL] == NULL)
 		return 0;
 
@@ -8558,7 +8562,6 @@ static void afe_release_uevent_data(struct kobject *kobj)
 }
 
 #ifdef CONFIG_SND_SOC_TFA9874_OR_HAPTIC
-
 int send_tfa_cal_apr(void *buf, int cmd_size, bool bRead)
 {
 	int32_t result, port_id = AFE_PORT_ID_TFADSP_RX;
@@ -8708,7 +8711,7 @@ int send_tfa_cal_in_band(void *buf, int cmd_size)
 	if (afe_spk_prot_prepare(port_id, 0,
 			AFE_PARAM_ID_TFADSP_RX_CFG,
 			&afe_spk_config)) {
-			pr_err("%s: AFE_PARAM_ID_TFADSP_RX_CFG failed\n",
+			pr_debug("%s: AFE_PARAM_ID_TFADSP_RX_CFG failed\n",
 				   __func__);
 	}
 

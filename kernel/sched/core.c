@@ -5,6 +5,10 @@
  *
  *  Copyright (C) 1991-2002  Linus Torvalds
  */
+#ifdef CONFIG_MINIMAL_TRACING_FOR_IORAP
+#undef NOTRACE
+#endif
+
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
@@ -1838,13 +1842,7 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if ((p->pc_flags & PC_PERF_AFFINE) && new_mask != cpu_perf_mask)
 		return -EINVAL;
 
-	if ((p->pc_flags & PC_PERF_FIRST_AFFINE) && new_mask != cpu_perf_first_mask)
-		return -EINVAL;
-
-	if ((p->pc_flags & PC_PERF_SECOND_AFFINE) && new_mask != cpu_perf_second_mask)
-		return -EINVAL;
-
-	if ((p->pc_flags & PC_PERF_THIRD_AFFINE) && new_mask != cpu_perf_third_mask)
+	if ((p->pc_flags & PC_HP_AFFINE) && new_mask != cpu_hp_mask)
 		return -EINVAL;
 
 	if ((p->pc_flags & PC_LITTLE_AFFINE) && new_mask != cpu_lp_mask)

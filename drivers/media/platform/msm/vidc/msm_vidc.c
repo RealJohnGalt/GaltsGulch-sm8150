@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include "vidc_hfi_api.h"
 #include "msm_vidc_clocks.h"
+#include "msm_vidc_res_parse.h"
 #include <linux/dma-buf.h>
 
 #define MAX_EVENTS 30
@@ -1083,6 +1084,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct hal_buffer_size_minimum b;
+	struct hal_buffer_requirements *bufreq;
 	u32 rc_mode;
 	int value = 0;
 
@@ -1161,6 +1163,13 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	if (inst->session_type == MSM_VIDC_DECODER &&
+		!inst->operating_rate_set && !is_realtime_session(inst)) {
+		inst->clk_data.turbo_mode = true;
+		dprintk(VIDC_INFO,
+			"inst(%pK) setting turbo mode ");
+	}
+
 	/* Assign Core and LP mode for current session */
 	rc = msm_vidc_decide_core_and_power_mode(inst);
 	if (rc) {
@@ -1189,6 +1198,27 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 			"This session has mis-match buffer counts%pK\n", inst);
 		goto fail_start;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER &&
+		msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		bufreq = get_buff_req_buffer(inst,
+			HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR, "Buffer requirements failed\n");
+			goto fail_start;
+		}
+		/* For DPB buffers, Always use min count */
+		rc = msm_comm_set_buffer_count(inst,
+			bufreq->buffer_count_min,
+			bufreq->buffer_count_min,
+			HAL_BUFFER_OUTPUT);
+		if (rc) {
+			dprintk(VIDC_ERR,
+			"failed to set buffer count\n");
+			goto fail_start;
+		}
 	}
 
 	rc = msm_comm_set_scratch_buffers(inst);
@@ -1853,6 +1883,9 @@ void *msm_vidc_open(int core_id, int session_type)
 	struct msm_vidc_core *core = NULL;
 	int rc = 0;
 	int i = 0;
+	bool reconfig_core = false;
+	bool is_cma_enabled = false;
+	struct hfi_device *hdev = NULL;
 
 	if (core_id >= MSM_VIDC_CORES_MAX ||
 			session_type >= MSM_VIDC_MAX_DEVICES) {
@@ -1864,6 +1897,12 @@ void *msm_vidc_open(int core_id, int session_type)
 	if (!core) {
 		dprintk(VIDC_ERR,
 			"Failed to find core for core_id = %d\n", core_id);
+		goto err_invalid_core;
+	}
+
+	if ((session_type == MSM_VIDC_ENCODER_CMA)
+				&& !core->resources.cma_exist) {
+		dprintk(VIDC_ERR, "Failed cma not enabled\n");
 		goto err_invalid_core;
 	}
 
@@ -1897,6 +1936,19 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	kref_init(&inst->kref);
 
+	is_cma_enabled = core->resources.cma_status;
+	reconfig_core = ((!is_cma_enabled &&
+			session_type == MSM_VIDC_ENCODER_CMA) ||
+			(is_cma_enabled && session_type
+				!= MSM_VIDC_ENCODER_CMA)) ?
+			true : false;
+
+	dprintk(VIDC_DBG, "reconfig_core %d , cma_status %d , session_type %d ",
+		reconfig_core, core->resources.cma_status, session_type);
+
+	if (session_type == MSM_VIDC_ENCODER_CMA)
+		session_type = MSM_VIDC_ENCODER;
+
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -1905,6 +1957,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->clk_data.ddr_bw = 0;
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
+	inst->operating_rate_set = false;
 	inst->clk_data.work_route = 1;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
@@ -1950,6 +2003,47 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 
 	setup_event_queue(inst, &core->vdev[session_type].vdev);
+	if (reconfig_core) {
+		mutex_lock(&core->lock);
+		if (!list_empty(&core->instances)) {
+			dprintk(VIDC_ERR,
+				"Failed due to pending instances in core");
+
+			mutex_unlock(&core->lock);
+			goto fail_toggle_cma;
+		}
+		mutex_unlock(&core->lock);
+
+		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"MSM_VIDC_CORE_UNINIT failed\n");
+		cancel_delayed_work(&core->fw_unload_work);
+
+		mutex_lock(&core->lock);
+		hdev = core->device;
+		rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to release core, id = %d\n", core->id);
+			mutex_unlock(&core->lock);
+			goto fail_toggle_cma;
+		}
+		core->state = VIDC_CORE_UNINIT;
+		kfree(core->capabilities);
+		core->capabilities = NULL;
+		rc = msm_vidc_enable_cma(&core->resources, !is_cma_enabled);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s CMA failed\n", is_cma_enabled ?
+							"enable":"disable");
+			msm_vidc_enable_cma(&core->resources, is_cma_enabled);
+			mutex_unlock(&core->lock);
+			goto fail_toggle_cma;
+		}
+		core->resources.cma_status = !is_cma_enabled;
+		mutex_unlock(&core->lock);
+	}
 
 	mutex_lock(&core->lock);
 	list_add_tail(&inst->list, &core->instances);
@@ -1993,9 +2087,11 @@ fail_init:
 	mutex_lock(&core->lock);
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
-
+fail_toggle_cma:
+	mutex_lock(&core->lock);
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
+	mutex_unlock(&core->lock);
 	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);
 fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
