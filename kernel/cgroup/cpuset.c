@@ -2084,7 +2084,7 @@ static void uclamp_set(struct kernfs_open_file *of,
 		{"foreground", 	     	"0",  "50",  1, 1},
 		{"background", 	     	"20", "100", 0, 0},
 		{"system-background", 	"0",  "40",  0, 0},
-		{"camera-daemon",	"30", "100", 1, 1},
+		{"camera-daemon",	"10", "100", 1, 1},
 		{"display",		"20", "100", 1, 1},
 		{"restricted",		"0",  "40",  0, 0},
 	};
