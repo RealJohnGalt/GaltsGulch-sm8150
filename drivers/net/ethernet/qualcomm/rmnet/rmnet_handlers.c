@@ -375,7 +375,7 @@ rmnet_map_ingress_handler(struct sk_buff *skb,
 					    struct rmnet_port *port);
 
 	if (skb->dev->type == ARPHRD_ETHER) {
-		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_KERNEL)) {
+		if (pskb_expand_head(skb, ETH_HLEN, 0, GFP_ATOMIC)) {
 			kfree_skb(skb);
 			return;
 		}
@@ -453,6 +453,11 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		if (pskb_expand_head(skb, required_headroom, 0, GFP_ATOMIC))
 			return -ENOMEM;
 	}
+
+#ifdef CONFIG_QCOM_QMI_HELPERS
+	if (port->data_format & RMNET_INGRESS_FORMAT_PS)
+		qmi_rmnet_work_maybe_restart(port);
+#endif
 
 	if (csum_type)
 		rmnet_map_checksum_uplink_packet(skb, port, orig_dev,
