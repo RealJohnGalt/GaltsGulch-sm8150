@@ -245,11 +245,8 @@ static void scan_and_kill(void)
 		/* Elevate the victim to SCHED_RR with zero RT priority */
 		sched_setscheduler_nocheck(vtsk, SCHED_RR, &sched_zero_prio);
 
-		/* Only allow the victim to run on small CPUs */
-		set_cpus_allowed_ptr(vtsk, cpu_lp_mask);
-
-		/* Signals can't wake frozen tasks; only a thaw operation can */
-		__thaw_task(vtsk);
+		/* Allow the victim to run on any CPU. This won't schedule. */
+		set_cpus_allowed_ptr(vtsk, cpu_all_mask);
 
 		/* Signals can't wake frozen tasks; only a thaw operation can */
 		__thaw_task(vtsk);
@@ -326,14 +323,13 @@ static int simple_lmk_init_set(const char *val, const struct kernel_param *kp)
 {
 	static atomic_t init_done = ATOMIC_INIT(0);
 	struct task_struct *thread;
-	struct sched_param param = { .sched_priority = 7 };
 
 	if (!atomic_cmpxchg(&init_done, 0, 1)) {
-		thread = kthread_run_perf_critical(cpu_lp_mask, simple_lmk_reclaim_thread,
+		thread = kthread_run_perf_critical(cpu_hp_mask,
+						   simple_lmk_reclaim_thread,
 						   NULL, "simple_lmkd");
 		BUG_ON(IS_ERR(thread));
 		BUG_ON(vmpressure_notifier_register(&vmpressure_notif));
-		sched_setscheduler(thread, SCHED_FIFO, &param);
 	}
 
 	return 0;
