@@ -76,6 +76,7 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-DANI_OS_TYPE_ANDROID=6 \
 		-DPTT_SOCK_SVC_ENABLE \
 		-Wall\
+		-Werror\
 		-D__linux__
 
 KBUILD_CPPFLAGS += $(CDEFINES)
@@ -108,3 +109,6 @@ endif
 # Module information used by KBuild framework
 obj-$(CONFIG_SND_SOC_WCD9360) += wcd9360_dlkm.o
 wcd9360_dlkm-y := $(WCD9360_OBJS)
+
+# inject some build related information
+DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"
