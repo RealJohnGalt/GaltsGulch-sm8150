@@ -67,7 +67,7 @@ void afe_exit(void);
 void adm_exit(void);
 void adsp_err_exit(void);
 
-int elliptic_driver_init(void);
+int elliptic_driver_exit(void);
 #ifdef CONFIG_VOICE_MHI
 int voice_mhi_init(void);
 void voice_mhi_exit(void);

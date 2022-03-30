@@ -53,7 +53,7 @@ static void __exit audio_q6_exit(void)
 	rtac_exit();
 	audio_cal_exit();
 	adsp_err_exit();
-	elliptic_driver_init();
+	elliptic_driver_exit();
 	voice_mhi_exit();
 }
 
