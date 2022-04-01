@@ -557,7 +557,7 @@
 	};
 
 	chosen {
-		bootargs = "quiet noirqdebug rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off";
+		bootargs = "quiet rcupdate.rcu_expedited=1 rcu_nocbs=0-7 cgroup.memory=nokmem,nosocket kpti=off noirqdebug";
 	};
 
 	soc: soc { };
@@ -604,21 +604,6 @@
 		xbl_aop_mem: xbl_aop_mem {
 			no-map;
 			reg = <0x0 0x85e00000 0x0 0x140000>;
-		};
-
-		abl_mem: abl_mem {
-			 no-map;
-			 reg = <0x0 0x88f00000 0x0 0x1C00000>;
-		};
-
-		abl_unmapped_mem: abl_unmapped_mem {
-			no-map;
-			reg = <0x0 0x85f40000 0x0 0xc0000>;
-		};
-
-		abl_unmapped_mem1: abl_unmapped_mem1 {
-			no-map;
-			reg = <0x0 0x85d00000 0x0 0x100000>;
 		};
 
 		smem_region: smem {
@@ -718,14 +703,6 @@
 		cont_splash_memory: cont_splash_region {
 			reg = <0x0 0x9c000000 0x0 0x02400000>;
 			label = "cont_splash_region";
-		};
-
-		ramoops: ramoops@a1600000 {
-			compatible = "ramoops";
-			reg = <0x0 0xa1600000 0x0 0x800000>;
-			record-size = <0x80000>;
-			console-size = <0x400000>;
-			pmsg-size = <0x400000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -843,7 +820,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
-		status = "disabled";
 	};
 
 	jtag_mm1: jtagmm@7140000 {
@@ -855,7 +831,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
-		status = "disabled";
 	};
 
 	jtag_mm2: jtagmm@7240000 {
@@ -867,7 +842,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
-		status = "disabled";
 	};
 
 	jtag_mm3: jtagmm@7340000 {
@@ -879,7 +853,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
-		status = "disabled";
 	};
 
 	jtag_mm4: jtagmm@7440000 {
@@ -891,7 +864,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
-		status = "disabled";
 	};
 
 	jtag_mm5: jtagmm@7540000 {
@@ -903,7 +875,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
-		status = "disabled";
 	};
 
 	jtag_mm6: jtagmm@7640000 {
@@ -915,7 +886,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
-		status = "disabled";
 	};
 
 	jtag_mm7: jtagmm@7740000 {
@@ -927,7 +897,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
-		status = "disabled";
 	};
 
 	intc: interrupt-controller@17a00000 {
@@ -2916,7 +2885,7 @@
 
 				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
-					qcom,qos-latency-us = <67>;
+					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
 					qcom,compute-cx-limit-en;
 					qcom,compute-priority-mode = <2>;
@@ -4200,6 +4169,7 @@
 #include "sm8150-bus.dtsi"
 #include "sm8150-pcie.dtsi"
 #include "sm8150-smp2p.dtsi"
+#include "sm8150-coresight.dtsi"
 #include "msm-arm-smmu-sm8150.dtsi"
 #include "sm8150-qupv3.dtsi"
 #include "sm8150-npu.dtsi"
