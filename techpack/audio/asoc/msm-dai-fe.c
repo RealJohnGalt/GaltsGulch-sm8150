@@ -409,6 +409,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.name = "SLIMBUS1_HOSTLESS",
 		.probe = fe_dai_probe,
 	},
+
 	{
 		.playback = {
 			.stream_name = "SLIMBUS2_HOSTLESS Playback",

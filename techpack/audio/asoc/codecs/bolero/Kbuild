@@ -98,6 +98,7 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-DANI_OS_TYPE_ANDROID=6 \
 		-DPTT_SOCK_SVC_ENABLE \
 		-Wall\
+		-Werror\
 		-D__linux__
 
 KBUILD_CPPFLAGS += $(CDEFINES)
@@ -142,3 +143,6 @@ tx_macro_dlkm-y := $(TX_OBJS)
 
 obj-$(CONFIG_RX_MACRO) += rx_macro_dlkm.o
 rx_macro_dlkm-y := $(RX_OBJS)
+
+# inject some build related information
+DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

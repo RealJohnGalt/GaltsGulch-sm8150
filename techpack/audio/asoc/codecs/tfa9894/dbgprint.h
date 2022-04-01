@@ -17,6 +17,11 @@
 #ifndef _DBGPRINT_H
 #   define _DBGPRINT_H
 
+
+#   ifndef DEBUG
+#      define DEBUG
+#   endif
+
 #   ifndef ASSERT
 //#define ASSERT
 #   endif

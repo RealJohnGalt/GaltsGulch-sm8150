@@ -150,7 +150,6 @@ void msm_dts_srs_release_lock(void)
 {
 	mutex_unlock(&dts_srs_lock);
 }
-
 void adm_reset_session_type(void)
 {
     int i;
@@ -323,7 +322,7 @@ static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 		    (rate == atomic_read(&this_adm.copp.rate[port_idx][idx])) &&
 		    (bit_width ==
 			atomic_read(&this_adm.copp.bit_width[port_idx][idx])) &&
-			(adm_get_session_type(port_idx) ==
+		    (adm_get_session_type(port_idx) ==
 			atomic_read(&this_adm.copp.session_type[port_idx][idx])) &&
 		    (app_type ==
 			atomic_read(&this_adm.copp.app_type[port_idx][idx])))
@@ -3706,7 +3705,7 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx], 0);
-		adm_session[port_idx] = 0;
+        adm_session[port_idx] = 0;
 
 		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
@@ -5187,7 +5186,7 @@ int __init adm_init(void)
 	this_adm.sourceTrackingData.memmap.kvaddr = NULL;
 	this_adm.sourceTrackingData.memmap.paddr = 0;
 	this_adm.sourceTrackingData.apr_cmd_status = -1;
-	adm_reset_session_type();
+    adm_reset_session_type();
 
 	return 0;
 }

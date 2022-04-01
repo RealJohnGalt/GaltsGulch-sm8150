@@ -149,7 +149,7 @@ static int afe_set_parameter(int port,
 		goto fail_cmd;
 	}
 	if (atomic_read(elus_afe.ptr_status) != 0) {
-		pr_debug("%s: set param cmd failed\n", __func__);
+		pr_err("%s: set param cmd failed\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -257,7 +257,7 @@ static int32_t process_calibration_msg(uint32_t *payload, uint32_t payload_size)
 	size_t copy_size = 0;
 	int32_t  ret = -1;
 
-	pr_err("[ELUS]: %s() size:%d\n", __func__, payload_size);
+	pr_debug("[ELUS]: %s() size:%d\n", __func__, payload_size);
 
 	if (payload_size >= ELLIPTIC_CALIBRATION_DATA_SIZE) {
 		pr_debug("[ELUS]: calibration_data copied to local AP cache");
@@ -283,7 +283,7 @@ static int32_t process_calibration_v2_msg(uint32_t *payload, uint32_t payload_si
 	size_t copy_size = 0;
 	int32_t  ret = -1;
 
-	pr_err("[ELUS]: %s() size:%d\n", __func__, payload_size);
+	pr_debug("[ELUS]: %s() size:%d\n", __func__, payload_size);
 
 	if (payload_size >= ELLIPTIC_CALIBRATION_V2_DATA_SIZE) {
 		pr_debug("[ELUS]: calibration_data copied to local AP cache");
@@ -309,7 +309,7 @@ static int32_t process_ml_msg(uint32_t *payload, uint32_t payload_size)
 	size_t copy_size = 0;
 	int32_t  ret = -1;
 
-	pr_err("[ELUS]: %s() size:%d\n", __func__, payload_size);
+	pr_debug("[ELUS]: %s() size:%d\n", __func__, payload_size);
 
 	if (payload_size >= ELLIPTIC_ML_DATA_SIZE) {
 		pr_debug("[ELUS]: ml_data copied to local AP cache");

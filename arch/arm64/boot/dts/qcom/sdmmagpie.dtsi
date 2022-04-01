@@ -680,7 +680,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
-		status = "disabled";
 	};
 
 	jtag_mm1: jtagmm@7140000 {
@@ -692,7 +691,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
-		status = "disabled";
 	};
 
 	jtag_mm2: jtagmm@7240000 {
@@ -704,7 +702,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
-		status = "disabled";
 	};
 
 	jtag_mm3: jtagmm@7340000 {
@@ -716,7 +713,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
-		status = "disabled";
 	};
 
 	jtag_mm4: jtagmm@7440000 {
@@ -739,7 +735,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
-		status = "disabled";
 	};
 
 	jtag_mm6: jtagmm@7640000 {
@@ -751,7 +746,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
-		status = "disabled";
 	};
 
 	jtag_mm7: jtagmm@7740000 {
@@ -763,7 +757,6 @@
 		clock-names = "core_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
-		status = "disabled";
 	};
 
 	intc: interrupt-controller@17a00000 {
@@ -1124,6 +1117,7 @@
 
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
+		qca,bt-sw-ctrl-gpio = <&tlmm 73 0>; /* SW_CTRL */
 		qca,bt-vdd-io-supply = <&pm6150_l10>;
 		qca,bt-vdd-core-supply = <&pm6150l_l2>;
 		qca,bt-vdd-pa-supply = <&pm6150l_l10>;
@@ -3315,6 +3309,7 @@
 #include "pm8009.dtsi"
 #include "sdmmagpie-regulator.dtsi"
 #include "sdmmagpie-camera.dtsi"
+#include "sdmmagpie-coresight.dtsi"
 #include "sdmmagpie-usb.dtsi"
 #include "sdmmagpie-thermal.dtsi"
 
