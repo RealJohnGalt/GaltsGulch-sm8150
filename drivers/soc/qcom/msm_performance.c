@@ -55,7 +55,6 @@ static unsigned int aggr_top_load;
 /*******************************sysfs start************************************/
 static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 {
-#if 0
 	int i, j, ntokens = 0;
 	unsigned int val, cpu;
 	const char *cp = buf;
@@ -108,7 +107,6 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 			cpumask_clear_cpu(j, limit_mask);
 	}
 	put_online_cpus();
-#endif
 
 	return 0;
 }
@@ -133,7 +131,6 @@ module_param_cb(cpu_min_freq, &param_ops_cpu_min_freq, NULL, 0644);
 
 static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 {
-#if 0
 	int i, j, ntokens = 0;
 	unsigned int val, cpu;
 	const char *cp = buf;
@@ -178,7 +175,6 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 			cpumask_clear_cpu(j, limit_mask);
 	}
 	put_online_cpus();
-#endif
 
 	return 0;
 }
