@@ -30,8 +30,6 @@
 #define MSM_BUS_RSC_DISP		8001
 #define BCM_TCS_CMD_ACV_APPS		0x8
 
-#define DEBUG_REC_TRANSACTION 0
-
 struct bus_search_type {
 	struct list_head link;
 	struct list_head node_list;
@@ -1602,6 +1600,8 @@ static int update_context(uint32_t cl, bool active_only,
 		goto exit_update_context;
 	}
 
+//	trace_bus_update_request_end(pdata->name);
+
 exit_update_context:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
@@ -1663,6 +1663,8 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		goto exit_update_request;
 	}
 
+//	trace_bus_update_request_end(pdata->name);
+
 exit_update_request:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
@@ -1718,6 +1720,8 @@ static int query_client_usecase(struct msm_bus_tcs_usecase *tcs_usecase,
 		goto exit_query_client_usecase;
 	}
 
+//	trace_bus_update_request_end(pdata->name);
+
 exit_query_client_usecase:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
@@ -1770,6 +1774,8 @@ static int query_client_usecase_all(struct msm_bus_tcs_handle *tcs_handle,
 		goto exit_query_client_usecase_all;
 	}
 
+//	trace_bus_update_request_end(pdata->name);
+
 exit_query_client_usecase_all:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
@@ -1802,8 +1808,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	if (!strcmp(test_cl, cl->name))
 		log_transaction = true;
 
-	if (DEBUG_REC_TRANSACTION)
-		msm_bus_dbg_rec_transaction(cl, ab, ib);
+	msm_bus_dbg_rec_transaction(cl, ab, ib);
 
 	if (cl->active_only) {
 		if ((cl->cur_act_ib == ib) && (cl->cur_act_ab == ab)) {
@@ -1843,6 +1848,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 
 	if (log_transaction)
 		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
+//	trace_bus_update_request_end(cl->name);
 exit_update_request:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 
@@ -1871,9 +1877,7 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 
 	if (!dual_ab && !dual_ib)
 		cl->active_only = true;
-	if (DEBUG_REC_TRANSACTION)
-		msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab,
-					    cl->cur_dual_ib);
+	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_dual_ib);
 	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, dual_ib,
 				dual_ab, cl->cur_act_ab, cl->cur_act_ab,
 				cl->first_hop, cl->active_only);
@@ -1887,6 +1891,7 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 	cl->cur_act_ab = act_ab;
 	cl->cur_dual_ib = dual_ib;
 	cl->cur_dual_ab = dual_ab;
+//	trace_bus_update_request_end(cl->name);
 exit_change_context:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
