@@ -65,8 +65,6 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/cpu_input_boost.h>
-#include <linux/devfreq_boost.h>
 #include <drm/drm_mipi_dsi.h>
 extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 
@@ -3431,9 +3429,6 @@ ssize_t oneplus_display_notify_fp_press(struct device *dev,
 	ktime_t now;
 	bool need_commit = false;
 	int onscreenfp_status = 0;
-	cpu_input_boost_kick_max(1000);
-	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
-	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1000);
 	if ((connector == NULL) || (connector->encoder == NULL)
 			|| (connector->encoder->bridge == NULL))
 		return 0;

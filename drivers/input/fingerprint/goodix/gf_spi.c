@@ -49,6 +49,8 @@
 #include <linux/timer.h>
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
+#include <linux/cpu_input_boost.h>
+#include <linux/devfreq_boost.h>
 #include <net/netlink.h>
 #include <net/sock.h>
 #include "gf_spi.h"
@@ -445,6 +447,9 @@ int gf_opticalfp_irq_handler(int event)
 		return 0;
 	}
 	if (event == 1) {
+		cpu_input_boost_kick_max(1000);
+		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
+		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1000);
 		msg = GF_NET_EVENT_TP_TOUCHDOWN;
 		sendnlmsg(&msg);
 	} else if (event == 0) {
