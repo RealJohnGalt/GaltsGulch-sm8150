@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -614,10 +614,10 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		else
 			return -EINVAL;
 		} else if (data->opcode == ULTRASOUND_OPCODE) {
-		    if (NULL != data->payload)
-			    elliptic_process_apr_payload(data->payload);
-		    else
-			    pr_err("[EXPORT_SYMBOLLUS]: payload ptr is Invalid");
+			if (NULL != data->payload)
+				elliptic_process_apr_payload(data->payload);
+			else
+				pr_err("[EXPORT_SYMBOLLUS]: payload ptr is Invalid");
 
 	} else if (data->opcode == AFE_EVENT_MBHC_DETECTION_SW_WA) {
 		msm_aud_evt_notifier_call_chain(SWR_WAKE_IRQ_EVENT, NULL);
@@ -1579,7 +1579,7 @@ static void afe_send_custom_topology(void)
 	this_afe.set_custom_topology = 0;
 	cal_block = cal_utils_get_only_cal_block(this_afe.cal_data[cal_index]);
 	if (cal_block == NULL || cal_utils_is_cal_stale(cal_block)) {
-		pr_debug("%s cal_block not found!!\n", __func__);
+		pr_err("%s cal_block not found!!\n", __func__);
 		goto unlock;
 	}
 
@@ -2381,9 +2381,9 @@ static struct cal_block_data *afe_find_cal(int cal_index, int port_id)
 				 __func__, cal_block->cal_data.size);
 			goto exit;
 		} else if ((afe_port_index == IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX) &&
-				(afe_cal_info->acdb_id == this_afe.dev_acdb_id[afe_port_index])) {
+			     (afe_cal_info->acdb_id == this_afe.dev_acdb_id[afe_port_index])) {
 			pr_debug("%s: Because afe_port_index is %d, so cal block is a match, size is %zd\n",
-					__func__, afe_port_index, cal_block->cal_data.size);
+				 __func__, afe_port_index, cal_block->cal_data.size);
 			goto exit;
 		}
 	}
@@ -8033,6 +8033,9 @@ static int afe_set_cal_sp_th_vi_cfg(int32_t cal_type, size_t data_size,
 
 	if (cal_data == NULL ||
 	    data_size > sizeof(*cal_data) ||
+	    (data_size < sizeof(cal_data->cal_hdr) +
+		sizeof(cal_data->cal_data) +
+		sizeof(cal_data->cal_info.mode)) ||
 	    this_afe.cal_data[AFE_FB_SPKR_PROT_TH_VI_CAL] == NULL)
 		goto done;
 
@@ -8177,6 +8180,9 @@ static int afe_get_cal_sp_th_vi_param(int32_t cal_type, size_t data_size,
 
 	if (cal_data == NULL ||
 	    data_size > sizeof(*cal_data) ||
+	    (data_size < sizeof(cal_data->cal_hdr) +
+		sizeof(cal_data->cal_data) +
+		sizeof(cal_data->cal_info.mode)) ||
 	    this_afe.cal_data[AFE_FB_SPKR_PROT_TH_VI_CAL] == NULL)
 		return 0;
 
@@ -8561,7 +8567,7 @@ static void afe_release_uevent_data(struct kobject *kobj)
 
 int send_tfa_cal_apr(void *buf, int cmd_size, bool bRead)
 {
-	int32_t result, port_id = AFE_PORT_ID_TFADSP_RX;
+	int32_t result = 0, port_id = AFE_PORT_ID_TFADSP_RX;
 	uint32_t port_index = 0, payload_size = 0;
 	size_t len;
 	struct rtac_cal_block_data *tfa_cal = &(this_afe.tfa_cal);

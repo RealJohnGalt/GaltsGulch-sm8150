@@ -964,7 +964,6 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 		       tavil_hph_impedance_get, NULL),
 };
 
-
 extern bool headset_imp_enable;
 
 static int headset_imp_feature_put(struct snd_kcontrol *kcontrol,
