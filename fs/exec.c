@@ -81,7 +81,6 @@ static DEFINE_RWLOCK(binfmt_lock);
 #define QTIHW_BIN_PREFIX "/vendor/bin/hw/vendor.qti.hardware"
 #define UDFPS_BIN_PREFIX "/vendor/bin/hw/android.hardware.biometrics.fingerprint"
 #define SFLINGER_BIN_PREFIX "/system/bin/surfaceflinger"
-#define NETD_BIN_PREFIX "/system/bin/netd"
 #define ZYGOTE32_BIN "/system/bin/app_process32"
 #define ZYGOTE64_BIN "/system/bin/app_process64"
 static struct signal_struct *zygote32_sig;
@@ -1845,11 +1844,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 		} else if (unlikely(!strncmp(filename->name,
 					   SFLINGER_BIN_PREFIX,
 					   strlen(SFLINGER_BIN_PREFIX)))) {
-			current->pc_flags |= PC_HP_AFFINE;
-			set_cpus_allowed_ptr(current, cpu_hp_mask);
-		} else if (unlikely(!strncmp(filename->name,
-					   NETD_BIN_PREFIX,
-					   strlen(NETD_BIN_PREFIX)))) {
 			current->pc_flags |= PC_HP_AFFINE;
 			set_cpus_allowed_ptr(current, cpu_hp_mask);
 		} else if (unlikely(!strncmp(filename->name,
