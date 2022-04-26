@@ -817,6 +817,14 @@ struct task_struct {
 	unsigned long			wakee_flip_decay_ts;
 	struct task_struct		*last_wakee;
 
+	/*
+	 * recent_used_cpu is initially set as the last CPU used by a task
+	 * that wakes affine another task. Waker/wakee relationships can
+	 * push tasks around a CPU where each wakeup moves to the next one.
+	 * Tracking a recently used CPU allows a quick search for a recently
+	 * used CPU that may be idle.
+	 */
+	int				recent_used_cpu;
 	int				wake_cpu;
 #endif
 	int				on_rq;
@@ -874,8 +882,16 @@ struct task_struct {
 
 	unsigned int			policy;
 	int				nr_cpus_allowed;
-	cpumask_t			cpus_allowed;
+	const cpumask_t			*cpus_ptr;
+	cpumask_t			cpus_mask;
 	cpumask_t			cpus_requested;
+#if defined(CONFIG_PREEMPT_COUNT) && defined(CONFIG_SMP)
+	int				migrate_disable;
+	int				migrate_disable_update;
+# ifdef CONFIG_SCHED_DEBUG
+	int				migrate_disable_atomic;
+# endif
+#endif
 
 #ifdef CONFIG_PREEMPT_RCU
 	int				rcu_read_lock_nesting;
@@ -954,11 +970,11 @@ struct task_struct {
 #ifndef TIF_RESTORE_SIGMASK
 	unsigned			restore_sigmask:1;
 #endif
-#ifdef CONFIG_MEMCG
+#ifdef CONFIG_MMU
 	unsigned			in_user_fault:1;
-#ifndef CONFIG_SLOB
-	unsigned			memcg_kmem_skip_account:1;
 #endif
+#if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
+	unsigned			memcg_kmem_skip_account:1;
 #endif
 #ifdef CONFIG_COMPAT_BRK
 	unsigned			brk_randomized:1;
@@ -1672,10 +1688,10 @@ extern struct pid *cad_pid;
 #define PF_KTHREAD		0x00200000	/* I am a kernel thread */
 #define PF_RANDOMIZE		0x00400000	/* Randomize virtual address space */
 #define PF_SWAPWRITE		0x00800000	/* Allowed to write to swap */
-#define PF_MEMSTALL		0x01000000	/* Stalled due to lack of memory */
-#define PF_NO_SETAFFINITY	0x04000000	/* Userland is not allowed to meddle with cpus_allowed */
+#define PF_WAKE_UP_IDLE         0x01000000	/* TTWU on an idle CPU */
+#define PF_MEMSTALL		0x02000000	/* Stalled due to lack of memory */
+#define PF_NO_SETAFFINITY	0x04000000	/* Userland is not allowed to meddle with cpus_mask */
 #define PF_MCE_EARLY		0x08000000      /* Early kill for mce process policy */
-#define PF_WAKE_UP_IDLE         0x10000000	/* TTWU on an idle CPU */
 #define PF_MUTEX_TESTER		0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP		0x40000000	/* Freezer should not count it as freezable */
 #define PF_SUSPEND_TASK		0x80000000      /* This thread called freeze_processes() and should not be frozen */

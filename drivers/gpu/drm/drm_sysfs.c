@@ -1187,7 +1187,6 @@ static ssize_t oneplus_display_set_forcescreenfp(struct device *dev,
 	return count;
 }
 
-
 static ssize_t op_display_get_dimlayer_enable(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {

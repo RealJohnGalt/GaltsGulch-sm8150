@@ -1100,9 +1100,21 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 		struct __drm_connnectors_state *c;
 		int alloc = max(index + 1, config->num_connector);
 
-		c = krealloc(state->connectors, alloc * sizeof(*state->connectors), GFP_KERNEL);
-		if (!c)
-			return ERR_PTR(-ENOMEM);
+		if (state->connectors_preallocated) {
+			state->connectors_preallocated = false;
+			c = kmalloc(alloc * sizeof(*state->connectors),
+				    GFP_KERNEL);
+			if (!c)
+				return ERR_PTR(-ENOMEM);
+			memcpy(c, state->connectors,
+			       sizeof(*state->connectors) * state->num_connector);
+		} else {
+			c = krealloc(state->connectors,
+				     alloc * sizeof(*state->connectors),
+				     GFP_KERNEL);
+			if (!c)
+				return ERR_PTR(-ENOMEM);
+		}
 
 		state->connectors = c;
 		memset(&state->connectors[state->num_connector], 0,
@@ -2253,11 +2265,9 @@ static int __drm_mode_atomic_ioctl(struct drm_device *dev, void *data,
 		return -EINVAL;
 
 	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
-		if (time_before(jiffies, last_input_time + msecs_to_jiffies(3000))) {
-			cpu_input_boost_kick();
-			devfreq_boost_kick(DEVFREQ_MSM_CPUBW);
-			devfreq_boost_kick(DEVFREQ_MSM_LLCCBW);
-		}
+		cpu_input_boost_kick();
+		devfreq_boost_kick(DEVFREQ_MSM_CPUBW);
+		devfreq_boost_kick(DEVFREQ_MSM_LLCCBW);
 	}
 
 	drm_modeset_acquire_init(&ctx, 0);

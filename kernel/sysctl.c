@@ -98,9 +98,6 @@
 #if defined(CONFIG_SYSCTL)
 
 /* External variables not in a header file. */
-#ifdef CONFIG_USB
-extern int deny_new_usb;
-#endif
 extern int suid_dumpable;
 #ifdef CONFIG_COREDUMP
 extern int core_uses_pid;
@@ -451,28 +448,28 @@ static struct ctl_table kern_table[] = {
 		.procname	= "sched_upmigrate",
 		.data		= &sysctl_sched_capacity_margin_up,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
-		.mode		= 0644,
+		.mode		= 0444,
 		.proc_handler	= sched_updown_migrate_handler,
 	},
 	{
 		.procname	= "sched_downmigrate",
 		.data		= &sysctl_sched_capacity_margin_down,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
-		.mode		= 0644,
+		.mode		= 0444,
 		.proc_handler	= sched_updown_migrate_handler,
 	},
 	{
 		.procname	= "sched_upmigrate_boosted",
 		.data		= &sysctl_sched_capacity_margin_up_boosted,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
-		.mode		= 0644,
+		.mode		= 0444,
 		.proc_handler	= sched_updown_migrate_handler_boosted,
 	},
 	{
 		.procname	= "sched_downmigrate_boosted",
 		.data		= &sysctl_sched_capacity_margin_down_boosted,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
-		.mode		= 0644,
+		.mode		= 0444,
 		.proc_handler	= sched_updown_migrate_handler_boosted,
 	},
 	{
@@ -1142,17 +1139,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec_minmax_sysadmin,
 		.extra1		= &zero,
 		.extra2		= &two,
-	},
-#endif
-#ifdef CONFIG_USB
-	{
-		.procname	= "deny_new_usb",
-		.data		= &deny_new_usb,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax_sysadmin,
-		.extra1		= &zero,
-		.extra2		= &one,
 	},
 #endif
 	{

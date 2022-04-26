@@ -25,6 +25,7 @@
 #include <linux/err.h>
 #include <linux/page_ref.h>
 #include <linux/memremap.h>
+#include <linux/sched.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -810,11 +811,13 @@ int finish_mkwrite_fault(struct vm_fault *vmf);
  */
 
 /* Page flags: | [SECTION] | [NODE] | ZONE | [LAST_CPUPID] | ... | FLAGS | */
-#define SECTIONS_PGOFF		((sizeof(unsigned long)*8) - SECTIONS_WIDTH)
+#define SECTIONS_PGOFF		(BITS_PER_LONG - SECTIONS_WIDTH)
 #define NODES_PGOFF		(SECTIONS_PGOFF - NODES_WIDTH)
 #define ZONES_PGOFF		(NODES_PGOFF - ZONES_WIDTH)
 #define LAST_CPUPID_PGOFF	(ZONES_PGOFF - LAST_CPUPID_WIDTH)
 #define KASAN_TAG_PGOFF		(LAST_CPUPID_PGOFF - KASAN_TAG_WIDTH)
+#define LRU_GEN_PGOFF		(LAST_CPUPID_PGOFF - LRU_GEN_WIDTH)
+#define LRU_USAGE_PGOFF		(LRU_GEN_PGOFF - LRU_USAGE_WIDTH)
 
 /*
  * Define the bit shifts to access each section.  For non-existent
@@ -840,8 +843,8 @@ int finish_mkwrite_fault(struct vm_fault *vmf);
 
 #define ZONEID_PGSHIFT		(ZONEID_PGOFF * (ZONEID_SHIFT != 0))
 
-#if SECTIONS_WIDTH+NODES_WIDTH+ZONES_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
-#error SECTIONS_WIDTH+NODES_WIDTH+ZONES_WIDTH > BITS_PER_LONG - NR_PAGEFLAGS
+#if LRU_USAGE_PGOFF < NR_PAGEFLAGS
+#error LRU_USAGE_PGOFF < NR_PAGEFLAGS
 #endif
 
 #define ZONES_MASK		((1UL << ZONES_WIDTH) - 1)
@@ -1405,6 +1408,8 @@ void unmap_vmas(struct mmu_gather *tlb, struct vm_area_struct *start_vma,
  * (see the comment on walk_page_range() for more details)
  */
 struct mm_walk {
+	int (*p4d_entry)(p4d_t *p4d, unsigned long addr,
+			 unsigned long next, struct mm_walk *walk);
 	int (*pud_entry)(pud_t *pud, unsigned long addr,
 			 unsigned long next, struct mm_walk *walk);
 	int (*pmd_entry)(pmd_t *pmd, unsigned long addr,
@@ -1540,6 +1545,23 @@ static inline bool can_reuse_spf_vma(struct vm_area_struct *vma,
 extern int fixup_user_fault(struct task_struct *tsk, struct mm_struct *mm,
 			    unsigned long address, unsigned int fault_flags,
 			    bool *unlocked);
+
+static inline void task_enter_user_fault(void)
+{
+	WARN_ON(current->in_user_fault);
+	current->in_user_fault = 1;
+}
+
+static inline void task_exit_user_fault(void)
+{
+	WARN_ON(!current->in_user_fault);
+	current->in_user_fault = 0;
+}
+
+static inline bool task_in_user_fault(void)
+{
+	return current->in_user_fault;
+}
 #else
 static inline int handle_mm_fault(struct vm_area_struct *vma,
 		unsigned long address, unsigned int flags)
@@ -1555,6 +1577,19 @@ static inline int fixup_user_fault(struct task_struct *tsk,
 	/* should never happen if there's no MMU */
 	BUG();
 	return -EFAULT;
+}
+
+static inline void task_enter_user_fault(void)
+{
+}
+
+static inline void task_exit_user_fault(void)
+{
+}
+
+static inline bool task_in_user_fault(void)
+{
+	return false;
 }
 #endif
 
@@ -1817,6 +1852,13 @@ static inline int __p4d_alloc(struct mm_struct *mm, pgd_t *pgd,
 {
 	return 0;
 }
+
+static inline unsigned long mm_nr_puds(const struct mm_struct *mm)
+{
+	return 0;
+}
+
+static inline void mm_nr_puds_init(struct mm_struct *mm) {}
 static inline void mm_inc_nr_puds(struct mm_struct *mm) {}
 static inline void mm_dec_nr_puds(struct mm_struct *mm) {}
 
@@ -1833,14 +1875,24 @@ static inline int __pud_alloc(struct mm_struct *mm, p4d_t *p4d,
 #else
 int __pud_alloc(struct mm_struct *mm, p4d_t *p4d, unsigned long address);
 
+static inline void mm_nr_puds_init(struct mm_struct *mm)
+{
+	atomic_long_set(&mm->nr_puds, 0);
+}
+
+static inline unsigned long mm_nr_puds(const struct mm_struct *mm)
+{
+	return atomic_long_read(&mm->nr_puds);
+}
+
 static inline void mm_inc_nr_puds(struct mm_struct *mm)
 {
-	atomic_long_add(PTRS_PER_PUD * sizeof(pud_t), &mm->pgtables_bytes);
+	atomic_long_inc(&mm->nr_puds);
 }
 
 static inline void mm_dec_nr_puds(struct mm_struct *mm)
 {
-	atomic_long_sub(PTRS_PER_PUD * sizeof(pud_t), &mm->pgtables_bytes);
+	atomic_long_dec(&mm->nr_puds);
 }
 #endif
 
@@ -1851,47 +1903,64 @@ static inline int __pmd_alloc(struct mm_struct *mm, pud_t *pud,
 	return 0;
 }
 
+static inline void mm_nr_pmds_init(struct mm_struct *mm) {}
+
+static inline unsigned long mm_nr_pmds(const struct mm_struct *mm)
+{
+	return 0;
+}
+
 static inline void mm_inc_nr_pmds(struct mm_struct *mm) {}
 static inline void mm_dec_nr_pmds(struct mm_struct *mm) {}
 
 #else
 int __pmd_alloc(struct mm_struct *mm, pud_t *pud, unsigned long address);
 
+static inline void mm_nr_pmds_init(struct mm_struct *mm)
+{
+	atomic_long_set(&mm->nr_pmds, 0);
+}
+
+static inline unsigned long mm_nr_pmds(const struct mm_struct *mm)
+{
+	return atomic_long_read(&mm->nr_pmds);
+}
+
 static inline void mm_inc_nr_pmds(struct mm_struct *mm)
 {
-	atomic_long_add(PTRS_PER_PMD * sizeof(pmd_t), &mm->pgtables_bytes);
+	atomic_long_inc(&mm->nr_pmds);
 }
 
 static inline void mm_dec_nr_pmds(struct mm_struct *mm)
 {
-	atomic_long_sub(PTRS_PER_PMD * sizeof(pmd_t), &mm->pgtables_bytes);
+	atomic_long_dec(&mm->nr_pmds);
 }
 #endif
 
 #ifdef CONFIG_MMU
-static inline void mm_pgtables_bytes_init(struct mm_struct *mm)
+static inline void mm_nr_ptes_init(struct mm_struct *mm)
 {
-	atomic_long_set(&mm->pgtables_bytes, 0);
+	atomic_long_set(&mm->nr_ptes, 0);
 }
 
-static inline unsigned long mm_pgtables_bytes(const struct mm_struct *mm)
+static inline unsigned long mm_nr_ptes(const struct mm_struct *mm)
 {
-	return atomic_long_read(&mm->pgtables_bytes);
+	return atomic_long_read(&mm->nr_ptes);
 }
 
 static inline void mm_inc_nr_ptes(struct mm_struct *mm)
 {
-	atomic_long_add(PTRS_PER_PTE * sizeof(pte_t), &mm->pgtables_bytes);
+	atomic_long_inc(&mm->nr_ptes);
 }
 
 static inline void mm_dec_nr_ptes(struct mm_struct *mm)
 {
-	atomic_long_sub(PTRS_PER_PTE * sizeof(pte_t), &mm->pgtables_bytes);
+	atomic_long_dec(&mm->nr_ptes);
 }
 #else
+static inline void mm_nr_ptes_init(struct mm_struct *mm) {}
 
-static inline void mm_pgtables_bytes_init(struct mm_struct *mm) {}
-static inline unsigned long mm_pgtables_bytes(const struct mm_struct *mm)
+static inline unsigned long mm_nr_ptes(const struct mm_struct *mm)
 {
 	return 0;
 }

@@ -440,8 +440,7 @@ extern long simple_strtol(const char *,char **,unsigned int);
 extern unsigned long long simple_strtoull(const char *,char **,unsigned int);
 extern long long simple_strtoll(const char *,char **,unsigned int);
 
-extern int num_to_str(char *buf, int size,
-		      unsigned long long num, unsigned int width);
+extern int num_to_str(char *buf, int size, unsigned long long num);
 
 /* lib/printf utilities */
 
@@ -543,6 +542,7 @@ extern enum system_states {
 	SYSTEM_HALT,
 	SYSTEM_POWER_OFF,
 	SYSTEM_RESTART,
+	SYSTEM_SUSPEND,
 } system_state;
 
 #define TAINT_PROPRIETARY_MODULE	0

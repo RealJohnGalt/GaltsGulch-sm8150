@@ -760,7 +760,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #ifdef CONFIG_CC_STACKPROTECTOR
 	tsk->stack_canary = get_random_canary();
 #endif
-
+	if (orig->cpus_ptr == &orig->cpus_mask)
+		tsk->cpus_ptr = &tsk->cpus_mask;
 	/*
 	 * One for us, one for whoever does the "release_task()" (usually
 	 * parent)
@@ -854,7 +855,9 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	init_rwsem(&mm->mmap_sem);
 	INIT_LIST_HEAD(&mm->mmlist);
 	mm->core_state = NULL;
-	mm_pgtables_bytes_init(mm);
+	mm_nr_ptes_init(mm);
+	mm_nr_pmds_init(mm);
+	mm_nr_puds_init(mm);
 	mm->map_count = 0;
 	mm->locked_vm = 0;
 	mm->pinned_vm = 0;
@@ -889,6 +892,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 		goto fail_nocontext;
 
 	mm->user_ns = get_user_ns(user_ns);
+	lru_gen_init_mm(mm);
 	return mm;
 
 fail_nocontext:
@@ -916,13 +920,20 @@ static void check_mm(struct mm_struct *mm)
 					  "mm:%p idx:%d val:%ld\n", mm, i, x);
 	}
 
-	if (mm_pgtables_bytes(mm))
-		pr_alert("BUG: non-zero pgtables_bytes on freeing mm: %ld\n",
-				mm_pgtables_bytes(mm));
+	if (mm_nr_ptes(mm))
+		pr_alert("BUG: non-zero nr_ptes on freeing mm: %ld\n",
+				mm_nr_ptes(mm));
+	if (mm_nr_pmds(mm))
+		pr_alert("BUG: non-zero nr_pmds on freeing mm: %ld\n",
+				mm_nr_pmds(mm));
+	if (mm_nr_puds(mm))
+		pr_alert("BUG: non-zero nr_puds on freeing mm: %ld\n",
+				mm_nr_puds(mm));
 
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 	VM_BUG_ON_MM(mm->pmd_huge_pte, mm);
 #endif
+	VM_BUG_ON_MM(lru_gen_mm_is_active(mm), mm);
 }
 
 /*
@@ -977,6 +988,7 @@ static inline void __mmput(struct mm_struct *mm)
 	}
 	if (mm->binfmt)
 		module_put(mm->binfmt->module);
+	lru_gen_del_mm(mm);
 	mmdrop(mm);
 }
 
@@ -2301,6 +2313,13 @@ long _do_fork(unsigned long clone_flags,
 			p->vfork_done = &vfork;
 			init_completion(&vfork);
 			get_task_struct(p);
+		}
+
+		if (IS_ENABLED(CONFIG_LRU_GEN) && !(clone_flags & CLONE_VM)) {
+			/* lock the task to synchronize with memcg migration */
+			task_lock(p);
+			lru_gen_add_mm(p->mm);
+			task_unlock(p);
 		}
 
 		wake_up_new_task(p);

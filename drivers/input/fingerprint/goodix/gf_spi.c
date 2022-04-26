@@ -49,6 +49,8 @@
 #include <linux/timer.h>
 #include <linux/uaccess.h>
 #include <linux/workqueue.h>
+#include <linux/cpu_input_boost.h>
+#include <linux/devfreq_boost.h>
 #include <net/netlink.h>
 #include <net/sock.h>
 #include "gf_spi.h"
@@ -263,7 +265,7 @@ static inline int irq_setup(struct gf_dev *gf_dev)
 	int status;
 	gf_dev->irq = gpio_to_irq(gf_dev->irq_gpio);
 	status = request_threaded_irq(gf_dev->irq, NULL, gf_irq,
-			IRQF_TRIGGER_RISING | IRQF_ONESHOT | IRQF_HP_AFFINE,
+			IRQF_TRIGGER_RISING | IRQF_ONESHOT |IRQF_NO_SUSPEND | IRQF_FORCE_RESUME | IRQF_HP_AFFINE,
 			"gf", gf_dev);
 
 	if (status) {
@@ -445,6 +447,9 @@ int gf_opticalfp_irq_handler(int event)
 		return 0;
 	}
 	if (event == 1) {
+		cpu_input_boost_kick_max(1000);
+		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
+		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1000);
 		msg = GF_NET_EVENT_TP_TOUCHDOWN;
 		sendnlmsg(&msg);
 	} else if (event == 0) {
