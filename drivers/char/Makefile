@@ -2,6 +2,8 @@
 #
 # Makefile for the kernel character device drivers.
 #
+ccflags-y += -mllvm -inline-threshold=15000
+ccflags-y += -mllvm -inlinehint-threshold=10000
 
 obj-y				+= mem.o
 obj-$(CONFIG_SRANDOM)		+= srandom.o
