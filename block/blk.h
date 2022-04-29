@@ -77,6 +77,26 @@ static inline void blk_queue_enter_live(struct request_queue *q)
 	percpu_ref_get(&q->q_usage_counter);
 }
 
+#ifndef ARCH_BIOVEC_PHYS_MERGEABLE
+#define ARCH_BIOVEC_PHYS_MERGEABLE(vec1, vec2) true
+#endif
+
+static inline bool biovec_phys_mergeable(struct request_queue *q,
+		struct bio_vec *vec1, struct bio_vec *vec2)
+{
+	unsigned long mask = queue_segment_boundary(q);
+	phys_addr_t addr1 = bvec_to_phys(vec1);
+	phys_addr_t addr2 = bvec_to_phys(vec2);
+
+	if (addr1 + vec1->bv_len != addr2)
+		return false;
+	if (!ARCH_BIOVEC_PHYS_MERGEABLE(vec1, vec2))
+		return false;
+	if ((addr1 | mask) != ((addr2 + vec2->bv_len - 1) | mask))
+		return false;
+	return true;
+}
+
 #ifdef CONFIG_BLK_DEV_INTEGRITY
 void blk_flush_integrity(void);
 bool __bio_integrity_endio(struct bio *);
@@ -118,33 +138,23 @@ void blk_account_io_completion(struct request *req, unsigned int bytes);
 void blk_account_io_done(struct request *req);
 
 /*
- * Internal atomic flags for request handling
- */
-enum rq_atomic_flags {
-	/*
-	 * Keep these two bits first - not because we depend on the
-	 * value of them, but we do depend on them being in the same
-	 * byte of storage to ensure ordering on writes. Keeping them
-	 * first will achieve that nicely.
-	 */
-	REQ_ATOM_COMPLETE = 0,
-	REQ_ATOM_STARTED,
-
-	REQ_ATOM_POLL_SLEPT,
-};
-
-/*
  * EH timer and IO completion will both attempt to 'grab' the request, make
- * sure that only one of them succeeds
+ * sure that only one of them succeeds. Steal the bottom bit of the
+ * __deadline field for this.
  */
 static inline int blk_mark_rq_complete(struct request *rq)
 {
-	return test_and_set_bit(REQ_ATOM_COMPLETE, &rq->atomic_flags);
+	return test_and_set_bit(0, &rq->__deadline);
 }
 
 static inline void blk_clear_rq_complete(struct request *rq)
 {
-	clear_bit(REQ_ATOM_COMPLETE, &rq->atomic_flags);
+	clear_bit(0, &rq->__deadline);
+}
+
+static inline bool blk_rq_is_complete(struct request *rq)
+{
+	return test_bit(0, &rq->__deadline);
 }
 
 /*
@@ -286,6 +296,31 @@ static inline void req_set_nomerge(struct request_queue *q, struct request *req)
 	req->cmd_flags |= REQ_NOMERGE;
 	if (req == q->last_merge)
 		q->last_merge = NULL;
+}
+
+/*
+ * The max size one bio can handle is UINT_MAX becasue bvec_iter.bi_size
+ * is defined as 'unsigned int', meantime it has to aligned to with logical
+ * block size which is the minimum accepted unit by hardware.
+ */
+static inline unsigned int bio_allowed_max_sectors(struct request_queue *q)
+{
+	return round_down(UINT_MAX, queue_logical_block_size(q)) >> 9;
+}
+
+/*
+ * Steal a bit from this field for legacy IO path atomic IO marking. Note that
+ * setting the deadline clears the bottom bit, potentially clearing the
+ * completed bit. The user has to be OK with this (current ones are fine).
+ */
+static inline void blk_rq_set_deadline(struct request *rq, unsigned long time)
+{
+	rq->__deadline = time & ~0x1UL;
+}
+
+static inline unsigned long blk_rq_deadline(struct request *rq)
+{
+	return rq->__deadline & ~0x1UL;
 }
 
 /*

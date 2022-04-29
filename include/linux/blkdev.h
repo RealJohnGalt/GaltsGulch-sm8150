@@ -27,6 +27,8 @@
 #include <linux/percpu-refcount.h>
 #include <linux/scatterlist.h>
 #include <linux/blkzoned.h>
+#include <linux/seqlock.h>
+#include <linux/u64_stats_sync.h>
 
 struct module;
 struct scsi_ioctl_command;
@@ -129,6 +131,10 @@ typedef __u32 __bitwise req_flags_t;
 #define RQF_SPECIAL_PAYLOAD	((__force req_flags_t)(1 << 18))
 /* increased nr_pending for this request */
 #define RQF_PM_ADDED		((__force req_flags_t)(1 << 19))
+/* timeout is expired */
+#define RQF_MQ_TIMEOUT_EXPIRED	((__force req_flags_t)(1 << 20))
+/* already slept for hybrid poll */
+#define RQF_MQ_POLL_SLEPT	((__force req_flags_t)(1 << 21))
 
 /* flags that prevent us from merging requests: */
 #define RQF_NOMERGE_FLAGS \
@@ -141,14 +147,8 @@ typedef __u32 __bitwise req_flags_t;
  * especially blk_mq_rq_ctx_init() to take care of the added fields.
  */
 struct request {
-	struct list_head queuelist;
-	struct list_head fg_list;
-	union {
-		struct __call_single_data csd;
-		u64 fifo_time;
-	};
-
 	struct request_queue *q;
+	struct list_head fg_list;
 	struct blk_mq_ctx *mq_ctx;
 
 	int cpu;
@@ -157,8 +157,6 @@ struct request {
 
 	int internal_tag;
 
-	unsigned long atomic_flags;
-
 	/* the following two fields are internal, NEVER access directly */
 	unsigned int __data_len;	/* total data len */
 	int tag;
@@ -166,6 +164,8 @@ struct request {
 
 	struct bio *bio;
 	struct bio *biotail;
+
+	struct list_head queuelist;
 
 	/*
 	 * The hash is used inside the scheduler, and killed once the
@@ -214,19 +214,16 @@ struct request {
 	struct hd_struct *part;
 	unsigned long start_time;
 	struct blk_issue_stat issue_stat;
-#ifdef CONFIG_BLK_CGROUP
-	struct request_list *rl;		/* rl this rq is alloced from */
-	unsigned long long start_time_ns;
-	unsigned long long io_start_time_ns;    /* when passed to hardware */
-#endif
 	/* Number of scatter-gather DMA addr+len pairs after
 	 * physical address coalescing is performed.
 	 */
 	unsigned short nr_phys_segments;
+
 #if defined(CONFIG_BLK_DEV_INTEGRITY)
 	unsigned short nr_integrity_segments;
 #endif
 
+	unsigned short write_hint;
 	unsigned short ioprio;
 
 	unsigned int timeout;
@@ -235,10 +232,36 @@ struct request {
 
 	unsigned int extra_len;	/* length of alignment and padding */
 
-	unsigned short write_hint;
+	/*
+	 * On blk-mq, the lower bits of ->gstate (generation number and
+	 * state) carry the MQ_RQ_* state value and the upper bits the
+	 * generation number which is monotonically incremented and used to
+	 * distinguish the reuse instances.
+	 *
+	 * ->gstate_seq allows updates to ->gstate and other fields
+	 * (currently ->deadline) during request start to be read
+	 * atomically from the timeout path, so that it can operate on a
+	 * coherent set of information.
+	 */
+	seqcount_t gstate_seq;
+	u64 gstate;
 
-	unsigned long deadline;
+	/*
+	 * ->aborted_gstate is used by the timeout to claim a specific
+	 * recycle instance of this request.  See blk_mq_timeout_work().
+	 */
+	struct u64_stats_sync aborted_gstate_sync;
+	u64 aborted_gstate;
+
+	/* access through blk_rq_set_deadline, blk_rq_deadline */
+	unsigned long __deadline;
+
 	struct list_head timeout_list;
+
+	union {
+		call_single_data_t csd;
+		u64 fifo_time;
+	};
 
 	/*
 	 * completion callback.
@@ -251,6 +274,12 @@ struct request {
 
 	ktime_t			lat_hist_io_start;
 	int			lat_hist_enabled;
+
+#ifdef CONFIG_BLK_CGROUP
+	struct request_list *rl;		/* rl this rq is alloced from */
+	unsigned long long start_time_ns;
+	unsigned long long io_start_time_ns;    /* when passed to hardware */
+#endif
 };
 
 static inline bool blk_op_is_scsi(unsigned int op)
@@ -685,6 +714,11 @@ struct request_queue {
 				 (1 << QUEUE_FLAG_WC)		|	\
 				 (1 << QUEUE_FLAG_POLL))
 
+void blk_queue_flag_set(unsigned int flag, struct request_queue *q);
+void blk_queue_flag_clear(unsigned int flag, struct request_queue *q);
+bool blk_queue_flag_test_and_set(unsigned int flag, struct request_queue *q);
+bool blk_queue_flag_test_and_clear(unsigned int flag, struct request_queue *q);
+
 /*
  * @q->queue_lock is set while a queue is being initialized. Since we know
  * that no other threads access the queue object before @q->queue_lock has
@@ -971,6 +1005,10 @@ struct req_iterator {
 #define rq_for_each_segment(bvl, _rq, _iter)			\
 	__rq_for_each_bio(_iter.bio, _rq)			\
 		bio_for_each_segment(bvl, _iter.bio, _iter.iter)
+
+#define rq_for_each_bvec(bvl, _rq, _iter)			\
+	__rq_for_each_bio(_iter.bio, _rq)			\
+		bio_for_each_bvec(bvl, _iter.bio, _iter.iter)
 
 #define rq_iter_last(bvec, _iter)				\
 		(_iter.bio->bi_next == NULL &&			\
@@ -1306,7 +1344,8 @@ extern long nr_blockdev_pages(void);
 
 bool __must_check blk_get_queue(struct request_queue *);
 struct request_queue *blk_alloc_queue(gfp_t);
-struct request_queue *blk_alloc_queue_node(gfp_t, int);
+struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id,
+					   spinlock_t *lock);
 extern void blk_put_queue(struct request_queue *);
 extern void blk_set_queue_dying(struct request_queue *);
 
@@ -1730,79 +1769,8 @@ static inline bool bvec_gap_to_prev(struct request_queue *q,
 	return __bvec_gap_to_prev(q, bprv, offset);
 }
 
-/*
- * Check if the two bvecs from two bios can be merged to one segment.
- * If yes, no need to check gap between the two bios since the 1st bio
- * and the 1st bvec in the 2nd bio can be handled in one segment.
- */
-static inline bool bios_segs_mergeable(struct request_queue *q,
-		struct bio *prev, struct bio_vec *prev_last_bv,
-		struct bio_vec *next_first_bv)
-{
-	if (!BIOVEC_PHYS_MERGEABLE(prev_last_bv, next_first_bv))
-		return false;
-	if (!BIOVEC_SEG_BOUNDARY(q, prev_last_bv, next_first_bv))
-		return false;
-	if (prev->bi_seg_back_size + next_first_bv->bv_len >
-			queue_max_segment_size(q))
-		return false;
-	return true;
-}
-
-static inline bool bio_will_gap(struct request_queue *q,
-				struct request *prev_rq,
-				struct bio *prev,
-				struct bio *next)
-{
-	if (bio_has_data(prev) && queue_virt_boundary(q)) {
-		struct bio_vec pb, nb;
-
-		/*
-		 * don't merge if the 1st bio starts with non-zero
-		 * offset, otherwise it is quite difficult to respect
-		 * sg gap limit. We work hard to merge a huge number of small
-		 * single bios in case of mkfs.
-		 */
-		if (prev_rq)
-			bio_get_first_bvec(prev_rq->bio, &pb);
-		else
-			bio_get_first_bvec(prev, &pb);
-		if (pb.bv_offset)
-			return true;
-
-		/*
-		 * We don't need to worry about the situation that the
-		 * merged segment ends in unaligned virt boundary:
-		 *
-		 * - if 'pb' ends aligned, the merged segment ends aligned
-		 * - if 'pb' ends unaligned, the next bio must include
-		 *   one single bvec of 'nb', otherwise the 'nb' can't
-		 *   merge with 'pb'
-		 */
-		bio_get_last_bvec(prev, &pb);
-		bio_get_first_bvec(next, &nb);
-
-		if (!bios_segs_mergeable(q, prev, &pb, &nb))
-			return __bvec_gap_to_prev(q, &pb, nb.bv_offset);
-	}
-
-	return false;
-}
-
-static inline bool req_gap_back_merge(struct request *req, struct bio *bio)
-{
-	return bio_will_gap(req->q, req, req->biotail, bio);
-}
-
-static inline bool req_gap_front_merge(struct request *req, struct bio *bio)
-{
-	return bio_will_gap(req->q, NULL, bio, req->bio);
-}
-
 int kblockd_schedule_work(struct work_struct *work);
 int kblockd_schedule_work_on(int cpu, struct work_struct *work);
-int kblockd_schedule_delayed_work(struct delayed_work *dwork, unsigned long delay);
-int kblockd_schedule_delayed_work_on(int cpu, struct delayed_work *dwork, unsigned long delay);
 int kblockd_mod_delayed_work_on(int cpu, struct delayed_work *dwork, unsigned long delay);
 
 #ifdef CONFIG_BLK_CGROUP

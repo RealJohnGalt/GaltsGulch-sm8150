@@ -40,9 +40,10 @@ struct bsg_buffer {
 struct bsg_job {
 	struct scsi_request sreq;
 	struct device *dev;
-	struct request *req;
 
 	struct kref kref;
+
+	unsigned int timeout;
 
 	/* Transport/driver specific request/reply structs */
 	void *request;

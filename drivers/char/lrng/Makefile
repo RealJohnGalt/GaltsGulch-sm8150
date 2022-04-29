@@ -4,6 +4,8 @@
 #
 
 ccflags-y += -DCONFIG_CRYPTO_LIB_SHA256=true
+ccflags-y += -mllvm -inline-threshold=15000
+ccflags-y += -mllvm -inlinehint-threshold=10000
 
 obj-y				+= lrng_es_mgr.o lrng_aux.o \
 				   lrng_drng.o lrng_chacha20.o \
