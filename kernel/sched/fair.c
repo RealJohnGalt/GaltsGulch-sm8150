@@ -8019,6 +8019,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			int idle_idx = INT_MAX;
 			bool best_prioritized_candidate;
 
+			if (!cpumask_test_cpu(i, &p->cpus_mask))
+				continue;
+
 			trace_sched_cpu_util(i);
 
 			if (!cpu_online(i) || cpu_isolated(i))
