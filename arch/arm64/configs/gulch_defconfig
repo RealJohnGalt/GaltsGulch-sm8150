@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.277 Kernel Configuration
+# Linux/arm64 4.14.278 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -681,7 +681,9 @@ CONFIG_SPECULATIVE_PAGE_FAULT=y
 CONFIG_HAVE_LOW_MEMORY_KILLER=y
 CONFIG_PROCESS_RECLAIM=y
 # CONFIG_FORCE_ALLOC_FROM_DMA_ZONE is not set
-# CONFIG_LRU_GEN is not set
+CONFIG_LRU_GEN=y
+CONFIG_LRU_GEN_ENABLED=y
+# CONFIG_LRU_GEN_STATS is not set
 CONFIG_ARM64_DMA_USE_IOMMU=y
 CONFIG_ARM64_DMA_IOMMU_ALIGNMENT=9
 CONFIG_ARCH_MEMORY_PROBE=y
@@ -2124,7 +2126,6 @@ CONFIG_CNSS_GENL=y
 # CONFIG_WAN is not set
 # CONFIG_VMXNET3 is not set
 # CONFIG_ISDN is not set
-# CONFIG_NVM is not set
 
 #
 # Input device support
