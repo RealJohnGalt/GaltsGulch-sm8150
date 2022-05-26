@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.280 Kernel Configuration
+# Linux/arm64 4.14.281 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -2397,7 +2397,7 @@ CONFIG_SERIAL_MSM_GENI_CONSOLE=y
 # CONFIG_SERIAL_FSL_LPUART is not set
 # CONFIG_SERIAL_CONEXANT_DIGICOLOR is not set
 # CONFIG_SERIAL_DEV_BUS is not set
-CONFIG_SRANDOM=y
+# CONFIG_SRANDOM is not set
 # CONFIG_TTY_PRINTK is not set
 # CONFIG_HVC_DCC is not set
 # CONFIG_IPMI_HANDLER is not set
@@ -5204,6 +5204,7 @@ CONFIG_MSM_TZ_LOG=y
 # File systems
 #
 CONFIG_DCACHE_WORD_ACCESS=y
+CONFIG_FS_IOMAP=y
 # CONFIG_EXT2_FS is not set
 # CONFIG_EXT3_FS is not set
 CONFIG_EXT4_FS=y
