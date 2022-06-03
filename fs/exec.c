@@ -80,7 +80,6 @@ static DEFINE_RWLOCK(binfmt_lock);
 #define HWCOMPOSER_BIN_PREFIX "/vendor/bin/hw/android.hardware.graphics.composer"
 #define QTIHW_BIN_PREFIX "/vendor/bin/hw/vendor.qti.hardware"
 #define UDFPS_BIN_PREFIX "/vendor/bin/hw/android.hardware.biometrics.fingerprint"
-#define SFLINGER_BIN_PREFIX "/system/bin/surfaceflinger"
 #define ZYGOTE32_BIN "/system/bin/app_process32"
 #define ZYGOTE64_BIN "/system/bin/app_process64"
 static struct signal_struct *zygote32_sig;
@@ -1043,7 +1042,6 @@ static int exec_mmap(struct mm_struct *mm)
 	active_mm = tsk->active_mm;
 	tsk->active_mm = mm;
 	tsk->mm = mm;
-	lru_gen_add_mm(mm);
 	/*
 	 * This prevents preemption while active_mm is being loaded and
 	 * it and mm are being updated, which could cause problems for
@@ -1054,7 +1052,6 @@ static int exec_mmap(struct mm_struct *mm)
 	if (!IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
 		local_irq_enable();
 	activate_mm(active_mm, mm);
-	lru_gen_switch_mm(active_mm, mm);
 	if (IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
 		local_irq_enable();
 	tsk->mm->vmacache_seqnum = 0;
@@ -1841,11 +1838,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 		} else if (unlikely(!strncmp(filename->name,
 					   UDFPS_BIN_PREFIX,
 					   strlen(UDFPS_BIN_PREFIX)))) {
-			current->pc_flags |= PC_HP_AFFINE;
-			set_cpus_allowed_ptr(current, cpu_hp_mask);
-		} else if (unlikely(!strncmp(filename->name,
-					   SFLINGER_BIN_PREFIX,
-					   strlen(SFLINGER_BIN_PREFIX)))) {
 			current->pc_flags |= PC_HP_AFFINE;
 			set_cpus_allowed_ptr(current, cpu_hp_mask);
 		} else if (unlikely(!strncmp(filename->name,

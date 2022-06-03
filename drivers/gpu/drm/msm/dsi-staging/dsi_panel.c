@@ -2030,8 +2030,7 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel)
 		goto error;
 	}
 
-	panel_mode_switch_enabled = utils->read_bool(utils->data,
-			"qcom,mdss-dsi-panel-mode-switch");
+	panel_mode_switch_enabled = true;
 	pr_info("%s: panel operating mode switch feature %s\n", __func__,
 		(panel_mode_switch_enabled ? "enabled" : "disabled"));
 
@@ -2590,8 +2589,7 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 	panel->sync_broadcast_en = utils->read_bool(utils->data,
 			"qcom,cmd-sync-wait-broadcast");
 
-	panel->lp11_init = utils->read_bool(utils->data,
-			"qcom,mdss-dsi-lp11-init");
+	panel->lp11_init = true;
 	return 0;
 }
 
@@ -3483,8 +3481,8 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
 
 	memset(roi_caps, 0, sizeof(*roi_caps));
 
-	data = utils->get_property(utils->data,
-		"qcom,partial-update-enabled", NULL);
+	//on qhd dual_roi causes severe visual glitches.
+	data = "single_roi";
 	if (data) {
 		if (!strcmp(data, "dual_roi"))
 			roi_caps->num_roi = 2;

@@ -2080,12 +2080,12 @@ static void uclamp_set(struct kernfs_open_file *of,
 	const char *cs_name = cs->css.cgroup->kn->name;
 
 	static struct ucl_param tgts[] = {
-		{"top-app",    	     	"10", "100", 1, 1},
-		{"foreground", 	     	"0",  "50",  0, 0},
+		{"top-app",    	     	"10", "max", 1, 0},
+		{"foreground", 	     	"10", "50",  1, 0},
 		{"background", 	     	"20", "100", 0, 0},
 		{"system-background", 	"0",  "40",  0, 0},
 		{"camera-daemon",	"10", "100", 1, 1},
-		{"display",		"20", "100", 1, 1},
+		{"display",		"20", "100", 1, 0},
 		{"restricted",		"0",  "40",  0, 0},
 	};
 
@@ -2583,8 +2583,11 @@ static struct notifier_block cpuset_track_online_nodes_nb = {
  */
 void __init cpuset_init_smp(void)
 {
-	cpumask_copy(top_cpuset.cpus_allowed, cpu_active_mask);
-	top_cpuset.mems_allowed = node_states[N_MEMORY];
+	/*
+	 * cpus_allowd/mems_allowed set to v2 values in the initial
+	 * cpuset_bind() call will be reset to v1 values in another
+	 * cpuset_bind() call when v1 cpuset is mounted.
+	 */
 	top_cpuset.old_mems_allowed = top_cpuset.mems_allowed;
 
 	cpumask_copy(top_cpuset.effective_cpus, cpu_active_mask);

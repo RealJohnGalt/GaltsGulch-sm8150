@@ -855,9 +855,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	init_rwsem(&mm->mmap_sem);
 	INIT_LIST_HEAD(&mm->mmlist);
 	mm->core_state = NULL;
-	mm_nr_ptes_init(mm);
-	mm_nr_pmds_init(mm);
-	mm_nr_puds_init(mm);
+	mm_pgtables_bytes_init(mm);
 	mm->map_count = 0;
 	mm->locked_vm = 0;
 	mm->pinned_vm = 0;
@@ -892,7 +890,6 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 		goto fail_nocontext;
 
 	mm->user_ns = get_user_ns(user_ns);
-	lru_gen_init_mm(mm);
 	return mm;
 
 fail_nocontext:
@@ -920,20 +917,13 @@ static void check_mm(struct mm_struct *mm)
 					  "mm:%p idx:%d val:%ld\n", mm, i, x);
 	}
 
-	if (mm_nr_ptes(mm))
-		pr_alert("BUG: non-zero nr_ptes on freeing mm: %ld\n",
-				mm_nr_ptes(mm));
-	if (mm_nr_pmds(mm))
-		pr_alert("BUG: non-zero nr_pmds on freeing mm: %ld\n",
-				mm_nr_pmds(mm));
-	if (mm_nr_puds(mm))
-		pr_alert("BUG: non-zero nr_puds on freeing mm: %ld\n",
-				mm_nr_puds(mm));
+	if (mm_pgtables_bytes(mm))
+		pr_alert("BUG: non-zero pgtables_bytes on freeing mm: %ld\n",
+				mm_pgtables_bytes(mm));
 
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 	VM_BUG_ON_MM(mm->pmd_huge_pte, mm);
 #endif
-	VM_BUG_ON_MM(lru_gen_mm_is_active(mm), mm);
 }
 
 /*
@@ -988,7 +978,6 @@ static inline void __mmput(struct mm_struct *mm)
 	}
 	if (mm->binfmt)
 		module_put(mm->binfmt->module);
-	lru_gen_del_mm(mm);
 	mmdrop(mm);
 }
 
@@ -1925,8 +1914,6 @@ static __latent_entropy struct task_struct *copy_process(
 	p->sequential_io_avg	= 0;
 #endif
 
-	p->fpack = NULL;
-
 	/* Perform scheduler related setup. Assign this task to a CPU. */
 	retval = sched_fork(clone_flags, p);
 	if (retval)
@@ -2265,9 +2252,9 @@ long _do_fork(unsigned long clone_flags,
 
 	/* Boost CPU to the max for 50 ms when userspace launches an app */
 	if (task_is_zygote(current)) {
-		cpu_input_boost_kick_max(50);
-		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 50);
-		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 50);
+		cpu_input_boost_kick_max(500);
+		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 700);
+		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 700);
 	}
 
 	/*
@@ -2313,13 +2300,6 @@ long _do_fork(unsigned long clone_flags,
 			p->vfork_done = &vfork;
 			init_completion(&vfork);
 			get_task_struct(p);
-		}
-
-		if (IS_ENABLED(CONFIG_LRU_GEN) && !(clone_flags & CLONE_VM)) {
-			/* lock the task to synchronize with memcg migration */
-			task_lock(p);
-			lru_gen_add_mm(p->mm);
-			task_unlock(p);
 		}
 
 		wake_up_new_task(p);

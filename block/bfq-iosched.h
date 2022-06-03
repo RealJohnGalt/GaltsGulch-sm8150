@@ -337,6 +337,11 @@ struct bfq_queue {
 	 * last transition from idle to backlogged.
 	 */
 	unsigned long service_from_backlogged;
+	/*
+	 * Cumulative service received from the @bfq_queue since its
+	 * last transition to weight-raised state.
+	 */
+	unsigned long service_from_wr;
 
 	/*
 	 * Value of wr start time when switching to soft rt
@@ -492,7 +497,7 @@ struct bfq_data {
 	u64 delta_from_first;
 	/*
 	 * Current estimate of the device peak rate, measured in
-	 * [BFQ_RATE_SHIFT * sectors/usec]. The left-shift by
+	 * [(sectors/usec) / 2^BFQ_RATE_SHIFT]. The left-shift by
 	 * BFQ_RATE_SHIFT is performed to increase precision in
 	 * fixed-point calculations.
 	 */
@@ -627,6 +632,18 @@ struct bfq_data {
 	struct bfq_io_cq *bio_bic;
 	/* bfqq associated with the task issuing current bio for merging */
 	struct bfq_queue *bio_bfqq;
+
+	/*
+	 * Cached sbitmap shift, used to compute depth limits in
+	 * bfq_update_depths.
+	 */
+	unsigned int sb_shift;
+
+	/*
+	 * Depth limits used in bfq_limit_depth (see comments on the
+	 * function)
+	 */
+	unsigned int word_depths[2][2];
 };
 
 enum bfqq_state_flags {
@@ -713,9 +730,9 @@ struct bfqg_stats {
 	/* total time with empty current active q with other requests queued */
 	struct blkg_stat		empty_time;
 	/* fields after this shouldn't be cleared on stat reset */
-	uint64_t			start_group_wait_time;
-	uint64_t			start_idle_time;
-	uint64_t			start_empty_time;
+	u64				start_group_wait_time;
+	u64				start_idle_time;
+	u64				start_empty_time;
 	uint16_t			flags;
 #endif	/* CONFIG_BFQ_GROUP_IOSCHED */
 };
@@ -837,8 +854,8 @@ void bfqg_stats_update_io_add(struct bfq_group *bfqg, struct bfq_queue *bfqq,
 			      unsigned int op);
 void bfqg_stats_update_io_remove(struct bfq_group *bfqg, unsigned int op);
 void bfqg_stats_update_io_merged(struct bfq_group *bfqg, unsigned int op);
-void bfqg_stats_update_completion(struct bfq_group *bfqg, uint64_t start_time,
-				  uint64_t io_start_time, unsigned int op);
+void bfqg_stats_update_completion(struct bfq_group *bfqg, u64 start_time_ns,
+				  u64 io_start_time_ns, unsigned int op);
 void bfqg_stats_update_dequeue(struct bfq_group *bfqg);
 void bfqg_stats_set_start_empty_time(struct bfq_group *bfqg);
 void bfqg_stats_update_idle_time(struct bfq_group *bfqg);

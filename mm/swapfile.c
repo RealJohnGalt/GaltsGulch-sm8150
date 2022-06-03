@@ -639,7 +639,6 @@ static void add_to_avail_list(struct swap_info_struct *p)
 static void swap_range_free(struct swap_info_struct *si, unsigned long offset,
 			    unsigned int nr_entries)
 {
-	unsigned long begin = offset;
 	unsigned long end = offset + nr_entries - 1;
 	void (*swap_slot_free_notify)(struct block_device *, unsigned long);
 
@@ -665,7 +664,6 @@ static void swap_range_free(struct swap_info_struct *si, unsigned long offset,
 			swap_slot_free_notify(si->bdev, offset);
 		offset++;
 	}
-	clear_shadow_from_swap_cache(si->type, begin, end);
 }
 
 static int scan_swap_map_slots(struct swap_info_struct *si,
@@ -2714,8 +2712,6 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 	err = 0;
 	atomic_inc(&proc_poll_event);
 	wake_up_interruptible(&proc_poll_wait);
-	/* stop tracking anon if the multigenerational lru is turned off */
-	lru_gen_set_state(false, false, true);
 
 out_dput:
 	filp_close(victim, NULL);
@@ -3345,8 +3341,6 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 	mutex_unlock(&swapon_mutex);
 	atomic_inc(&proc_poll_event);
 	wake_up_interruptible(&proc_poll_wait);
-	/* start tracking anon if the multigenerational lru is turned on */
-	lru_gen_set_state(true, false, true);
 
 	error = 0;
 	goto out;

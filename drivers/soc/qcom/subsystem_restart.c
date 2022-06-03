@@ -1624,6 +1624,9 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		return 0;
 	}
 
+	if (!strcmp(name, "modem"))
+		dev->restart_level = RESET_SUBSYS_COUPLED;
+
 	switch (dev->restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
@@ -2029,7 +2032,8 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 			desc->generic_irq = ret;
 	}
 
-	desc->ignore_ssr_failure = true;
+	desc->ignore_ssr_failure = of_property_read_bool(pdev->dev.of_node,
+						"qcom,ignore-ssr-failure");
 
 	order = ssr_parse_restart_orders(desc);
 	if (IS_ERR(order)) {

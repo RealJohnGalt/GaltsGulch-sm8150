@@ -970,11 +970,11 @@ struct task_struct {
 #ifndef TIF_RESTORE_SIGMASK
 	unsigned			restore_sigmask:1;
 #endif
-#ifdef CONFIG_MMU
+#ifdef CONFIG_MEMCG
 	unsigned			in_user_fault:1;
-#endif
-#if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
+#ifndef CONFIG_SLOB
 	unsigned			memcg_kmem_skip_account:1;
+#endif
 #endif
 #ifdef CONFIG_COMPAT_BRK
 	unsigned			brk_randomized:1;
@@ -984,6 +984,10 @@ struct task_struct {
 	unsigned			no_cgroup_migration:1;
 	/* task is frozen/stopped (used by the cgroup freezer) */
 	unsigned			frozen:1;
+#endif
+#ifdef CONFIG_PSI
+	/* Stalled due to lack of memory */
+	unsigned			in_memstall:1;
 #endif
 
 	unsigned long			atomic_flags; /* Flags requiring atomic access. */
@@ -1455,10 +1459,6 @@ struct task_struct {
 	struct task_struct		*simple_lmk_next;
 #endif
 
-#ifdef CONFIG_FUSE_SHORTCIRCUIT
-	int fuse_boost;
-#endif
-
 	struct {
 		struct work_struct work;
 		atomic_t running;
@@ -1471,8 +1471,6 @@ struct task_struct {
 	 */
 	randomized_struct_fields_end
 
-	struct fuse_package *fpack;
-
 	/* CPU-specific state of this task: */
 	struct thread_struct		thread;
 
@@ -1482,12 +1480,6 @@ struct task_struct {
 	 *
 	 * Do not put anything below here!
 	 */
-};
-
-struct fuse_package {
-	bool fuse_open_req;
-	struct file *filp;
-	char *iname;
 };
 
 static inline struct pid *task_pid(struct task_struct *task)
@@ -1689,7 +1681,6 @@ extern struct pid *cad_pid;
 #define PF_RANDOMIZE		0x00400000	/* Randomize virtual address space */
 #define PF_SWAPWRITE		0x00800000	/* Allowed to write to swap */
 #define PF_WAKE_UP_IDLE         0x01000000	/* TTWU on an idle CPU */
-#define PF_MEMSTALL		0x02000000	/* Stalled due to lack of memory */
 #define PF_NO_SETAFFINITY	0x04000000	/* Userland is not allowed to meddle with cpus_mask */
 #define PF_MCE_EARLY		0x08000000      /* Early kill for mce process policy */
 #define PF_MUTEX_TESTER		0x20000000	/* Thread belongs to the rt mutex tester */

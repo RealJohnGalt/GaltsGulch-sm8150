@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 276
+SUBLEVEL = 281
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -508,6 +508,7 @@ CLANG_FLAGS	+= $(call cc-option, -Wno-misleading-indentation)
 CLANG_FLAGS	+= $(call cc-option, -Wno-bool-operation)
 CLANG_FLAGS	+= $(call cc-option, -Wno-unsequenced)
 CLANG_FLAGS	+= $(call cc-option, -Wno-unused-but-set-variable)
+CLANG_FLAGS	+= $(call cc-option, -opaque-pointers)
 ifeq ($(ld-name),lld)
 CLANG_FLAGS	+= -fuse-ld=$(shell which $(LD))
 endif

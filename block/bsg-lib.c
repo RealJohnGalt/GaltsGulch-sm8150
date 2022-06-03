@@ -35,7 +35,7 @@
 static void bsg_teardown_job(struct kref *kref)
 {
 	struct bsg_job *job = container_of(kref, struct bsg_job, kref);
-	struct request *rq = job->req;
+	struct request *rq = blk_mq_rq_from_pdu(job);
 
 	put_device(job->dev);	/* release reference for the request */
 
@@ -68,19 +68,18 @@ EXPORT_SYMBOL_GPL(bsg_job_get);
 void bsg_job_done(struct bsg_job *job, int result,
 		  unsigned int reply_payload_rcv_len)
 {
-	struct request *req = job->req;
+	struct request *req = blk_mq_rq_from_pdu(job);
 	struct request *rsp = req->next_rq;
-	struct scsi_request *rq = scsi_req(req);
 	int err;
 
-	err = scsi_req(job->req)->result = result;
+	err = job->sreq.result = result;
 	if (err < 0)
 		/* we're only returning the result field in the reply */
-		rq->sense_len = sizeof(u32);
+		job->sreq.sense_len = sizeof(u32);
 	else
-		rq->sense_len = job->reply_len;
+		job->sreq.sense_len = job->reply_len;
 	/* we assume all request payload was transferred, residual == 0 */
-	rq->resid_len = 0;
+	job->sreq.resid_len = 0;
 
 	if (rsp) {
 		WARN_ON(reply_payload_rcv_len > scsi_req(rsp)->resid_len);
@@ -132,6 +131,7 @@ static int bsg_prepare_job(struct device *dev, struct request *req)
 	struct bsg_job *job = blk_mq_rq_to_pdu(req);
 	int ret;
 
+	job->timeout = req->timeout;
 	job->request = rq->cmd;
 	job->request_len = rq->cmd_len;
 
@@ -231,7 +231,6 @@ static void bsg_initialize_rq(struct request *req)
 	sreq->sense = sense;
 	sreq->sense_len = SCSI_SENSE_BUFFERSIZE;
 
-	job->req = req;
 	job->reply = sense;
 	job->reply_len = sreq->sense_len;
 	job->dd_data = job + 1;
@@ -274,8 +273,8 @@ struct request_queue *bsg_setup_queue(struct device *dev, const char *name,
 
 	q->queuedata = dev;
 	q->bsg_job_fn = job_fn;
-	queue_flag_set_unlocked(QUEUE_FLAG_BIDI, q);
-	queue_flag_set_unlocked(QUEUE_FLAG_SCSI_PASSTHROUGH, q);
+	blk_queue_flag_set(QUEUE_FLAG_BIDI, q);
+	blk_queue_flag_set(QUEUE_FLAG_SCSI_PASSTHROUGH, q);
 	blk_queue_softirq_done(q, bsg_softirq_done);
 	blk_queue_rq_timeout(q, BLK_DEFAULT_SG_TIMEOUT);
 

@@ -23,12 +23,6 @@
 #include <linux/freezer.h>
 #include <linux/page_owner.h>
 #include <linux/psi.h>
-#include <linux/cpu_input_boost.h>
-#include <linux/devfreq_boost.h>
-#include <linux/msm_drm_notify.h>
-#include <linux/moduleparam.h>
-#include <linux/time.h>
-#include <linux/workqueue.h>
 #include "internal.h"
 
 #ifdef CONFIG_COMPACTION
@@ -1017,7 +1011,7 @@ isolate_migratepages_block(struct compact_control *cc, unsigned long low_pfn,
 		VM_BUG_ON_PAGE(PageCompound(page), page);
 
 		/* Successfully isolated */
-		del_page_from_lru_list(page, lruvec);
+		del_page_from_lru_list(page, lruvec, page_lru(page));
 		inc_node_page_state(page,
 				NR_ISOLATED_ANON + page_is_file_cache(page));
 
@@ -2373,50 +2367,6 @@ enum compact_result try_to_compact_pages(gfp_t gfp_mask, unsigned int order,
 	return rc;
 }
 
-static struct workqueue_struct *compaction_wq;
-static struct delayed_work compaction_work;
-static bool screen_on = true;
-static int compaction_timeout_ms = 900000;
-module_param_named(compaction_forced_timeout_ms, compaction_timeout_ms, int,
-			0644);
-static int compaction_soff_delay_ms = 3000;
-module_param_named(compaction_screen_off_delay_ms, compaction_soff_delay_ms, int,
-			0644);
-static unsigned long compaction_forced_timeout;
-
-
-static int msm_drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
-{
-	struct msm_drm_notifier *evdata = data;
-	int *blank;
-
-	if (event != MSM_DRM_EVENT_BLANK)
-		return 0;
-
-	if (evdata && evdata->data) {
-		blank = evdata->data;
-
-		switch (*blank) {
-		case MSM_DRM_BLANK_POWERDOWN:
-			screen_on = false;
-			if (time_after(jiffies, compaction_forced_timeout) && !delayed_work_busy(&compaction_work)) {
-				compaction_forced_timeout = jiffies + msecs_to_jiffies(compaction_timeout_ms);
-				queue_delayed_work(compaction_wq, &compaction_work,
-					msecs_to_jiffies(compaction_soff_delay_ms));
-			}
-		break;
-		case MSM_DRM_BLANK_UNBLANK:
-			screen_on = true;
-		break;
-		}
-	}
-
-	return 0;
-}
-
-static struct notifier_block compaction_notifier_block = {
-	.notifier_call = msm_drm_notifier_callback,
-};
 
 /* Compact all zones within a node */
 static void compact_node(int nid)
@@ -2458,32 +2408,6 @@ static void compact_nodes(void)
 
 	for_each_online_node(nid)
 		compact_node(nid);
-}
-
-#ifdef CONFIG_ZRAM
-void zram_compact(void);
-#endif
-
-static void do_compaction(struct work_struct *work)
-{
-	/* Return early if the screen is on */
-	if (screen_on)
-		return;
-
-	pr_info("Scheduled memory compaction is starting\n");
-
-	/* Do full compaction */
-	compact_nodes();
-
-#ifdef CONFIG_ZRAM
-	/* Do ZRAM compaction */
-	zram_compact();
-#endif
-
-	/* Force compaction timeout */
-	compaction_forced_timeout = jiffies + msecs_to_jiffies(compaction_timeout_ms);
-
-	pr_info("Scheduled memory compaction is completed\n");
 }
 
 /* The written value is actually unused, all memory is compacted */
@@ -2583,10 +2507,6 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 	trace_mm_compaction_kcompactd_wake(pgdat->node_id, cc.order,
 							cc.classzone_idx);
 	count_compact_event(KCOMPACTD_WAKE);
-
-	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
-	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
-	cpu_input_boost_kick_max(100);
 
 	for (zoneid = 0; zoneid <= cc.classzone_idx; zoneid++) {
 		int status;
@@ -2718,8 +2638,7 @@ int kcompactd_run(int nid)
 	if (pgdat->kcompactd)
 		return 0;
 
-	pgdat->kcompactd = kthread_run_perf_critical(cpu_hp_mask, kcompactd,
-					pgdat, "kcompactd%d", nid);
+	pgdat->kcompactd = kthread_run(kcompactd, pgdat, "kcompactd%d", nid);
 	if (IS_ERR(pgdat->kcompactd)) {
 		pr_err("Failed to start kcompactd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kcompactd);
@@ -2783,20 +2702,5 @@ static int __init kcompactd_init(void)
 	return 0;
 }
 subsys_initcall(kcompactd_init)
-
-static int  __init scheduled_compaction_init(void)
-{
-	compaction_wq = create_freezable_workqueue("compaction_wq");
-
-	if (!compaction_wq)
-		return -EFAULT;
-
-	INIT_DELAYED_WORK(&compaction_work, do_compaction);
-
-	msm_drm_register_client(&compaction_notifier_block);
-
-	return 0;
-}
-late_initcall(scheduled_compaction_init);
 
 #endif /* CONFIG_COMPACTION */
