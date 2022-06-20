@@ -203,8 +203,6 @@ void f2fs_register_inmem_page(struct inode *inode, struct page *page)
 	list_add_tail(&new->list, &F2FS_I(inode)->inmem_pages);
 	inc_page_count(F2FS_I_SB(inode), F2FS_INMEM_PAGES);
 	mutex_unlock(&F2FS_I(inode)->inmem_lock);
-
-	trace_f2fs_register_inmem_page(page, INMEM);
 }
 
 static int __revoke_inmem_pages(struct inode *inode,
@@ -217,9 +215,6 @@ static int __revoke_inmem_pages(struct inode *inode,
 
 	list_for_each_entry_safe(cur, tmp, head, list) {
 		struct page *page = cur->page;
-
-		if (drop)
-			trace_f2fs_commit_inmem_page(page, INMEM_DROP);
 
 		if (trylock) {
 			/*
@@ -237,8 +232,6 @@ static int __revoke_inmem_pages(struct inode *inode,
 		if (recover) {
 			struct dnode_of_data dn;
 			struct node_info ni;
-
-			trace_f2fs_commit_inmem_page(page, INMEM_REVOKE);
 retry:
 			set_new_dnode(&dn, inode, NULL, NULL, 0);
 			err = f2fs_get_dnode_of_data(&dn, page->index,
@@ -313,8 +306,7 @@ next:
 skip:
 		iput(inode);
 	}
-	congestion_wait(BLK_RW_ASYNC, DEFAULT_IO_TIMEOUT);
-	cond_resched();
+	f2fs_io_schedule_timeout(DEFAULT_IO_TIMEOUT);
 	if (gc_failure) {
 		if (++looped >= count)
 			return;
@@ -356,16 +348,19 @@ void f2fs_drop_inmem_page(struct inode *inode, struct page *page)
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct list_head *head = &fi->inmem_pages;
 	struct inmem_pages *cur = NULL;
+	struct inmem_pages *tmp;
 
 	f2fs_bug_on(sbi, !page_private_atomic(page));
 
 	mutex_lock(&fi->inmem_lock);
-	list_for_each_entry(cur, head, list) {
-		if (cur->page == page)
+	list_for_each_entry(tmp, head, list) {
+		if (tmp->page == page) {
+			cur = tmp;
 			break;
+		}
 	}
 
-	f2fs_bug_on(sbi, list_empty(head) || cur->page != page);
+	f2fs_bug_on(sbi, !cur);
 	list_del(&cur->list);
 	mutex_unlock(&fi->inmem_lock);
 
@@ -378,8 +373,6 @@ void f2fs_drop_inmem_page(struct inode *inode, struct page *page)
 
 	detach_page_private(page);
 	set_page_private(page, 0);
-
-	trace_f2fs_commit_inmem_page(page, INMEM_INVALIDATE);
 }
 
 static int __f2fs_commit_inmem_pages(struct inode *inode)
@@ -406,8 +399,6 @@ static int __f2fs_commit_inmem_pages(struct inode *inode)
 
 		lock_page(page);
 		if (page->mapping == inode->i_mapping) {
-			trace_f2fs_commit_inmem_page(page, INMEM);
-
 			f2fs_wait_on_page_writeback(page, DATA, true, true);
 
 			set_page_dirty(page);
@@ -605,8 +596,6 @@ static int __submit_flush_wait(struct f2fs_sb_info *sbi,
 {
 	int ret = blkdev_issue_flush(bdev, GFP_NOFS, NULL);
 
-	trace_f2fs_issue_flush(bdev, test_opt(sbi, NOBARRIER),
-				test_opt(sbi, FLUSH_MERGE), ret);
 	return ret;
 }
 
@@ -805,8 +794,7 @@ int f2fs_flush_device_cache(struct f2fs_sb_info *sbi)
 		do {
 			ret = __submit_flush_wait(sbi, FDEV(i).bdev);
 			if (ret)
-				congestion_wait(BLK_RW_ASYNC,
-						DEFAULT_IO_TIMEOUT);
+				f2fs_io_schedule_timeout(DEFAULT_IO_TIMEOUT);
 		} while (ret && --count);
 
 		if (ret) {
@@ -1080,8 +1068,6 @@ static void __remove_discard_cmd(struct f2fs_sb_info *sbi,
 	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
 	unsigned long flags;
 
-	trace_f2fs_remove_discard(dc->bdev, dc->start, dc->len);
-
 	spin_lock_irqsave(&dc->lock, flags);
 	if (dc->bio_ref) {
 		spin_unlock_irqrestore(&dc->lock, flags);
@@ -1215,8 +1201,6 @@ static int __submit_discard_cmd(struct f2fs_sb_info *sbi,
 
 	if (is_sbi_flag_set(sbi, SBI_NEED_FSCK))
 		return 0;
-
-	trace_f2fs_issue_discard(bdev, dc->start, dc->len);
 
 	lstart = dc->lstart;
 	start = dc->start;
@@ -1469,8 +1453,6 @@ static int __queue_discard_cmd(struct f2fs_sb_info *sbi,
 	if (!f2fs_bdev_support_discard(bdev))
 		return 0;
 
-	trace_f2fs_queue_discard(bdev, blkstart, blklen);
-
 	if (f2fs_is_multi_device(sbi)) {
 		int devi = f2fs_target_device_index(sbi, blkstart);
 
@@ -1670,33 +1652,32 @@ static unsigned int __wait_discard_cmd_range(struct f2fs_sb_info *sbi,
 	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
 	struct list_head *wait_list = (dpolicy->type == DPOLICY_FSTRIM) ?
 					&(dcc->fstrim_list) : &(dcc->wait_list);
-	struct discard_cmd *dc, *tmp;
-	bool need_wait;
+	struct discard_cmd *dc = NULL, *iter, *tmp;
 	unsigned int trimmed = 0;
 
 next:
-	need_wait = false;
+	dc = NULL;
 
 	mutex_lock(&dcc->cmd_lock);
-	list_for_each_entry_safe(dc, tmp, wait_list, list) {
-		if (dc->lstart + dc->len <= start || end <= dc->lstart)
+	list_for_each_entry_safe(iter, tmp, wait_list, list) {
+		if (iter->lstart + iter->len <= start || end <= iter->lstart)
 			continue;
-		if (dc->len < dpolicy->granularity)
+		if (iter->len < dpolicy->granularity)
 			continue;
-		if (dc->state == D_DONE && !dc->ref) {
-			wait_for_completion_io(&dc->wait);
-			if (!dc->error)
-				trimmed += dc->len;
-			__remove_discard_cmd(sbi, dc);
+		if (iter->state == D_DONE && !iter->ref) {
+			wait_for_completion_io(&iter->wait);
+			if (!iter->error)
+				trimmed += iter->len;
+			__remove_discard_cmd(sbi, iter);
 		} else {
-			dc->ref++;
-			need_wait = true;
+			iter->ref++;
+			dc = iter;
 			break;
 		}
 	}
 	mutex_unlock(&dcc->cmd_lock);
 
-	if (need_wait) {
+	if (dc) {
 		trimmed += __wait_one_discard_bio(sbi, dc);
 		goto next;
 	}
@@ -1874,7 +1855,6 @@ static int __f2fs_issue_discard_zone(struct f2fs_sb_info *sbi,
 				 blkstart, blklen);
 			return -EIO;
 		}
-		trace_f2fs_issue_reset_zone(bdev, blkstart);
 		return blkdev_reset_zones(bdev, sector, nr_sects, GFP_NOFS);
 	}
 
@@ -3138,7 +3118,7 @@ next:
 			blk_finish_plug(&plug);
 			mutex_unlock(&dcc->cmd_lock);
 			trimmed += __wait_all_discard_cmd(sbi, NULL);
-			congestion_wait(BLK_RW_ASYNC, DEFAULT_IO_TIMEOUT);
+			f2fs_io_schedule_timeout(DEFAULT_IO_TIMEOUT);
 			goto next;
 		}
 skip:
@@ -3244,101 +3224,6 @@ int f2fs_rw_hint_to_seg_type(enum rw_hint hint)
 	default:
 		return CURSEG_WARM_DATA;
 	}
-}
-
-/* This returns write hints for each segment type. This hints will be
- * passed down to block layer. There are mapping tables which depend on
- * the mount option 'whint_mode'.
- *
- * 1) whint_mode=off. F2FS only passes down WRITE_LIFE_NOT_SET.
- *
- * 2) whint_mode=user-based. F2FS tries to pass down hints given by users.
- *
- * User                  F2FS                     Block
- * ----                  ----                     -----
- *                       META                     WRITE_LIFE_NOT_SET
- *                       HOT_NODE                 "
- *                       WARM_NODE                "
- *                       COLD_NODE                "
- * ioctl(COLD)           COLD_DATA                WRITE_LIFE_EXTREME
- * extension list        "                        "
- *
- * -- buffered io
- * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
- * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
- * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
- * WRITE_LIFE_NONE       "                        "
- * WRITE_LIFE_MEDIUM     "                        "
- * WRITE_LIFE_LONG       "                        "
- *
- * -- direct io
- * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
- * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
- * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
- * WRITE_LIFE_NONE       "                        WRITE_LIFE_NONE
- * WRITE_LIFE_MEDIUM     "                        WRITE_LIFE_MEDIUM
- * WRITE_LIFE_LONG       "                        WRITE_LIFE_LONG
- *
- * 3) whint_mode=fs-based. F2FS passes down hints with its policy.
- *
- * User                  F2FS                     Block
- * ----                  ----                     -----
- *                       META                     WRITE_LIFE_MEDIUM;
- *                       HOT_NODE                 WRITE_LIFE_NOT_SET
- *                       WARM_NODE                "
- *                       COLD_NODE                WRITE_LIFE_NONE
- * ioctl(COLD)           COLD_DATA                WRITE_LIFE_EXTREME
- * extension list        "                        "
- *
- * -- buffered io
- * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
- * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
- * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_LONG
- * WRITE_LIFE_NONE       "                        "
- * WRITE_LIFE_MEDIUM     "                        "
- * WRITE_LIFE_LONG       "                        "
- *
- * -- direct io
- * WRITE_LIFE_EXTREME    COLD_DATA                WRITE_LIFE_EXTREME
- * WRITE_LIFE_SHORT      HOT_DATA                 WRITE_LIFE_SHORT
- * WRITE_LIFE_NOT_SET    WARM_DATA                WRITE_LIFE_NOT_SET
- * WRITE_LIFE_NONE       "                        WRITE_LIFE_NONE
- * WRITE_LIFE_MEDIUM     "                        WRITE_LIFE_MEDIUM
- * WRITE_LIFE_LONG       "                        WRITE_LIFE_LONG
- */
-
-enum rw_hint f2fs_io_type_to_rw_hint(struct f2fs_sb_info *sbi,
-				enum page_type type, enum temp_type temp)
-{
-	if (F2FS_OPTION(sbi).whint_mode == WHINT_MODE_USER) {
-		if (type == DATA) {
-			if (temp == WARM)
-				return WRITE_LIFE_NOT_SET;
-			else if (temp == HOT)
-				return WRITE_LIFE_SHORT;
-			else if (temp == COLD)
-				return WRITE_LIFE_EXTREME;
-		} else {
-			return WRITE_LIFE_NOT_SET;
-		}
-	} else if (F2FS_OPTION(sbi).whint_mode == WHINT_MODE_FS) {
-		if (type == DATA) {
-			if (temp == WARM)
-				return WRITE_LIFE_LONG;
-			else if (temp == HOT)
-				return WRITE_LIFE_SHORT;
-			else if (temp == COLD)
-				return WRITE_LIFE_EXTREME;
-		} else if (type == NODE) {
-			if (temp == WARM || temp == HOT)
-				return WRITE_LIFE_NOT_SET;
-			else if (temp == COLD)
-				return WRITE_LIFE_NONE;
-		} else if (type == META) {
-			return WRITE_LIFE_MEDIUM;
-		}
-	}
-	return WRITE_LIFE_NOT_SET;
 }
 
 static int __get_segment_type_2(struct f2fs_io_info *fio)
@@ -4184,10 +4069,12 @@ static void adjust_sit_entry_set(struct sit_entry_set *ses,
 		return;
 
 	list_for_each_entry_continue(next, head, set_list)
-		if (ses->entry_cnt <= next->entry_cnt)
-			break;
+		if (ses->entry_cnt <= next->entry_cnt) {
+			list_move_tail(&ses->set_list, &next->set_list);
+			return;
+		}
 
-	list_move_tail(&ses->set_list, &next->set_list);
+	list_move_tail(&ses->set_list, head);
 }
 
 static void add_sit_entry(unsigned int segno, struct list_head *head)
@@ -4555,7 +4442,7 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 	unsigned int i, start, end;
 	unsigned int readed, start_blk = 0;
 	int err = 0;
-	block_t total_node_blocks = 0;
+	block_t sit_valid_blocks[2] = {0, 0};
 
 	do {
 		readed = f2fs_ra_meta_pages(sbi, start_blk, BIO_MAX_PAGES,
@@ -4580,8 +4467,8 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 			if (err)
 				return err;
 			seg_info_from_raw_sit(se, &sit);
-			if (IS_NODESEG(se->type))
-				total_node_blocks += se->valid_blocks;
+
+			sit_valid_blocks[SE_PAGETYPE(se)] += se->valid_blocks;
 
 			if (f2fs_block_unit_discard(sbi)) {
 				/* build discard map only one time */
@@ -4621,15 +4508,15 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 		sit = sit_in_journal(journal, i);
 
 		old_valid_blocks = se->valid_blocks;
-		if (IS_NODESEG(se->type))
-			total_node_blocks -= old_valid_blocks;
+
+		sit_valid_blocks[SE_PAGETYPE(se)] -= old_valid_blocks;
 
 		err = check_block_count(sbi, start, &sit);
 		if (err)
 			break;
 		seg_info_from_raw_sit(se, &sit);
-		if (IS_NODESEG(se->type))
-			total_node_blocks += se->valid_blocks;
+
+		sit_valid_blocks[SE_PAGETYPE(se)] += se->valid_blocks;
 
 		if (f2fs_block_unit_discard(sbi)) {
 			if (is_set_ckpt_flags(sbi, CP_TRIMMED_FLAG)) {
@@ -4651,13 +4538,24 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 	}
 	up_read(&curseg->journal_rwsem);
 
-	if (!err && total_node_blocks != valid_node_count(sbi)) {
+	if (err)
+		return err;
+
+	if (sit_valid_blocks[NODE] != valid_node_count(sbi)) {
 		f2fs_err(sbi, "SIT is corrupted node# %u vs %u",
-			 total_node_blocks, valid_node_count(sbi));
-		err = -EFSCORRUPTED;
+			 sit_valid_blocks[NODE], valid_node_count(sbi));
+		return -EFSCORRUPTED;
 	}
 
-	return err;
+	if (sit_valid_blocks[DATA] + sit_valid_blocks[NODE] >
+				valid_user_blocks(sbi)) {
+		f2fs_err(sbi, "SIT is corrupted data# %u %u vs %u",
+			 sit_valid_blocks[DATA], sit_valid_blocks[NODE],
+			 valid_user_blocks(sbi));
+		return -EFSCORRUPTED;
+	}
+
+	return 0;
 }
 
 static void init_free_segmap(struct f2fs_sb_info *sbi)
@@ -4737,6 +4635,13 @@ static int init_victim_secmap(struct f2fs_sb_info *sbi)
 	dirty_i->victim_secmap = f2fs_kvzalloc(sbi, bitmap_size, GFP_KERNEL);
 	if (!dirty_i->victim_secmap)
 		return -ENOMEM;
+
+	dirty_i->pinned_secmap = f2fs_kvzalloc(sbi, bitmap_size, GFP_KERNEL);
+	if (!dirty_i->pinned_secmap)
+		return -ENOMEM;
+
+	dirty_i->pinned_secmap_cnt = 0;
+	dirty_i->enable_pin_section = true;
 	return 0;
 }
 
@@ -4970,6 +4875,7 @@ static void destroy_victim_secmap(struct f2fs_sb_info *sbi)
 {
 	struct dirty_seglist_info *dirty_i = DIRTY_I(sbi);
 
+	kvfree(dirty_i->pinned_secmap);
 	kvfree(dirty_i->victim_secmap);
 }
 
