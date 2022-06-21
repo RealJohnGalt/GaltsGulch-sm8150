@@ -27,7 +27,7 @@ static ssize_t infrared_power_enable_store(struct device *pdev,
 		struct device_attribute *attr, const char *buff, size_t count)
 {
 	unsigned long enable = 0;
-	int res = 0, rc;
+	int res = 0;
 
 	INFRARED_LOG("call");
 
@@ -36,8 +36,7 @@ static ssize_t infrared_power_enable_store(struct device *pdev,
 		return count;
 	}
 
-	rc = kstrtoul(buff, "%lu", &enable);
-	if (rc) {
+	if (sscanf(buff, "%lu", &enable) == 1) {
 		g_infrared_state->infrared_power_enable = enable;
 		INFRARED_LOG("would set infrared_power_enable : %d",
 				g_infrared_state->infrared_power_enable);
@@ -83,7 +82,6 @@ static ssize_t infrared_shut_down_state_store(struct device *pdev,
 		struct device_attribute *attr, const char *buff, size_t count)
 {
 	unsigned long infrared_shut_down_state = 0;
-	int rc;
 
 	INFRARED_LOG("call");
 
@@ -92,8 +90,7 @@ static ssize_t infrared_shut_down_state_store(struct device *pdev,
 		return count;
 	}
 
-	rc = kstrtoul(buff, "%lu", &infrared_shut_down_state);
-	if (rc) {
+	if (sscanf(buff, "%lu", &infrared_shut_down_state) == 1) {
 		g_infrared_state->infrared_shutdown_state =
 					infrared_shut_down_state;
 		INFRARED_LOG("would set infrared_shut_down_state, \
@@ -121,7 +118,6 @@ static ssize_t infrared_shut_down_state2_store(struct device *pdev,
 		struct device_attribute *attr, const char *buff, size_t count)
 {
 	unsigned long infrared_shut_down_state = 0;
-	int rc;
 
 	INFRARED_LOG("call");
 
@@ -130,8 +126,7 @@ static ssize_t infrared_shut_down_state2_store(struct device *pdev,
 		return count;
 	}
 
-	rc = kstrtoul(buff, "%lu", &infrared_shut_down_state);
-	if (rc) {
+	if (sscanf(buff, "%lu", &infrared_shut_down_state) == 1) {
 		g_infrared_state->infrared_shutdown_state2 =
 				infrared_shut_down_state;
 		INFRARED_LOG(
