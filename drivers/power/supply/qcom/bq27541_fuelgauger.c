@@ -314,7 +314,7 @@ static int bq27541_battery_temperature(struct bq27541_device_info *di)
 		/*not connect when reading error once. */
 		if (ret) {
 			count++;
-			pr_err("error reading temperature\n");
+			pr_debug("error reading temperature\n");
 			if (count > 1) {
 				count = 0;
 				/* Add for it report bad*/
@@ -358,7 +358,7 @@ static int bq27541_battery_voltage(struct bq27541_device_info *di)
 		ret = bq27541_read(BQ27541_REG_VOLT, &volt, 0, di);
 #endif
 		if (ret) {
-			pr_err("error reading voltage,ret:%d\n", ret);
+			pr_debug("error reading voltage,ret:%d\n", ret);
 			return ret;
 		}
 	} else {
@@ -415,7 +415,7 @@ static int bq27541_chip_config(struct bq27541_device_info *di)
 	udelay(66);
 	ret = bq27541_read(BQ27541_REG_CNTL, &flags, 0, di);
 	if (ret < 0) {
-		pr_err("error reading register %02x ret = %d\n",
+		pr_debug("error reading register %02x ret = %d\n",
 				BQ27541_REG_CNTL, ret);
 		return ret;
 	}
@@ -464,21 +464,21 @@ static int get_current_time(unsigned long *now_tm_sec)
 
 	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
 	if (rtc == NULL) {
-		pr_err("%s: unable to open rtc device (%s)\n",
+		pr_debug("%s: unable to open rtc device (%s)\n",
 				__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
 		return -EINVAL;
 	}
 
 	rc = rtc_read_time(rtc, &tm);
 	if (rc) {
-		pr_err("Error reading rtc device (%s) : %d\n",
+		pr_debug("Error reading rtc device (%s) : %d\n",
 				CONFIG_RTC_HCTOSYS_DEVICE, rc);
 		goto close_time;
 	}
 
 	rc = rtc_valid_tm(&tm);
 	if (rc) {
-		pr_err("Invalid RTC time (%s): %d\n",
+		pr_debug("Invalid RTC time (%s): %d\n",
 				CONFIG_RTC_HCTOSYS_DEVICE, rc);
 		goto close_time;
 	}
@@ -523,7 +523,7 @@ static int fg_soc_calibrate(struct  bq27541_device_info *di, int soc)
 		if (di->batt_psy) {
 			first_enter = true;
 			soc_load = load_soc();
-			pr_info("soc=%d, soc_load=%d\n", soc, soc_load);
+			pr_debug("soc=%d, soc_load=%d\n", soc, soc_load);
 			if (soc_load < 0) {
 				/* get last soc error */
 				di->soc_pre = soc;
@@ -544,7 +544,7 @@ static int fg_soc_calibrate(struct  bq27541_device_info *di, int soc)
 			}
 
 			if (!di->batt_psy) {
-				pr_err(
+				pr_debug(
 				"batt_psy is absent, soc_pre=%d\n",
 				di->soc_pre);
 				return di->soc_pre;
@@ -757,7 +757,7 @@ out:
 		get_current_time(&di->soc_pre_time);
 		/* store when soc changed */
 		power_supply_changed(di->batt_psy);
-		pr_info("soc:%d, soc_calib:%d, VOLT:%d, current:%d\n",
+		pr_debug("soc:%d, soc_calib:%d, VOLT:%d, current:%d\n",
 		soc, soc_calib, bq27541_battery_voltage(di) / 1000,
 		bq27541_average_current(di) / 1000);
 	}
@@ -791,11 +791,11 @@ struct bq27541_device_info *di, int suspend_time_ms)
 		ret = bq27541_read(BQ27541_REG_SOC, &soc, 0, di);
 #endif
 		if (ret) {
-			pr_err("error reading soc=%d, ret:%d\n", soc, ret);
+			pr_debug("error reading soc=%d, ret:%d\n", soc, ret);
 			goto read_soc_err;
 		}
 		if (soc_pre != soc)
-			pr_err("bq27541_battery_soc = %d\n", soc);
+			pr_debug("bq27541_battery_soc = %d\n", soc);
 
 		soc_pre = soc;
 	} else {
@@ -864,7 +864,7 @@ static int bq27541_average_current(struct bq27541_device_info *di)
 		ret = bq27541_read(BQ27541_REG_AI, &curr, 0, di);
 #endif
 		if (ret) {
-			pr_err("error reading current.\n");
+			pr_debug("error reading current.\n");
 			return ret;
 		}
 	} else {
@@ -891,7 +891,7 @@ static int bq27541_remaining_capacity(struct bq27541_device_info *di)
 		ret = bq27541_read(BQ27541_REG_RM, &cap, 0, di);
 #endif
 		if (ret) {
-			pr_err("error reading capacity.\n");
+			pr_debug("error reading capacity.\n");
 			return ret;
 		}
 	}
@@ -913,7 +913,7 @@ static int bq27541_full_chg_capacity(struct bq27541_device_info *di)
 		ret = bq27541_read(BQ27541_REG_FCC, &cap, 0, di);
 #endif
 		if (ret) {
-			pr_err("error reading full chg capacity.\n");
+			pr_debug("error reading full chg capacity.\n");
 			return ret;
 		}
 	}
@@ -931,7 +931,7 @@ static int bq27541_batt_health(struct bq27541_device_info *di)
 		ret = bq27541_read(di->cmd_addr.reg_helth,
 				&health, 0, di);
 		if (ret) {
-			pr_err("error reading health\n");
+			pr_debug("error reading health\n");
 			return ret;
 		}
 		if (di->device_type == DEVICE_BQ27411)
@@ -1009,7 +1009,7 @@ static int bq27541_get_battery_temperature(void)
 		if (time_last < 8)
 			return SHUTDOWN_TBAT - 1;
 		else {
-			pr_info("Tbat =%d T_tol=%d\n",
+			pr_debug("Tbat =%d T_tol=%d\n",
 				ret, (int)(current_time - pre_time));
 		}
 	}
@@ -1125,7 +1125,7 @@ static inline int is_usb_plugged(void)
 	if (!psy) {
 		psy = power_supply_get_by_name("usb");
 		if (!psy) {
-			pr_err("failed to get ps usb\n");
+			pr_debug("failed to get ps usb\n");
 			return -EINVAL;
 		}
 	}
@@ -1294,7 +1294,7 @@ static void init_battery_exist_node(void)
 {
 	if (!proc_create("battery_exist", 0644, NULL,
 			 &battery_exist_operations)){
-		pr_err("%s : Failed to register proc interface\n", __func__);
+		pr_debug("%s : Failed to register proc interface\n", __func__);
 	}
 }
 
@@ -1305,7 +1305,7 @@ static bool check_bat_present(struct bq27541_device_info *di)
 
 	ret = bq27541_read(BQ27541_SUBCMD_CHEM_ID, &flags, 0, di);
 	if (ret < 0) {
-		pr_err("read bq27541  fail\n");
+		pr_debug("read bq27541  fail\n");
 		di->bq_present = false;
 		return false;
 	}
@@ -1322,7 +1322,7 @@ static void bq27541_hw_config(struct work_struct *work)
 			hw_config.work);
 	ret = bq27541_chip_config(di);
 	if (ret) {
-		pr_err("Failed to config Bq27541\n");
+		pr_debug("Failed to config Bq27541\n");
 		/* Add for retry when config fail */
 		di->retry_count--;
 		if (di->retry_count > 0)
@@ -1349,19 +1349,19 @@ static void bq27541_hw_config(struct work_struct *work)
 	/* david.liu@bsp, 20161004 Add BQ27411 support */
 	if (type == DEVICE_TYPE_BQ27411) {
 		di->device_type = DEVICE_BQ27411;
-		pr_info("DEVICE_BQ27411\n");
+		pr_debug("DEVICE_BQ27411\n");
 	} else {
 		di->device_type = DEVICE_BQ27541;
-		pr_info("DEVICE_BQ27541\n");
+		pr_debug("DEVICE_BQ27541\n");
 	}
 	gauge_set_cmd_addr(di->device_type);
 	di->allow_reading = true;
 #endif
 
 	bq27541_registered = true;
-	pr_info("DEVICE_TYPE is 0x%02X, FIRMWARE_VERSION is 0x%02X\n",
+	pr_debug("DEVICE_TYPE is 0x%02X, FIRMWARE_VERSION is 0x%02X\n",
 			type, fw_ver);
-	pr_info("Complete bq27541 configuration 0x%02X\n", flags);
+	pr_debug("Complete bq27541 configuration 0x%02X\n", flags);
 	schedule_delayed_work(
 		&di->modify_soc_smooth_parameter,
 		msecs_to_jiffies(SET_BQ_PARAM_DELAY_MS * 10));
@@ -1441,7 +1441,7 @@ static ssize_t bq27541_write_stdcmd(struct device *dev,
 
 	rc = kstrtou32(buf, 0, &cmd);
 	if (rc != 1)
-		pr_err("%s,scanf error\n");
+		pr_debug("%s,scanf error\n");
 	reg = cmd;
 	return ret;
 }
@@ -1484,7 +1484,7 @@ static ssize_t bq27541_write_subcmd(struct device *dev,
 
 	rc = kstrtou32(buf, 0, &cmd);
 	if (rc != 1)
-		pr_err("%s,scanf error\n");
+		pr_debug("%s,scanf error\n");
 	subcmd = cmd;
 	return ret;
 }
@@ -1511,13 +1511,13 @@ static struct platform_device this_device = {
 
 static void update_pre_capacity_func(struct work_struct *w)
 {
-	pr_info("enter\n");
+	pr_debug("enter\n");
 	bq27541_set_allow_reading(true);
 	bq27541_get_battery_temperature();
 	bq27541_battery_soc(bq27541_di, update_pre_capacity_data.suspend_time);
 	bq27541_set_allow_reading(false);
 	__pm_relax(&bq27541_di->update_soc_wake_lock);
-	pr_info("exit\n");
+	pr_debug("exit\n");
 }
 
 #define MAX_RETRY_COUNT	5
@@ -1529,10 +1529,10 @@ static void bq27541_parse_dt(struct bq27541_device_info *di)
 
 	di->modify_soc_smooth = of_property_read_bool(node,
 				"qcom,modify-soc-smooth");
-	pr_info("di->modify_soc_smooth=%d\n", di->modify_soc_smooth);
+	pr_debug("di->modify_soc_smooth=%d\n", di->modify_soc_smooth);
 	di->bat_4p45v = of_property_read_bool(node,
 				"op,bat-4p45v");
-	pr_info("BQ 4P5V=%d\n", di->bat_4p45v);
+	pr_debug("BQ 4P5V=%d\n", di->bat_4p45v);
 }
 static int sealed(void)
 {
@@ -1559,7 +1559,7 @@ static int seal(void)
 	int i = 0;
 
 	if (sealed()) {
-		pr_err("bq27541/27411 sealed,return\n");
+		pr_debug("bq27541/27411 sealed,return\n");
 		return 1;
 	}
 	bq27541_cntl_cmd(bq27541_di, SEAL_SUBCMD);
@@ -1603,11 +1603,11 @@ re_unseal:
 	}
 
 out:
-	pr_info("bq27541 : i=%d,bq27541_di->device_type=%d\n",
+	pr_debug("bq27541 : i=%d,bq27541_di->device_type=%d\n",
 		i, bq27541_di->device_type);
 
 	if (i == SEAL_POLLING_RETRY_LIMIT) {
-		pr_err("bq27541 failed\n");
+		pr_debug("bq27541 failed\n");
 		return 0;
 	} else {
 		return 1;
@@ -1617,7 +1617,7 @@ out:
 static int bq27541_read_i2c_onebyte(u8 cmd, u8 *returnData)
 {
 	if (!new_client) {
-		pr_err(" new_client NULL,return\n");
+		pr_debug(" new_client NULL,return\n");
 		return 0;
 	}
 	if (cmd == BQ27541_BQ27411_CMD_INVALID)
@@ -1627,7 +1627,7 @@ static int bq27541_read_i2c_onebyte(u8 cmd, u8 *returnData)
 	*returnData = i2c_smbus_read_byte_data(new_client, cmd);
 
 	mutex_unlock(&battery_mutex);
-	/*pr_err(" cmd = 0x%x, returnData = 0x%x\r\n",cmd,*returnData)  ;*/
+	/*pr_debug(" cmd = 0x%x, returnData = 0x%x\r\n",cmd,*returnData)  ;*/
 	if (*returnData < 0)
 		return 1;
 	else
@@ -1637,7 +1637,7 @@ static int bq27541_read_i2c_onebyte(u8 cmd, u8 *returnData)
 static int bq27541_i2c_txsubcmd_onebyte(u8 cmd, u8 writeData)
 {
 	if (!new_client) {
-		pr_err(" new_client NULL,return\n");
+		pr_debug(" new_client NULL,return\n");
 		return 0;
 	}
 	if (cmd == BQ27541_BQ27411_CMD_INVALID)
@@ -1662,7 +1662,7 @@ static int bq27411_write_block_data_cmd(struct bq27541_device_info *di,
 	usleep_range(10000, 10001);
 	rc = bq27541_read_i2c_onebyte(reg_addr, &old_value);
 	if (rc) {
-		pr_err("%s read reg_addr = 0x%x fail\n", __func__, reg_addr);
+		pr_debug("%s read reg_addr = 0x%x fail\n", __func__, reg_addr);
 		return 1;
 	}
 	if (old_value == new_value)
@@ -1670,7 +1670,7 @@ static int bq27411_write_block_data_cmd(struct bq27541_device_info *di,
 	usleep_range(1000, 1001);
 	rc = bq27541_read_i2c_onebyte(BQ27411_CHECKSUM_ADDR, &old_csum);
 	if (rc) {
-		pr_err("%s read checksum fail\n", __func__);
+		pr_debug("%s read checksum fail\n", __func__);
 		return 1;
 	}
 	usleep_range(1000, 1001);
@@ -1679,7 +1679,7 @@ static int bq27411_write_block_data_cmd(struct bq27541_device_info *di,
 	new_csum = (old_value + old_csum - new_value) & 0xff;
 	usleep_range(1000, 1001);
 	bq27541_i2c_txsubcmd_onebyte(BQ27411_CHECKSUM_ADDR, new_csum);
-	pr_err("bq27411 write blk_id = 0x%x, addr = 0x%x, old_val = 0x%x, new_val = 0x%x, old_csum = 0x%x, new_csum = 0x%x\n",
+	pr_debug("bq27411 write blk_id = 0x%x, addr = 0x%x, old_val = 0x%x, new_val = 0x%x, old_csum = 0x%x, new_csum = 0x%x\n",
 		block_id, reg_addr, old_value, new_value, old_csum, new_csum);
 	return 0;
 }
@@ -1710,7 +1710,7 @@ static int bq27411_enable_config_mode(
 			rc = bq27541_read_i2c(BQ27411_SUBCMD_CONFIG_MODE,
 				&config_mode, 0, di);
 			if (rc < 0) {
-				pr_err("%s i2c read error\n", __func__);
+				pr_debug("%s i2c read error\n", __func__);
 				return 1;
 			}
 			if (config_mode & BIT(4))
@@ -1726,7 +1726,7 @@ static int bq27411_enable_config_mode(
 			rc = bq27541_read_i2c(BQ27411_SUBCMD_CONFIG_MODE,
 				&config_mode, 0, di);
 			if (rc < 0) {
-				pr_err("%s i2c read error\n", __func__);
+				pr_debug("%s i2c read error\n", __func__);
 				return 1;
 			}
 			if ((config_mode & BIT(4)) == 0)
@@ -1735,11 +1735,11 @@ static int bq27411_enable_config_mode(
 		}
 	}
 	if (i == BQ27411_CONFIG_MODE_POLLING_LIMIT) {
-		pr_err("%s fail config_mode = 0x%x, enable = %d\n",
+		pr_debug("%s fail config_mode = 0x%x, enable = %d\n",
 			__func__, config_mode, enable);
 		return 1;
 	}
-		pr_err("%s success i = %d, config_mode = 0x%x, enable = %d\n",
+		pr_debug("%s success i = %d, config_mode = 0x%x, enable = %d\n",
 			__func__, i, config_mode, enable);
 		return 0;
 }
@@ -1770,13 +1770,13 @@ static bool bq27411_check_soc_smooth_parameter(
 	}
 	rc = bq27411_enable_config_mode(di, true);
 	if (rc) {
-		pr_err("%s enable config mode fail\n", __func__);
+		pr_debug("%s enable config mode fail\n", __func__);
 		return false;
 	}
 	/*enable block data control*/
 	rc = bq27541_i2c_txsubcmd_onebyte(BQ27411_BLOCK_DATA_CONTROL, 0x00);
 	if (rc) {
-		pr_err("%s enable block data control fail\n", __func__);
+		pr_debug("%s enable block data control fail\n", __func__);
 		goto check_error;
 	}
 	usleep_range(5000, 5001);
@@ -1785,7 +1785,7 @@ static bool bq27411_check_soc_smooth_parameter(
 	value_read = bq27411_read_block_data_cmd(di,
 	BQ27411_CC_DEAD_BAND_ID, BQ27411_CC_DEAD_BAND_ADDR);
 	if (value_read != dead_band_val) {
-		pr_err("%s cc_dead_band error, value_read = 0x%x\n",
+		pr_debug("%s cc_dead_band error, value_read = 0x%x\n",
 			__func__, value_read);
 		goto check_error;
 	}
@@ -1795,7 +1795,7 @@ static bool bq27411_check_soc_smooth_parameter(
 	BQ27411_OPCONFIGB_ID,
 	BQ27411_OPCONFIGB_ADDR);
 	if (value_read != op_cfgb_val) {
-		pr_err("%s opconfigb error, value_read = 0x%x\n",
+		pr_debug("%s opconfigb error, value_read = 0x%x\n",
 			__func__, value_read);
 		goto check_error;
 	}
@@ -1804,7 +1804,7 @@ static bool bq27411_check_soc_smooth_parameter(
 	value_read = bq27411_read_block_data_cmd(di,
 				BQ27411_DODATEOC_ID, BQ27411_DODATEOC_ADDR);
 	if (value_read != dodat_val) {
-		pr_err("%s dodateoc error, value_read = 0x%x\n",
+		pr_debug("%s dodateoc error, value_read = 0x%x\n",
 			__func__, value_read);
 		goto check_error;
 	}
@@ -1835,7 +1835,7 @@ static int bq27411_write_soc_smooth_parameter(
 	/*enter config mode*/
 	rc = bq27411_enable_config_mode(di, true);
 	if (rc) {
-		pr_err("%s enable config mode fail\n", __func__);
+		pr_debug("%s enable config mode fail\n", __func__);
 		return 1;
 	}
 	/*enable block data control*/
@@ -1846,21 +1846,21 @@ static int bq27411_write_soc_smooth_parameter(
 	rc = bq27411_write_block_data_cmd(di, BQ27411_CC_DEAD_BAND_ID,
 			BQ27411_CC_DEAD_BAND_ADDR, dead_band_val);
 	if (rc) {
-		pr_err("%s cc_dead_band fail\n", __func__);
+		pr_debug("%s cc_dead_band fail\n", __func__);
 		goto exit_config_mode;
 	}
 	/*step2: update opconfigB*/
 	rc = bq27411_write_block_data_cmd(di, BQ27411_OPCONFIGB_ID,
 			BQ27411_OPCONFIGB_ADDR, op_cfgb_val);
 	if (rc) {
-		pr_err("%s opconfigB fail\n", __func__);
+		pr_debug("%s opconfigB fail\n", __func__);
 		goto exit_config_mode;
 	}
 	/*step3: update dodateoc*/
 	rc = bq27411_write_block_data_cmd(di, BQ27411_DODATEOC_ID,
 			BQ27411_DODATEOC_ADDR, dodat_val);
 	if (rc) {
-		pr_err("%s dodateoc fail\n", __func__);
+		pr_debug("%s dodateoc fail\n", __func__);
 		goto exit_config_mode;
 	}
 	bq27411_enable_config_mode(di, false);
@@ -1934,7 +1934,7 @@ static int bq27541_battery_probe(struct i2c_client *client,
 
 	name = kasprintf(GFP_KERNEL, "%s-%d", id->name, num);
 	if (!name) {
-		pr_err("failed to allocate device name\n");
+		pr_debug("failed to allocate device name\n");
 		retval = -ENOMEM;
 		goto batt_failed_1;
 	}
@@ -1984,12 +1984,12 @@ static int bq27541_battery_probe(struct i2c_client *client,
 #endif
 
 	if (retval) {
-		pr_err("failed to setup bq27541\n");
+		pr_debug("failed to setup bq27541\n");
 		goto batt_failed_4;
 	}
 
 	if (retval) {
-		pr_err("failed to powerup bq27541\n");
+		pr_debug("failed to powerup bq27541\n");
 		goto batt_failed_4;
 	}
 	bq27541_di = di;
@@ -2005,10 +2005,10 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	retval = check_bat_present(di);
 	if( retval ) {
 		init_battery_exist_node();
-		pr_info("probe success battery exist \n");
+		pr_debug("probe success battery exist \n");
 	}
 	else {
-		pr_info("probe success battery not exist \n");
+		pr_debug("probe success battery not exist \n");
 	}
 	return 0;
 
@@ -2056,7 +2056,7 @@ static int bq27541_battery_suspend(struct device *dev)
 	atomic_set(&di->suspended, 1);
 	ret = get_current_time(&di->rtc_suspend_time);
 	if (ret) {
-		pr_err("Failed to read RTC time\n");
+		pr_debug("Failed to read RTC time\n");
 		return 0;
 	}
 	return 0;
@@ -2072,7 +2072,7 @@ static int bq27541_battery_resume(struct device *dev)
 	atomic_set(&di->suspended, 0);
 	ret = get_current_time(&di->rtc_resume_time);
 	if (ret) {
-		pr_err("Failed to read RTC time\n");
+		pr_debug("Failed to read RTC time\n");
 		return 0;
 	}
 	suspend_time =  di->rtc_resume_time - di->rtc_suspend_time;
@@ -2137,7 +2137,7 @@ static int __init bq27541_battery_init(void)
 
 	ret = i2c_add_driver(&bq27541_battery_driver);
 	if (ret)
-		pr_err("Unable to register BQ27541 driver\n");
+		pr_debug("Unable to register BQ27541 driver\n");
 
 	return ret;
 }
