@@ -1627,6 +1627,10 @@ CONFIG_FORCE_FAST_CHARGE=y
 # FingerprintCard fingerprint driver
 #
 # CONFIG_FPR_FPC is not set
+CONFIG_KPROFILES=y
+# CONFIG_AUTO_KPROFILES_MSM_DRM is not set
+# CONFIG_AUTO_KPROFILES_FB is not set
+CONFIG_AUTO_KPROFILES_NONE=y
 
 #
 # SCSI device support
