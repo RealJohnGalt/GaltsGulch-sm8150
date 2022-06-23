@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -214,6 +215,12 @@
 
 #define MAX_NET_DEV_REF_LEAK_ITERATIONS 10
 #define NET_DEV_REF_LEAK_ITERATION_SLEEP_TIME_MS 10
+
+#ifdef FEATURE_TSO
+#define TSO_FEATURE_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_SG)
+#else
+#define TSO_FEATURE_FLAGS 0
+#endif
 
 int wlan_start_ret_val;
 static DECLARE_COMPLETION(wlan_start_comp);
@@ -2504,6 +2511,14 @@ int hdd_update_tgt_cfg(hdd_handle_t hdd_handle, struct wma_tgt_cfg *cfg)
 			hdd_ctx->psoc, cfg->obss_color_collision_offloaded);
 	if (QDF_IS_STATUS_ERROR(status))
 		hdd_err("Failed to set WNI_CFG_OBSS_COLOR_COLLISION_OFFLOAD");
+
+	if (!cfg->obss_color_collision_offloaded) {
+		status = ucfg_mlme_set_bss_color_collision_det_sta(
+				hdd_ctx->psoc,
+				cfg->obss_color_collision_offloaded);
+		if (QDF_IS_STATUS_ERROR(status))
+			hdd_err("Failed to set CFG_BSS_CLR_COLLISION_DET_STA");
+	}
 
 	ucfg_mlme_get_bcast_twt(hdd_ctx->psoc, &bval);
 	if (bval)
@@ -7150,8 +7165,10 @@ void hdd_set_netdev_flags(struct hdd_adapter *adapter)
 			(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
 
 	if (cdp_cfg_get(soc, cfg_dp_tso_enable) && enable_csum)
-		adapter->dev->features |=
-			 (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_SG);
+		adapter->dev->features |= TSO_FEATURE_FLAGS;
+
+	if (cdp_cfg_get(soc, cfg_dp_sg_enable))
+		adapter->dev->features |= NETIF_F_SG;
 
 	adapter->dev->features |= NETIF_F_RXCSUM;
 	temp = (uint64_t)adapter->dev->features;
@@ -15468,7 +15485,7 @@ static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
 
 	if (copy_from_user(buf, user_buf, 3)) {
-		pr_err("Failed to read buffer\n");
+		pr_debug("Failed to read buffer\n");
 		return -EINVAL;
 	}
 
@@ -15479,16 +15496,16 @@ static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 	}
 
 	if (strncmp(buf, wlan_on_str, strlen(wlan_on_str)) == 0)
-		pr_info("Wifi Turning On from UI\n");
+		pr_debug("Wifi Turning On from UI\n");
 
 	if (strncmp(buf, wlan_on_str, strlen(wlan_on_str)) != 0) {
-		pr_err("Invalid value received from framework");
+		pr_debug("Invalid value received from framework");
 		goto exit;
 	}
 
 	if (!hdd_loaded) {
 		if (hdd_driver_load()) {
-			pr_err("%s: Failed to init hdd module\n", __func__);
+			pr_debug("%s: Failed to init hdd module\n", __func__);
 			goto exit;
 		}
 	}
@@ -15497,7 +15514,7 @@ static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 		rc = wait_for_completion_timeout(&wlan_start_comp,
 				msecs_to_jiffies(HDD_WLAN_START_WAIT_TIME));
 		if (!rc) {
-			pr_err("Timed-out!!");
+			pr_debug("Timed-out!!");
 			ret = -EINVAL;
 			return ret;
 		}
@@ -15555,20 +15572,20 @@ static int  wlan_hdd_state_ctrl_param_create(void)
 
 	ret = alloc_chrdev_region(&device, 0, dev_num, "qcwlanstate");
 	if (ret) {
-		pr_err("Failed to register qcwlanstate");
+		pr_debug("Failed to register qcwlanstate");
 		goto dev_alloc_err;
 	}
 	wlan_hdd_state_major = MAJOR(device);
 
 	class = class_create(THIS_MODULE, WLAN_MODULE_NAME);
 	if (IS_ERR(class)) {
-		pr_err("wlan_hdd_state class_create error");
+		pr_debug("wlan_hdd_state class_create error");
 		goto class_err;
 	}
 
 	dev = device_create(class, NULL, device, NULL, WLAN_MODULE_NAME);
 	if (IS_ERR(dev)) {
-		pr_err("wlan_hdd_statedevice_create error");
+		pr_debug("wlan_hdd_statedevice_create error");
 		goto err_class_destroy;
 	}
 
@@ -15578,11 +15595,11 @@ static int  wlan_hdd_state_ctrl_param_create(void)
 
 	ret = cdev_add(&wlan_hdd_state_cdev, device, dev_num);
 	if (ret) {
-		pr_err("Failed to add cdev error");
+		pr_debug("Failed to add cdev error");
 		goto cdev_add_err;
 	}
 
-	pr_info("wlan_hdd_state %s major(%d) initialized",
+	pr_debug("wlan_hdd_state %s major(%d) initialized",
 		WLAN_MODULE_NAME, wlan_hdd_state_major);
 
 	return 0;
@@ -15604,7 +15621,7 @@ static void wlan_hdd_state_ctrl_param_destroy(void)
 	class_destroy(class);
 	unregister_chrdev_region(device, dev_num);
 
-	pr_info("Device node unregistered");
+	pr_debug("Device node unregistered");
 }
 
 /**
@@ -15866,13 +15883,13 @@ static QDF_STATUS hdd_qdf_print_init(void)
 
 	status = qdf_print_setup();
 	if (QDF_IS_STATUS_ERROR(status)) {
-		pr_err("Failed qdf_print_setup; status:%u\n", status);
+		pr_debug("Failed qdf_print_setup; status:%u\n", status);
 		return status;
 	}
 
 	qdf_print_idx = qdf_print_ctrl_register(cinfo, NULL, NULL, "MCL_WLAN");
 	if (qdf_print_idx < 0) {
-		pr_err("Failed to register for qdf_print_ctrl\n");
+		pr_debug("Failed to register for qdf_print_ctrl\n");
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -15982,7 +15999,7 @@ static bool is_monitor_mode_supported(void)
 #else
 static bool is_monitor_mode_supported(void)
 {
-	pr_err("Monitor mode not supported!");
+	pr_debug("Monitor mode not supported!");
 	return false;
 }
 #endif
@@ -15995,7 +16012,7 @@ static bool is_epping_mode_supported(void)
 #else
 static bool is_epping_mode_supported(void)
 {
-	pr_err("Epping mode not supported!");
+	pr_debug("Epping mode not supported!");
 	return false;
 }
 #endif
@@ -16008,7 +16025,7 @@ static bool is_ftm_mode_supported(void)
 #else
 static bool is_ftm_mode_supported(void)
 {
-	pr_err("FTM mode not supported!");
+	pr_debug("FTM mode not supported!");
 	return false;
 }
 #endif
@@ -16310,7 +16327,7 @@ static int hdd_driver_load(void)
 	QDF_STATUS status;
 	int errno;
 
-	pr_err("%s: Loading driver v%s\n", WLAN_MODULE_NAME,
+	pr_debug("%s: Loading driver v%s\n", WLAN_MODULE_NAME,
 	       g_wlan_driver_version);
 
 	status = hdd_qdf_init();
@@ -16418,7 +16435,7 @@ static void hdd_driver_unload(void)
 	QDF_STATUS status;
 	void *hif_ctx;
 
-	pr_info("%s: Unloading driver v%s\n", WLAN_MODULE_NAME,
+	pr_debug("%s: Unloading driver v%s\n", WLAN_MODULE_NAME,
 		QWLAN_VERSIONSTR);
 
 	/*
@@ -16631,7 +16648,7 @@ static int hdd_module_init(void)
 
 	ret = wlan_hdd_state_ctrl_param_create();
 	if (ret)
-		pr_err("wlan_hdd_state_create:%x\n", ret);
+		pr_debug("wlan_hdd_state_create:%x\n", ret);
 
 	return ret;
 }
@@ -16662,7 +16679,7 @@ static int con_mode_handler_ftm(const char *kmessage,
 	ret = param_set_int(kmessage, kp);
 
 	if (con_mode_ftm != QDF_GLOBAL_FTM_MODE) {
-		pr_err("Only FTM mode supported!");
+		pr_debug("Only FTM mode supported!");
 		return -ENOTSUPP;
 	}
 
@@ -16681,7 +16698,7 @@ static int con_mode_handler_epping(const char *kmessage,
 	ret = param_set_int(kmessage, kp);
 
 	if (con_mode_epping != QDF_GLOBAL_EPPING_MODE) {
-		pr_err("Only EPPING mode supported!");
+		pr_debug("Only EPPING mode supported!");
 		return -ENOTSUPP;
 	}
 

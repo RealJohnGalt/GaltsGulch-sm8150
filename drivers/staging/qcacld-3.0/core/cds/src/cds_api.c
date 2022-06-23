@@ -460,6 +460,7 @@ static void cds_cdp_cfg_attach(struct wlan_objmgr_psoc *psoc)
 		cfg_get(psoc, CFG_DP_CE_CLASSIFY_ENABLE);
 	cdp_cfg.tso_enable = cfg_get(psoc, CFG_DP_TSO);
 	cdp_cfg.lro_enable = cfg_get(psoc, CFG_DP_LRO);
+	cdp_cfg.sg_enable = cfg_get(psoc, CFG_DP_SG);
 	cdp_cfg.enable_data_stall_detection =
 		cfg_get(psoc, CFG_DP_ENABLE_DATA_STALL_DETECTION);
 	cdp_cfg.gro_enable = cfg_get(psoc, CFG_DP_GRO);
@@ -1504,7 +1505,7 @@ void *cds_get_global_context(void)
 		 * To avoid recursive call, this should not change to
 		 * QDF_TRACE().
 		 */
-		pr_err("%s: global cds context is NULL", __func__);
+		pr_debug("%s: global cds context is NULL", __func__);
 	}
 
 	return gp_cds_context;
@@ -2501,7 +2502,7 @@ int cds_get_radio_index(void)
 		 * To avoid recursive call, this should not change to
 		 * QDF_TRACE().
 		 */
-		pr_err("%s: cds context is invalid\n", __func__);
+		pr_debug("%s: cds context is invalid\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2520,7 +2521,7 @@ QDF_STATUS cds_set_radio_index(int radio_index)
 
 	p_cds_context = cds_get_global_context();
 	if (!p_cds_context) {
-		pr_err("%s: cds context is invalid\n", __func__);
+		pr_debug("%s: cds context is invalid\n", __func__);
 		return QDF_STATUS_E_FAILURE;
 	}
 

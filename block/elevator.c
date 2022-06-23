@@ -100,6 +100,11 @@ static struct elevator_type *elevator_find(const char *name, bool mq)
 {
 	struct elevator_type *e;
 
+	/* Forbid init from changing I/O scheduler from default */
+	if (!strncmp(current->comm, "init", sizeof("init")))
+		return NULL;
+
+
 	list_for_each_entry(e, &elv_list, list) {
 		if (elevator_match(e, name) && (mq == e->uses_mq))
 			return e;
@@ -980,10 +985,8 @@ int elevator_init_mq(struct request_queue *q)
 	struct elevator_type *e;
 	int err = 0;
 
-	if (q->tag_set && q->tag_set->flags & BLK_MQ_F_NO_SCHED_BY_DEFAULT)
-		return NULL;
-
-	if (q->nr_hw_queues != 1)
+	if ((q->tag_set && q->tag_set->flags & BLK_MQ_F_NO_SCHED_BY_DEFAULT)
+		|| q->nr_hw_queues != 1)
 		return 0;
 
 	WARN_ON_ONCE(test_bit(QUEUE_FLAG_REGISTERED, &q->queue_flags));

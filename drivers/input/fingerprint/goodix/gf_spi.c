@@ -14,9 +14,6 @@
  */
 #define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
 
-#define CONFIG_MSM_RDM_NOTIFY
-#undef CONFIG_FB
-
 #include <linux/clk.h>
 #include <linux/compat.h>
 #include <linux/cpufreq.h>
@@ -25,7 +22,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/fb.h>
+#include <linux/msm_drm_notify.h>
 #include <linux/fs.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
@@ -446,16 +443,20 @@ int gf_opticalfp_irq_handler(int event)
 	if (gf.spi == NULL) {
 		return 0;
 	}
-	if (event == 1) {
-		cpu_input_boost_kick_max(1000);
-		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
-		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1000);
-		msg = GF_NET_EVENT_TP_TOUCHDOWN;
-		sendnlmsg(&msg);
-	} else if (event == 0) {
-		msg = GF_NET_EVENT_TP_TOUCHUP;
-		sendnlmsg(&msg);
+	switch(event) {
+	case 1:
+	  cpu_input_boost_kick_max(1000);
+	  devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
+	  devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1000);
+	  msg = GF_NET_EVENT_TP_TOUCHDOWN;
+	  sendnlmsg(&msg);
+	  break;
+	case 0:
+	  msg = GF_NET_EVENT_TP_TOUCHUP;
+	  sendnlmsg(&msg);
+	  break;
 	}
+
 	__pm_wakeup_event(&fp_wakelock, 10*HZ);
 
 	return 0;
