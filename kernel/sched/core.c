@@ -8,6 +8,7 @@
 #ifdef CONFIG_MINIMAL_TRACING_FOR_IORAP
 #undef NOTRACE
 #endif
+#include <linux/lrng.h>
 
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -2522,6 +2523,8 @@ static void
 ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
 {
 	struct rq *rq;
+
+	add_sched_randomness(p, cpu);
 
 	if (!schedstat_enabled())
 		return;
