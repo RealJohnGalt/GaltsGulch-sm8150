@@ -7995,21 +7995,6 @@ static void set_usb_switch(struct smb_charger *chg, bool enable)
 		return;
 	}
 
-	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB) {
-		pr_debug("%s:OP FIXUP: early return for passthrough\n", __func__);
-		return;
-	}
-
-	if (chg->pd_active) {
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK ||
-				chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY ||
-				chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER ||
-				chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
-			pr_debug("%s:OP FIXUP: pd_active return\n", __func__);
-			return;
-		}
-	}
-
 	if (enable) {
 		pr_debug("switch on fastchg\n");
 		chg->switch_on_fastchg = true;
@@ -8037,6 +8022,11 @@ static void set_usb_switch(struct smb_charger *chg, bool enable)
 			schedule_delayed_work(&chg->rechk_sw_dsh_work,
 					msecs_to_jiffies(retrger_time));
 	} else {
+		if (!chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_DASH) {
+			pr_err("OP FIXUP: power early return\n");
+			return;
+		}
+
 		pr_debug("switch off fastchg\n");
 		chg->switch_on_fastchg = false;
 		update_disconnect_pd_status(false);
