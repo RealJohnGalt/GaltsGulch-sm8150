@@ -396,8 +396,7 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 
 		switch (kp_active_mode()) {
 		case 3:
-			highref_multi = CONFIG_DEVFREQ_ADRENO_HIGHREFRESH_MULTI * 1.6;
-			lowref_multi = 120;
+			highref_multi = CONFIG_DEVFREQ_ADRENO_HIGHREFRESH_MULTI * 1.2;
 			highref_input_dur = 5000;
 			break;
 		case 2:
