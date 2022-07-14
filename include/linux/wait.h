@@ -209,16 +209,14 @@ void __wake_up_pollfree(struct wait_queue_head *wq_head);
 /*
  * Wakeup macros to be used to report events to the targets.
  */
-#define poll_to_key(m) ((void *)(__force uintptr_t)(__poll_t)(m))
-#define key_to_poll(m) ((__force __poll_t)(uintptr_t)(void *)(m))
 #define wake_up_poll(x, m)							\
-	__wake_up(x, TASK_NORMAL, 1, poll_to_key(m))
+	__wake_up(x, TASK_NORMAL, 1, (void *) (m))
 #define wake_up_locked_poll(x, m)						\
-	__wake_up_locked_key((x), TASK_NORMAL, poll_to_key(m))
+	__wake_up_locked_key((x), TASK_NORMAL, (void *) (m))
 #define wake_up_interruptible_poll(x, m)					\
-	__wake_up(x, TASK_INTERRUPTIBLE, 1, poll_to_key(m))
+	__wake_up(x, TASK_INTERRUPTIBLE, 1, (void *) (m))
 #define wake_up_interruptible_sync_poll(x, m)					\
-	__wake_up_sync_key((x), TASK_INTERRUPTIBLE, 1, poll_to_key(m))
+	__wake_up_sync_key((x), TASK_INTERRUPTIBLE, 1, (void *) (m))
 
 /**
  * wake_up_pollfree - signal that a polled waitqueue is going away
