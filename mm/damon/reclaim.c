@@ -222,13 +222,13 @@ struct damon_reclaim_ram_walk_arg {
 	unsigned long end;
 };
 
-static int walk_system_ram(struct resource *res, void *arg)
+static int walk_system_ram(u64 start, u64 end, void *arg)
 {
 	struct damon_reclaim_ram_walk_arg *a = arg;
 
-	if (a->end - a->start < res->end - res->start) {
-		a->start = res->start;
-		a->end = res->end;
+	if (a->end - a->start < end - start) {
+		a->start = start;
+		a->end = end;
 	}
 	return 0;
 }
