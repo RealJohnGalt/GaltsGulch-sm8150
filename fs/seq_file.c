@@ -699,12 +699,12 @@ void seq_put_decimal_ull_width(struct seq_file *m, const char *delimiter,
 	if (m->count + 2 >= m->size) /* we'll write 2 bytes at least */
 		goto overflow;
 
-	len = strlen(delimiter);
-	if (m->count + len >= m->size)
-		goto overflow;
-
-	memcpy(m->buf + m->count, delimiter, len);
-	m->count += len;
+	if (delimiter && delimiter[0]) {
+		if (delimiter[1] == 0)
+			seq_putc(m, delimiter[0]);
+		else
+			seq_puts(m, delimiter);
+	}
 
 	if (!width)
 		width = 1;
@@ -742,12 +742,12 @@ void seq_put_decimal_ll(struct seq_file *m, const char *delimiter, long long num
 	if (m->count + 3 >= m->size) /* we'll write 2 bytes at least */
 		goto overflow;
 
-	len = strlen(delimiter);
-	if (m->count + len >= m->size)
-		goto overflow;
-
-	memcpy(m->buf + m->count, delimiter, len);
-	m->count += len;
+	if (delimiter && delimiter[0]) {
+		if (delimiter[1] == 0)
+			seq_putc(m, delimiter[0]);
+		else
+			seq_puts(m, delimiter);
+	}
 
 	if (m->count + 2 >= m->size)
 		goto overflow;
@@ -802,8 +802,14 @@ EXPORT_SYMBOL(seq_write);
 void seq_pad(struct seq_file *m, char c)
 {
 	int size = m->pad_until - m->count;
-	if (size > 0)
-		seq_printf(m, "%*s", size, "");
+	if (size > 0) {
+		if (size + m->count > m->size) {
+			seq_set_overflow(m);
+			return;
+		}
+		memset(m->buf + m->count, ' ', size);
+		m->count += size;
+	}
 	if (c)
 		seq_putc(m, c);
 }

@@ -869,11 +869,24 @@ static int subsystem_powerup(struct subsys_device *dev, void *data)
 			|| system_state == SYSTEM_POWER_OFF)
 			WARN(1, "SSR aborted: %s, system reboot/shutdown is under way\n",
 				name);
-		else if (!dev->desc->ignore_ssr_failure)
-			panic("[%s:%d]: Powerup error: %s!",
-				current->comm, current->pid, name);
-		else
+		else {
+			if (!dev->desc->ignore_ssr_failure) {
+				/*
+				 * There is a slight window between reboot and
+				 * system_state changing to SYSTEM_RESTART or
+				 * SYSTEM_POWER_OFF. Add a delay before panic
+				 * to ensure SSR that happens during reboot
+				 * will not result in a kernel panic.
+				 */
+				msleep(3000);
+				if (system_state != SYSTEM_RESTART
+					&& system_state != SYSTEM_POWER_OFF)
+					panic("[%s:%d]: Powerup error: %s!",
+						current->comm,
+						current->pid, name);
+			}
 			pr_err("Powerup failure on %s\n", name);
+		}
 		return ret;
 	}
 
@@ -1140,6 +1153,7 @@ static int subsys_start(struct subsys_device *subsys)
 		return ret;
 	}
 	subsys_set_state(subsys, SUBSYS_ONLINE);
+	subsys_set_crash_status(subsys, CRASH_STATUS_NO_CRASH);
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_POWERUP,
 								NULL);
@@ -1624,7 +1638,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		return 0;
 	}
 
-	if (!strcmp(name, "modem"))
+	if (!strcmp(name, "modem") || !strcmp(name, "adsp"))
 		dev->restart_level = RESET_SUBSYS_COUPLED;
 
 	switch (dev->restart_level) {

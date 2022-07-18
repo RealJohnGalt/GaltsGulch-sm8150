@@ -258,7 +258,7 @@ static void qmi_rmnet_watchdog_fn(struct timer_list *t)
 	bearer->watchdog_expire_cnt++;
 	bearer->bytes_in_flight = 0;
 	if (!bearer->grant_size) {
-		bearer->grant_size = DEFAULT_GRANT;
+		bearer->grant_size = DEFAULT_CALL_GRANT;
 		bearer->grant_thresh = qmi_rmnet_grant_per(bearer->grant_size);
 		dfc_bearer_flow_ctl(bearer->qos->vnd_dev, bearer, bearer->qos);
 	} else {
@@ -333,7 +333,7 @@ static struct rmnet_bearer_map *__qmi_rmnet_bearer_get(
 
 		bearer->bearer_id = bearer_id;
 		bearer->flow_ref = 1;
-		bearer->grant_size = DEFAULT_GRANT;
+		bearer->grant_size = DEFAULT_CALL_GRANT;
 		bearer->grant_thresh = qmi_rmnet_grant_per(bearer->grant_size);
 		bearer->mq_idx = INVALID_MQ;
 		bearer->ack_mq_idx = INVALID_MQ;
@@ -1257,8 +1257,7 @@ void qmi_rmnet_work_init(void *port)
 	if (rmnet_ps_wq)
 		return;
 
-	rmnet_ps_wq = alloc_workqueue("rmnet_powersave_work",
-				      WQ_CPU_INTENSIVE, 1);
+	rmnet_ps_wq = create_freezable_workqueue("rmnet_powersave_work");
 
 	if (!rmnet_ps_wq)
 		return;

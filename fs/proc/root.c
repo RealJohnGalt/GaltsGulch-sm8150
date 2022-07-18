@@ -169,7 +169,7 @@ void __init proc_root_init(void)
 {
 	int err;
 
-	proc_init_inodecache();
+	proc_init_kmemcache();
 	set_proc_pid_nlink();
 	err = register_filesystem(&proc_fs_type);
 	if (err)
@@ -181,9 +181,6 @@ void __init proc_root_init(void)
 
 	proc_net_init();
 	proc_uid_init();
-#ifdef CONFIG_SYSVIPC
-	proc_mkdir("sysvipc", NULL);
-#endif
 	proc_mkdir("fs", NULL);
 	proc_mkdir("driver", NULL);
 	proc_create_mount_point("fs/nfsd"); /* somewhere for the nfsd filesystem to be mounted */
