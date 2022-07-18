@@ -457,7 +457,7 @@ int gf_opticalfp_irq_handler(int event)
 	  break;
 	}
 
-	__pm_wakeup_event(&fp_wakelock, 10*HZ);
+	__pm_wakeup_event(&fp_wakelock, 2000);
 
 	return 0;
 }
