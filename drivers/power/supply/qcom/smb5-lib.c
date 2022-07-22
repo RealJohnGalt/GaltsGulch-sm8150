@@ -52,6 +52,10 @@
 #include <linux/fastchg.h>
 #endif
 
+#ifdef CONFIG_OP_PASSTHROUGH_HACK
+#include <linux/passthroughhack.h>
+#endif
+
 #define SOC_INVALID                   0x7E
 #define SOC_DATA_REG_0                0x88D
 #define SOC_FLAG_REG                  0x88E
@@ -7995,11 +7999,13 @@ static void set_usb_switch(struct smb_charger *chg, bool enable)
 		return;
 	}
 
+	if (passthrough_hack > 0)
+		return;
+
 	if (enable) {
 		pr_debug("switch on fastchg\n");
 		chg->switch_on_fastchg = true;
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH ||
-				chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM)
+		if (!(chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_DASH))
 			chg->disconnect_pd = true;
 		if (chg->boot_usb_present && chg->re_trigr_dash_done) {
 			vote(chg->usb_icl_votable, AICL_RERUN_VOTER,
@@ -8022,11 +8028,6 @@ static void set_usb_switch(struct smb_charger *chg, bool enable)
 			schedule_delayed_work(&chg->rechk_sw_dsh_work,
 					msecs_to_jiffies(retrger_time));
 	} else {
-		if (!chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_DASH) {
-			pr_err("OP FIXUP: power early return\n");
-			return;
-		}
-
 		pr_debug("switch off fastchg\n");
 		chg->switch_on_fastchg = false;
 		update_disconnect_pd_status(false);

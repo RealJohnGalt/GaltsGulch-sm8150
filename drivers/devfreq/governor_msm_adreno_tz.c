@@ -27,8 +27,6 @@
 #include "governor.h"
 
 static DEFINE_SPINLOCK(tz_lock);
-static DEFINE_SPINLOCK(sample_lock);
-static DEFINE_SPINLOCK(suspend_lock);
 /*
  * FLOOR is 5msec to capture up to 3 re-draws
  * per frame for 60fps content.
@@ -60,25 +58,25 @@ static DEFINE_SPINLOCK(suspend_lock);
 
 #define TAG "msm_adreno_tz: "
 
-static u64 suspend_time;
-static u64 suspend_start;
-static unsigned long acc_total, acc_relative_busy;
+static atomic_long_t suspend_time;
+static atomic_long_t suspend_start;
+static atomic_long_t acc_total, acc_relative_busy;
 
 /*
  * Returns GPU suspend time in millisecond.
  */
-u64 suspend_time_ms(void)
+static s64 suspend_time_ms(void)
 {
-	u64 suspend_sampling_time;
-	u64 time_diff = 0;
+	s64 suspend_sampling_time;
+	s64 time_diff;
 
-	if (suspend_start == 0)
+	if (!atomic_long_read(&suspend_start))
 		return 0;
 
-	suspend_sampling_time = (u64)ktime_to_ms(ktime_get());
-	time_diff = suspend_sampling_time - suspend_start;
+	suspend_sampling_time = ktime_to_ms(ktime_get());
+	time_diff = suspend_sampling_time - atomic_long_read(&suspend_start);
 	/* Update the suspend_start sample again */
-	suspend_start = suspend_sampling_time;
+	atomic_long_set(&suspend_start, suspend_sampling_time);
 	return time_diff;
 }
 
@@ -92,14 +90,13 @@ static ssize_t gpu_load_show(struct device *dev,
 	 * This will keep the average value in sync with
 	 * with the client sampling duration.
 	 */
-	spin_lock(&sample_lock);
-	if (acc_total)
-		sysfs_busy_perc = (acc_relative_busy * 100) / acc_total;
+	if (atomic_long_read(&acc_total))
+		sysfs_busy_perc = (atomic_long_read(&acc_relative_busy) * 100) /
+				   atomic_long_read(&acc_total);
 
 	/* Reset the parameters */
-	acc_total = 0;
-	acc_relative_busy = 0;
-	spin_unlock(&sample_lock);
+	atomic_long_set(&acc_total, 0);
+	atomic_long_set(&acc_relative_busy, 0);
 	return snprintf(buf, PAGE_SIZE, "%lu\n", sysfs_busy_perc);
 }
 
@@ -111,9 +108,8 @@ static ssize_t suspend_time_show(struct device *dev,
 	struct device_attribute *attr,
 	char *buf)
 {
-	u64 time_diff = 0;
+	s64 time_diff;
 
-	spin_lock(&suspend_lock);
 	time_diff = suspend_time_ms();
 	/*
 	 * Adding the previous suspend time also as the gpu
@@ -121,9 +117,8 @@ static ssize_t suspend_time_show(struct device *dev,
 	 * reads also and we should have the total suspend
 	 * since last read.
 	 */
-	time_diff += suspend_time;
-	suspend_time = 0;
-	spin_unlock(&suspend_lock);
+	time_diff += atomic_long_read(&suspend_time);
+	atomic_long_set(&suspend_time, 0);
 
 	return snprintf(buf, PAGE_SIZE, "%llu\n", time_diff);
 }
@@ -140,24 +135,21 @@ static const struct device_attribute *adreno_tz_attr_list[] = {
 		NULL
 };
 
-void compute_work_load(struct devfreq_dev_status *stats,
+static void compute_work_load(struct devfreq_dev_status *stats,
 		struct devfreq_msm_adreno_tz_data *priv,
 		struct devfreq *devfreq)
 {
-	u64 busy;
+	s64 busy;
 
-	spin_lock(&sample_lock);
 	/*
 	 * Keep collecting the stats till the client
 	 * reads it. Average of all samples and reset
 	 * is done when the entry is read
 	 */
-	acc_total += stats->total_time;
-	busy = (u64)stats->busy_time * stats->current_frequency;
+	atomic_long_add(stats->total_time, &acc_total);
+	busy = stats->busy_time * stats->current_frequency;
 	do_div(busy, devfreq->profile->freq_table[0]);
-	acc_relative_busy += busy;
-
-	spin_unlock(&sample_lock);
+	atomic_long_add(busy, &acc_relative_busy);
 }
 
 /* Trap into the TrustZone, and call funcs there. */
@@ -514,28 +506,22 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 		break;
 
 	case DEVFREQ_GOV_STOP:
-		spin_lock(&suspend_lock);
-		suspend_start = 0;
-		spin_unlock(&suspend_lock);
+		atomic_long_set(&suspend_start, 0);
 		result = tz_stop(devfreq);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:
 		result = tz_suspend(devfreq);
 		if (!result) {
-			spin_lock(&suspend_lock);
 			/* Collect the start sample for suspend time */
-			suspend_start = (u64)ktime_to_ms(ktime_get());
-			spin_unlock(&suspend_lock);
+			atomic_long_set(&suspend_start, ktime_to_ms(ktime_get()));
 		}
 		break;
 
 	case DEVFREQ_GOV_RESUME:
-		spin_lock(&suspend_lock);
-		suspend_time += suspend_time_ms();
+		atomic_long_add(suspend_time_ms(), &suspend_time);
 		/* Reset the suspend_start when gpu resumes */
-		suspend_start = 0;
-		spin_unlock(&suspend_lock);
+		atomic_long_set(&suspend_start, 0);
 		/* fallthrough */
 	case DEVFREQ_GOV_INTERVAL:
 		/* fallthrough, this governor doesn't use polling */
