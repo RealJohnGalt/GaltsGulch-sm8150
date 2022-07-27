@@ -78,7 +78,7 @@ static LIST_HEAD(formats);
 static DEFINE_RWLOCK(binfmt_lock);
 
 #define HWCOMPOSER_BIN_PREFIX "/vendor/bin/hw/android.hardware.graphics.composer"
-#define QTIHW_BIN_PREFIX "/vendor/bin/hw/vendor.qti.hardware"
+#define QTIHW_BIN_PREFIX "/vendor/bin/hw/vendor.qti.hardware.display.allocator"
 #define UDFPS_BIN_PREFIX "/vendor/bin/hw/android.hardware.biometrics.fingerprint"
 #define SFLINGER_BIN_PREFIX "/system/bin/surfaceflinger"
 #define ZYGOTE32_BIN "/system/bin/app_process32"
@@ -1851,7 +1851,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 		} else if (unlikely(!strncmp(filename->name,
 					   QTIHW_BIN_PREFIX,
 					   strlen(QTIHW_BIN_PREFIX)))) {
-			current->pc_flags |= PC_HP_AFFINE;
+			current->pc_flags |= PC_PRIME_AFFINE;
 			set_cpus_allowed_ptr(current, cpu_prime_mask);
 		}
 	}
