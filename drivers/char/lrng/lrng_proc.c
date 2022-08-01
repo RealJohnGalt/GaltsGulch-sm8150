@@ -190,22 +190,9 @@ static int lrng_proc_type_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int lrng_proc_type_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, lrng_proc_type_show, NULL);
-}
-
-static const struct file_operations lrng_proc_ops = {
-	.owner		= THIS_MODULE,
-	.open		= lrng_proc_type_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-
 static int __init lrng_proc_type_init(void)
 {
-	proc_create("lrng_type", 0444, NULL, &lrng_proc_ops);
+	proc_create_single("lrng_type", 0444, NULL, &lrng_proc_type_show);
 	return 0;
 }
 

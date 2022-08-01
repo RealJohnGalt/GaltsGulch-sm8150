@@ -236,7 +236,7 @@ static int lrng_testing_extract_user(struct file *file, char __user *buf,
 		ret += i;
 	}
 
-	kzfree(tmp);
+	kfree_sensitive(tmp);
 
 	if (ret > 0)
 		*ppos += ret;

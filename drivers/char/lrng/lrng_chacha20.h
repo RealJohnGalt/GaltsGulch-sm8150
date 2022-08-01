@@ -19,11 +19,7 @@ struct chacha20_block {
 	u32 nonce[3];
 };
 
-static inline void lrng_cc20_init_rfc7539(struct chacha20_block *lrng_chacha20)
+static inline void lrng_cc20_init_rfc7539(struct chacha20_block *chacha20)
 {
-	/* String "expand 32-byte k" */
-	lrng_chacha20->constants[0] = 0x61707865;
-	lrng_chacha20->constants[1] = 0x3320646e;
-	lrng_chacha20->constants[2] = 0x79622d32;
-	lrng_chacha20->constants[3] = 0x6b206574;
+	chacha_init_consts(chacha20->constants);
 }

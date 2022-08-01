@@ -343,7 +343,7 @@ EXPORT_SYMBOL(wait_for_random_bytes);
  *
  * Return: number of bytes filled in.
  */
-void get_random_bytes_arch(void *buf, int nbytes)
+int __must_check get_random_bytes_arch(void *buf, int nbytes)
 {
 	u8 *p = buf;
 
@@ -361,6 +361,8 @@ void get_random_bytes_arch(void *buf, int nbytes)
 
 	if (nbytes)
 		lrng_drng_get_atomic((u8 *)p, (u32)nbytes);
+
+	return nbytes;
 }
 EXPORT_SYMBOL(get_random_bytes_arch);
 
@@ -434,7 +436,7 @@ static ssize_t lrng_read_common(char __user *buf, size_t nbytes)
 
 	/* Wipe data just returned from memory */
 	if (tmp_large)
-		kzfree(tmp_large);
+		kfree_sensitive(tmp_large);
 	else
 		memzero_explicit(tmpbuf, sizeof(tmpbuf));
 
@@ -468,19 +470,19 @@ static ssize_t lrng_drng_read_block(struct file *file, char __user *buf,
 	return lrng_read_common_block(file->f_flags & O_NONBLOCK, buf, nbytes);
 }
 
-static unsigned int lrng_random_poll(struct file *file, poll_table *wait)
+static __poll_t lrng_random_poll(struct file *file, poll_table *wait)
 {
-	unsigned int mask;
+	__poll_t mask;
 
 	poll_wait(file, &lrng_init_wait, wait);
 	poll_wait(file, &lrng_write_wait, wait);
 	mask = 0;
 	if (lrng_state_operational())
-		mask |= POLLIN | POLLRDNORM;
+		mask |= EPOLLIN | EPOLLRDNORM;
 	if (lrng_need_entropy() ||
 	    lrng_state_exseed_allow(lrng_noise_source_user)) {
 		lrng_state_exseed_set(lrng_noise_source_user, false);
-		mask |= POLLOUT | POLLWRNORM;
+		mask |= EPOLLOUT | EPOLLWRNORM;
 	}
 	return mask;
 }
@@ -587,6 +589,18 @@ static long lrng_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 			return -EPERM;
 		lrng_pool_set_entropy(0);
 		return 0;
+	case RNDRESEEDCRNG:
+		/*
+		 * We leave the capability check here since it is present
+		 * in the upstream's RNG implementation. Yet, user space
+		 * can trigger a reseed as easy as writing into /dev/random
+		 * or /dev/urandom where no privilege is needed.
+		 */
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+		/* Force a reseed of all DRNGs */
+		lrng_drng_force_reseed();
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -602,6 +616,7 @@ const struct file_operations random_fops = {
 	.write = lrng_drng_write,
 	.poll  = lrng_random_poll,
 	.unlocked_ioctl = lrng_ioctl,
+	.compat_ioctl = compat_ptr_ioctl,
 	.fasync = lrng_fasync,
 	.llseek = noop_llseek,
 };
@@ -610,6 +625,7 @@ const struct file_operations urandom_fops = {
 	.read  = lrng_drng_read,
 	.write = lrng_drng_write,
 	.unlocked_ioctl = lrng_ioctl,
+	.compat_ioctl = compat_ptr_ioctl,
 	.fasync = lrng_fasync,
 	.llseek = noop_llseek,
 };
