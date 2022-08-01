@@ -3,7 +3,6 @@
 # Makefile for the Linux Random Number Generator.
 #
 
-ccflags-y += -DCONFIG_CRYPTO_LIB_SHA256=true
 ccflags-y += -mllvm -inline-threshold=15000
 ccflags-y += -mllvm -inlinehint-threshold=10000
 
