@@ -1742,28 +1742,26 @@ EXPORT_SYMBOL(del_random_ready_callback);
  * key known by the NSA).  So it's useful if we need the speed, but
  * only if we're willing to trust the hardware manufacturer not to
  * have put in a back door.
- *
- * Return number of bytes filled in.
  */
-int __must_check get_random_bytes_arch(void *buf, int nbytes)
+void get_random_bytes_arch(void *buf, int nbytes)
 {
-	int left = nbytes;
 	char *p = buf;
 
-	trace_get_random_bytes_arch(left, _RET_IP_);
-	while (left) {
+	trace_get_random_bytes_arch(nbytes, _RET_IP_);
+	while (nbytes) {
 		unsigned long v;
-		int chunk = min_t(int, left, sizeof(unsigned long));
+		int chunk = min(nbytes, (int)sizeof(unsigned long));
 
 		if (!arch_get_random_long(&v))
 			break;
 
 		memcpy(p, &v, chunk);
 		p += chunk;
-		left -= chunk;
+		nbytes -= chunk;
 	}
 
-	return nbytes - left;
+	if (nbytes)
+		get_random_bytes(p, nbytes);
 }
 EXPORT_SYMBOL(get_random_bytes_arch);
 
