@@ -196,8 +196,7 @@ static unsigned int lrng_hash_selftest(void)
 	static const u8 hash_input[] = { 0x61, 0x62, 0x63 }; /* "abc" */
 	u8 digest[sizeof(lrng_hash_selftest_result)] __aligned(sizeof(u32));
 
-	if (sizeof(digest) != crypto_cb->lrng_hash_digestsize(NULL))
-		return LRNG_SEFLTEST_ERROR_HASH;
+	BUG_ON(sizeof(digest) != crypto_cb->lrng_hash_digestsize(NULL));
 
 	if (!crypto_cb->lrng_hash_init(shash, NULL) &&
 	    !crypto_cb->lrng_hash_update(shash, hash_input,

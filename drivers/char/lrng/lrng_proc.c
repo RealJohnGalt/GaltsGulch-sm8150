@@ -86,7 +86,6 @@ static int lrng_drng_reseed_max_min;
 void lrng_proc_update_max_write_thresh(u32 new_digestsize)
 {
 	lrng_max_write_thresh = (int)new_digestsize;
-	/* Ensure that changes to the global variable are visible */
 	mb();
 }
 
