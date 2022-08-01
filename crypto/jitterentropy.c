@@ -110,7 +110,7 @@ struct rand_data {
  * Helper functions
  ***************************************************************************/
 
-#include <crypto/internal/jitterentropy.h>
+#include "jitterentropy.h"
 
 /**
  * Update of the loop count used for the next round of

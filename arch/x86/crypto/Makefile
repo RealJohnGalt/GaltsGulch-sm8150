@@ -76,11 +76,11 @@ twofish-x86_64-3way-y := twofish-x86_64-asm_64-3way.o twofish_glue_3way.o
 chacha-x86_64-y := chacha-ssse3-x86_64.o chacha_glue.o
 serpent-sse2-x86_64-y := serpent-sse2-x86_64-asm_64.o serpent_sse2_glue.o
 
-blake2s-x86_64-y := blake2s-core.o blake2s-glue.o
 poly1305-x86_64-y := poly1305-x86_64-cryptogams.o poly1305_glue.o
 ifneq ($(CONFIG_CRYPTO_POLY1305_X86_64),)
 targets += poly1305-x86_64-cryptogams.S
 endif
+blake2s-x86_64-y := blake2s-core.o blake2s-glue.o
 
 ifeq ($(avx_supported),yes)
 	camellia-aesni-avx-x86_64-y := camellia-aesni-avx-asm_64.o \
