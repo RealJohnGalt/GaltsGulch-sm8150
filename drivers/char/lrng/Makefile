@@ -9,5 +9,3 @@ ccflags-y += -mllvm -inlinehint-threshold=10000
 obj-y				+= lrng_es_mgr.o lrng_aux.o \
 				   lrng_drng.o lrng_chacha20.o \
 				   lrng_interfaces.o lrng_es_aux.o
-
-obj-$(CONFIG_LRNG_IRQ)		+= lrng_es_irq.o
