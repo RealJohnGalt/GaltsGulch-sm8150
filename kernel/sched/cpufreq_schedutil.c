@@ -27,7 +27,7 @@ static u64 default_up_delay_lp[] = {0};
 static unsigned int default_efficient_freq_hp[] = {1401600};
 static u64 default_up_delay_hp[] = {100 * NSEC_PER_MSEC};
 
-static unsigned int default_efficient_freq_pr[] = {1804800};
+static unsigned int default_efficient_freq_pr[] = {2016000};
 static u64 default_up_delay_pr[] = {100 * NSEC_PER_MSEC};
 
 struct sugov_tunables {
