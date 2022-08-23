@@ -25,10 +25,10 @@ static unsigned int default_efficient_freq_lp[] = {0};
 static u64 default_up_delay_lp[] = {0};
 
 static unsigned int default_efficient_freq_hp[] = {1401600};
-static u64 default_up_delay_hp[] = {100 * NSEC_PER_MSEC};
+static u64 default_up_delay_hp[] = {250 * NSEC_PER_MSEC};
 
-static unsigned int default_efficient_freq_pr[] = {2016000};
-static u64 default_up_delay_pr[] = {100 * NSEC_PER_MSEC};
+static unsigned int default_efficient_freq_pr[] = {1804800};
+static u64 default_up_delay_pr[] = {250 * NSEC_PER_MSEC};
 
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
@@ -144,7 +144,7 @@ static int match_nearest_efficient_step(int freq,int maxstep,int *freq_table)
 extern int kp_active_mode(void);
 static void do_freq_limit(struct sugov_policy *sg_policy, unsigned int *freq, u64 time)
 {
-    if (kp_active_mode() == 3)
+    if (!(kp_active_mode() == 1))
     	return;
 
     if (*freq > sg_policy->tunables->efficient_freq[sg_policy->tunables->current_step] && !sg_policy->first_hp_request_time) {
