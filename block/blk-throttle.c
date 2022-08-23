@@ -21,14 +21,14 @@ static int throtl_quantum = 64;
 
 /* Throttling is performed over a slice and after that slice is renewed */
 #define DFL_THROTL_SLICE_HD (HZ / 10)
-#define DFL_THROTL_SLICE_SSD (HZ / 100)
+#define DFL_THROTL_SLICE_SSD (HZ / 50)
 #define MAX_THROTL_SLICE (HZ)
 #define MAX_IDLE_TIME (5L * 1000 * 1000) /* 5 s */
 #define MIN_THROTL_BPS (320 * 1024)
 #define MIN_THROTL_IOPS (10)
 #define DFL_LATENCY_TARGET (1000L) /* 1ms */
 #define DFL_IDLE_THRESHOLD (0)
-#define DFL_HD_BASELINE_LATENCY (2000L) /* 2ms */
+#define DFL_HD_BASELINE_LATENCY (4000L) /* 4ms */
 #define LATENCY_FILTERED_SSD (0)
 /*
  * For HD, very small latency comes from sequential IO. Such IO is helpless to
