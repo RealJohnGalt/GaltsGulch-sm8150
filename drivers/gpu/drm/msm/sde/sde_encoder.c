@@ -2329,6 +2329,13 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	switch (sw_event) {
 	case SDE_ENC_RC_EVENT_KICKOFF:
+	{
+		struct msm_drm_private *priv;
+		struct sde_kms *sde_kms;
+
+		priv = drm_enc->dev->dev_private;
+		sde_kms = to_sde_kms(priv->kms);
+
 		/* cancel delayed off work, if any */
 		if (kthread_cancel_delayed_work_sync(
 				&sde_enc->delayed_off_work))
@@ -2359,6 +2366,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		if (is_vid_mode && sde_enc->rc_state == SDE_ENC_RC_STATE_IDLE) {
 			_sde_encoder_irq_control(drm_enc, true);
+			sde_kms_update_pm_qos_irq_request(sde_kms, true, false);
 		} else {
 			/* enable all the clks and resources */
 			ret = _sde_encoder_resource_control_helper(drm_enc,
@@ -2383,7 +2391,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		mutex_unlock(&sde_enc->rc_lock);
 		break;
-
+	}
 	case SDE_ENC_RC_EVENT_FRAME_DONE:
 		if (!sde_enc->crtc) {
 			SDE_ERROR("invalid crtc, sw_event:%u\n", sw_event);
@@ -2627,6 +2635,13 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 
 	case SDE_ENC_RC_EVENT_ENTER_IDLE:
+	{
+		struct msm_drm_private *priv;
+		struct sde_kms *sde_kms;
+
+		priv = drm_enc->dev->dev_private;
+		sde_kms = to_sde_kms(priv->kms);
+
 		mutex_lock(&sde_enc->rc_lock);
 
 		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
@@ -2654,6 +2669,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		if (is_vid_mode) {
 			_sde_encoder_irq_control(drm_enc, false);
+			sde_kms_update_pm_qos_irq_request(sde_kms, false, false);
 		} else {
 			/* disable all the clks and resources */
 			_sde_encoder_resource_control_rsc_update(drm_enc,
@@ -2667,6 +2683,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		mutex_unlock(&sde_enc->rc_lock);
 		break;
+	}
 	case SDE_ENC_RC_EVENT_EARLY_WAKEUP:
 		if (!sde_enc->crtc ||
 			sde_enc->crtc->index >= ARRAY_SIZE(priv->disp_thread)) {
@@ -3649,10 +3666,12 @@ static void sde_encoder_frame_done_callback(
 
 static void sde_encoder_get_qsync_fps_callback(
 	struct drm_encoder *drm_enc,
-	u32 *qsync_fps)
+	u32 *qsync_fps, u32 vrr_fps)
 {
 	struct msm_display_info *disp_info;
 	struct sde_encoder_virt *sde_enc;
+	int rc = 0;
+	struct sde_connector *sde_conn;
 
 	if (!qsync_fps)
 		return;
@@ -3666,6 +3685,31 @@ static void sde_encoder_get_qsync_fps_callback(
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	disp_info = &sde_enc->disp_info;
 	*qsync_fps = disp_info->qsync_min_fps;
+
+	/**
+	 * If "dsi-supported-qsync-min-fps-list" is defined, get
+	 * the qsync min fps corresponding to the fps in dfps list
+	 */
+	if (disp_info->has_qsync_min_fps_list) {
+
+		if (!sde_enc->cur_master ||
+			!(sde_enc->disp_info.capabilities &
+				MSM_DISPLAY_CAP_VID_MODE)) {
+			SDE_ERROR("invalid qsync settings %b\n",
+				!sde_enc->cur_master);
+			return;
+		}
+		sde_conn = to_sde_connector(sde_enc->cur_master->connector);
+
+		if (sde_conn->ops.get_qsync_min_fps)
+			rc = sde_conn->ops.get_qsync_min_fps(sde_conn->display,
+				vrr_fps);
+		if (rc <= 0) {
+			SDE_ERROR("invalid qsync min fps %d\n", rc);
+			return;
+		}
+		*qsync_fps = rc;
+	}
 }
 
 int sde_encoder_idle_request(struct drm_encoder *drm_enc)
