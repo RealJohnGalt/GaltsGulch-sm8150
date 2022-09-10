@@ -5846,7 +5846,7 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 		if (zpos == INT_MAX) {
 			zpos = 0;
 			for (i = 0; i < cnt; i++) {
-				if (pstates[i].stage > zpos)
+				if (pstates[i].stage >= zpos)
 					zpos = pstates[i].stage;
 			}
 			zpos++;
