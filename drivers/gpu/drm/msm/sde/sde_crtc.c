@@ -5840,15 +5840,9 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			pstates[fp_index].stage++;
 		}
 		for (i = 0; i < cnt; i++) {
-				if (i == fp_index || i == fppressed_index)
-					{
-					continue;
-					}
-				if (pstates[i].stage >= zpos) {
-				//SDE_ERROR("Warn!!: the fp layer not on top");
+			if (pstates[i].stage >= zpos)
 				pstates[i].stage++;
-				}
-			}
+		}
 		if (zpos == INT_MAX) {
 			zpos = 0;
 			for (i = 0; i < cnt; i++) {
