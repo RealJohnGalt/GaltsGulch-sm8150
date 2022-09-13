@@ -184,6 +184,9 @@ static inline int cpu_to_mem(int cpu)
 #ifndef topology_physical_package_id
 #define topology_physical_package_id(cpu)	((void)(cpu), -1)
 #endif
+#ifndef topology_die_id
+#define topology_die_id(cpu)			((void)(cpu), -1)
+#endif
 #ifndef topology_core_id
 #define topology_core_id(cpu)			((void)(cpu), 0)
 #endif
@@ -195,6 +198,9 @@ static inline int cpu_to_mem(int cpu)
 #endif
 #ifndef topology_possible_sibling_cpumask
 #define topology_possible_sibling_cpumask(cpu)	cpumask_of(cpu)
+#endif
+#ifndef topology_die_cpumask
+#define topology_die_cpumask(cpu)		cpumask_of(cpu)
 #endif
 
 #ifdef CONFIG_SCHED_SMT
