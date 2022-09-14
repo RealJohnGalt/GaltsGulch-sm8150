@@ -2244,7 +2244,6 @@ struct task_struct *fork_idle(int cpu)
 	return task;
 }
 
-extern int kp_active_mode(void);
 /*
  *  Ok, this is the main fork-routine.
  *
@@ -2264,11 +2263,9 @@ long _do_fork(unsigned long clone_flags,
 
 	/* Boost CPU to the max for 500 ms when userspace launches an app */
 	if (task_is_zygote(current)) {
-		if (kp_active_mode() != 1) {
-			cpu_input_boost_kick_max(500);
-			devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 700);
-			devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 700);
-		}
+		cpu_input_boost_kick_max(500);
+		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 700);
+		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 700);
 	}
 
 	/*
