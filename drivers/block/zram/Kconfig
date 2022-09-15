@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 config ZRAM
 	tristate "Compressed RAM block device support"
-	depends on BLOCK && SYSFS && CRYPTO
-	select ZPOOL
-	default n
+	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
+	depends on CRYPTO_LZO || CRYPTO_ZSTD || CRYPTO_LZ4 || CRYPTO_LZ4HC || CRYPTO_842
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
 	  Pages written to these disks are compressed and stored in memory
@@ -13,7 +12,47 @@ config ZRAM
 	  It has several use cases, for example: /tmp storage, use as swap
 	  disks and maybe many more.
 
-	  See Documentation/blockdev/zram.txt for more information.
+	  See Documentation/admin-guide/blockdev/zram.rst for more information.
+
+choice
+	prompt "Default zram compressor"
+	default ZRAM_DEF_COMP_LZORLE
+	depends on ZRAM
+
+config ZRAM_DEF_COMP_LZORLE
+	bool "lzo-rle"
+	depends on CRYPTO_LZO
+
+config ZRAM_DEF_COMP_ZSTD
+	bool "zstd"
+	depends on CRYPTO_ZSTD
+
+config ZRAM_DEF_COMP_LZ4
+	bool "lz4"
+	depends on CRYPTO_LZ4
+
+config ZRAM_DEF_COMP_LZO
+	bool "lzo"
+	depends on CRYPTO_LZO
+
+config ZRAM_DEF_COMP_LZ4HC
+	bool "lz4hc"
+	depends on CRYPTO_LZ4HC
+
+config ZRAM_DEF_COMP_842
+	bool "842"
+	depends on CRYPTO_842
+
+endchoice
+
+config ZRAM_DEF_COMP
+	string
+	default "lzo-rle" if ZRAM_DEF_COMP_LZORLE
+	default "zstd" if ZRAM_DEF_COMP_ZSTD
+	default "lz4" if ZRAM_DEF_COMP_LZ4
+	default "lzo" if ZRAM_DEF_COMP_LZO
+	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
+	default "842" if ZRAM_DEF_COMP_842
 
 config ZRAM_ENTROPY
 	bool "Use entropy optimization for zram"
@@ -27,7 +66,7 @@ config ZRAM_ENTROPY
 config ZRAM_ENTROPY_THRESHOLD
 	int
 	depends on ZRAM && ZRAM_ENTROPY
-	default 85000
+	default 80000
 	help
 	  Pages with entropy above ZRAM_ENTROPY_THRESHOLD will be stored
 	  uncompressed. The default value was chosen as a result a lot of
@@ -36,7 +75,6 @@ config ZRAM_ENTROPY_THRESHOLD
 config ZRAM_WRITEBACK
        bool "Write back incompressible or idle page to backing device"
        depends on ZRAM
-       default n
        help
 	 With incompressible page, there is no memory saving to keep it
 	 in memory. Instead, write it out to backing device.
@@ -46,7 +84,7 @@ config ZRAM_WRITEBACK
 	 With /sys/block/zramX/{idle,writeback}, application could ask
 	 idle page's writeback to the backing device to save in memory.
 
-	 See Documentation/blockdev/zram.txt for more information.
+	 See Documentation/admin-guide/blockdev/zram.rst for more information.
 
 config ZRAM_MEMORY_TRACKING
 	bool "Track zRam block status"
@@ -56,35 +94,4 @@ config ZRAM_MEMORY_TRACKING
 	  of zRAM. Admin could see the information via
 	  /sys/kernel/debug/zram/zramX/block_state.
 
-	  See Documentation/blockdev/zram.txt for more information.
-
-if ZRAM
-
-choice
-	prompt "Default zRAM backend"
-	default DEFAULT_ZRAM_ZSMALLOC
-	help
-	  Select the memory allocator that will be used by default to store
-	  compressed pages for all zRAM devices.
-
-	config DEFAULT_ZRAM_ZBUD
-		bool "zbud" if ZBUD=y
-
-	config DEFAULT_ZRAM_Z3FOLD
-		bool "z3fold" if Z3FOLD=y
-
-	config DEFAULT_ZRAM_ZSMALLOC
-		bool "zsmalloc" if ZSMALLOC=y
-endchoice
-
-config ZRAM_DEFAULT_BACKEND
-	string
-	default "zbud" if DEFAULT_ZRAM_ZBUD
-	default "z3fold" if DEFAULT_ZRAM_Z3FOLD
-	default "zsmalloc"
-
-endif
-
-config ZRAM_DEFAULT_COMP_ALGORITHM
-	string "Default ZRAM compression algorithm"
-	default "lz4"
+	  See Documentation/admin-guide/blockdev/zram.rst for more information.
