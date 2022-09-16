@@ -4722,6 +4722,7 @@ error:
 	return rc;
 }
 
+extern int oneplus_panel_status;
 int dsi_panel_set_lp1(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -4753,6 +4754,7 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		       panel->name, rc);
 
 	panel->need_power_on_backlight = true;
+	oneplus_panel_status = 3; // DISPLAY_POWER_DOZE
 
 exit:
 	mutex_unlock(&panel->panel_lock);
@@ -4776,6 +4778,7 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 	if (rc)
 		pr_debug("[%s] failed to send DSI_CMD_SET_LP2 cmd, rc=%d\n",
 		       panel->name, rc);
+	oneplus_panel_status = 4; // DISPLAY_POWER_DOZE_SUSPEND
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4806,6 +4809,7 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	if (rc)
 		pr_debug("[%s] failed to send DSI_CMD_SET_NOLP cmd, rc=%d\n",
 		       panel->name, rc);
+	oneplus_panel_status = 2; // DISPLAY_POWER_ON
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -5142,6 +5146,11 @@ int dsi_panel_post_switch(struct dsi_panel *panel)
 bool aod_fod_flag;
 bool aod_complete;
 bool real_aod_mode;
+
+extern bool oneplus_dimlayer_hbm_enable;
+bool backup_dimlayer_hbm = false;
+extern int oneplus_dim_status;
+int backup_dim_status = 0;
 int dsi_panel_enable(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -5185,6 +5194,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 
 	panel->panel_initialized = true;
+	oneplus_panel_status = 2; // DISPLAY_POWER_ON
 	pr_debug("dsi_panel_enable aod_mode =%d\n",panel->aod_mode);
 
 	blank = MSM_DRM_BLANK_UNBLANK_CHARGE;
@@ -5261,6 +5271,9 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	/* Avoid sending panel off commands when ESD recovery is underway */
 	if (!atomic_read(&panel->esd_recovery_pending)) {
+		oneplus_dimlayer_hbm_enable = false;
+		oneplus_dim_status = 0;
+		pr_debug("Kill dim when panel goes off");
 		HBM_flag = false;
 	if(panel->aod_mode==2){
 			panel->aod_status=1;
@@ -5294,6 +5307,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	}
 	panel->panel_initialized = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
+	oneplus_panel_status = 0; // DISPLAY_POWER_OFF
 
 	mutex_unlock(&panel->panel_lock);
 	printk(KERN_ERR"dsi_panel_disable --\n");
