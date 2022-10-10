@@ -176,7 +176,7 @@ int kswapd_threads_current = DEF_KSWAPD_THREADS_PER_NODE;
 /*
  * From 0 .. 200.  Higher means more swappy.
  */
-int vm_swappiness = 200;
+int vm_swappiness = 20;
 /*
  * The total number of pages which are beyond the high watermark within all
  * zones.
@@ -900,6 +900,10 @@ static enum page_references page_check_references(struct page *page,
 	 */
 	if (vm_flags & VM_LOCKED)
 		return PAGEREF_RECLAIM;
+
+	/* rmap lock contention: rotate */
+	if (referenced_ptes == -1)
+		return PAGEREF_KEEP;
 
 	if (referenced_ptes) {
 		if (PageSwapBacked(page))
@@ -2127,8 +2131,9 @@ static void shrink_active_list(unsigned long nr_to_scan,
 			}
 		}
 
+		/* Referenced or rmap lock contention: rotate */
 		if (page_referenced(page, 0, sc->target_mem_cgroup,
-				    &vm_flags)) {
+				     &vm_flags) != 0) {
 			nr_rotated += hpage_nr_pages(page);
 			/*
 			 * Identify referenced, file-backed active pages and
