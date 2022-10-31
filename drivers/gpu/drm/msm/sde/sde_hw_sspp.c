@@ -300,7 +300,8 @@ static void sde_hw_sspp_set_src_split_order(struct sde_hw_pipe *ctx,
 static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		const struct sde_format *fmt,
 		bool const_alpha_en, u32 flags,
-		enum sde_sspp_multirect_index rect_mode)
+		enum sde_sspp_multirect_index rect_mode,
+		bool force_csc)
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 chroma_samp, unpack, src_format;
@@ -308,6 +309,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	u32 alpha_en_mask = 0;
 	u32 op_mode_off, unpack_pat_off, format_off;
 	u32 idx;
+	bool csc_en = force_csc || SDE_FORMAT_IS_YUV(fmt);
 
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx) || !fmt)
 		return;
@@ -396,11 +398,11 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	/* update scaler opmode, if appropriate */
 	if (test_bit(SDE_SSPP_CSC, &ctx->cap->features))
 		_sspp_setup_opmode(ctx, VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT,
-			SDE_FORMAT_IS_YUV(fmt));
+			csc_en);
 	else if (test_bit(SDE_SSPP_CSC_10BIT, &ctx->cap->features))
 		_sspp_setup_csc10_opmode(ctx,
 			VIG_CSC_10_EN | VIG_CSC_10_SRC_DATAFMT,
-			SDE_FORMAT_IS_YUV(fmt));
+			csc_en);
 
 	SDE_REG_WRITE(c, format_off + idx, src_format);
 	SDE_REG_WRITE(c, unpack_pat_off + idx, unpack);
