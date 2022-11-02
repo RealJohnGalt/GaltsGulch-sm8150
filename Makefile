@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 296
+SUBLEVEL = 297
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -737,8 +737,8 @@ endif
 endif
 
 ifdef CONFIG_INLINE_OPTIMIZATION
-KBUILD_CFLAGS	+= -mllvm -inline-threshold=600
-KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=750
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=2000
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=3000
 endif
 
 else
