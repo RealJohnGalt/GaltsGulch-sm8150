@@ -4600,6 +4600,13 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	state = plane->state;
 
 	SDE_DEBUG_PLANE(psde, "\n");
+	SDE_ERROR_PLANE(psde, "features: %08x\n", psde->features);
+	SDE_ERROR_PLANE(psde, "csc: %08x\n", !!(psde->features & (BIT(SDE_SSPP_DGM_CSC) |
+															  BIT(SDE_SSPP_CSC_10BIT) |
+															  BIT(SDE_SSPP_CSC))));
+	SDE_ERROR_PLANE(psde, "SDE_SSPP_DGM_CSC: %u\n", !!(psde->features & BIT(SDE_SSPP_DGM_CSC)));
+	SDE_ERROR_PLANE(psde, "SDE_SSPP_CSC_10BIT: %u\n", !!(psde->features & BIT(SDE_SSPP_CSC_10BIT)));
+	SDE_ERROR_PLANE(psde, "SDE_SSPP_CSC: %u\n", !!(psde->features & BIT(SDE_SSPP_CSC)));
 
 	sde_plane_rot_atomic_update(plane, old_state);
 
