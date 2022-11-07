@@ -100,12 +100,18 @@ static inline void rcu_seq_start(unsigned long *sp)
 	WARN_ON_ONCE(rcu_seq_state(*sp) != 1);
 }
 
+/* Compute the end-of-grace-period value for the specified sequence number. */
+static inline unsigned long rcu_seq_endval(unsigned long *sp)
+{
+	return (*sp | RCU_SEQ_STATE_MASK) + 1;
+}
+
 /* Adjust sequence number for end of update-side operation. */
 static inline void rcu_seq_end(unsigned long *sp)
 {
 	smp_mb(); /* Ensure update-side operation before counter increment. */
 	WARN_ON_ONCE(!rcu_seq_state(*sp));
-	WRITE_ONCE(*sp, (*sp | RCU_SEQ_STATE_MASK) + 1);
+	WRITE_ONCE(*sp, rcu_seq_endval(sp));
 }
 
 /* Take a snapshot of the update side's sequence number. */
@@ -270,6 +276,15 @@ static inline void rcu_init_levelspread(int *levelspread, const int *levelcnt)
 	}
 }
 
+/* Returns first leaf rcu_node of the specified RCU flavor. */
+#define rcu_first_leaf_node(rsp) ((rsp)->level[rcu_num_lvls - 1])
+
+/* Is this rcu_node a leaf? */
+#define rcu_is_leaf_node(rnp) ((rnp)->level == rcu_num_lvls - 1)
+
+/* Is this rcu_node the last leaf? */
+#define rcu_is_last_leaf_node(rsp, rnp) ((rnp) == &(rsp)->node[rcu_num_nodes - 1])
+
 /*
  * Do a full breadth-first scan of the rcu_node structures for the
  * specified rcu_state structure.
@@ -301,9 +316,19 @@ static inline void rcu_init_levelspread(int *levelspread, const int *levelcnt)
  * Iterate over all possible CPUs in a leaf RCU node.
  */
 #define for_each_leaf_node_possible_cpu(rnp, cpu) \
-	for ((cpu) = cpumask_next(rnp->grplo - 1, cpu_possible_mask); \
-	     cpu <= rnp->grphi; \
-	     cpu = cpumask_next((cpu), cpu_possible_mask))
+	for ((cpu) = cpumask_next((rnp)->grplo - 1, cpu_possible_mask); \
+	     (cpu) <= rnp->grphi; \
+	     (cpu) = cpumask_next((cpu), cpu_possible_mask))
+
+/*
+ * Iterate over all CPUs in a leaf RCU node's specified mask.
+ */
+#define rcu_find_next_bit(rnp, cpu, mask) \
+	((rnp)->grplo + find_next_bit(&(mask), BITS_PER_LONG, (cpu)))
+#define for_each_leaf_node_cpu_mask(rnp, cpu, mask) \
+	for ((cpu) = rcu_find_next_bit((rnp), 0, (mask)); \
+	     (cpu) <= rnp->grphi; \
+	     (cpu) = rcu_find_next_bit((rnp), (cpu) + 1 - (rnp->grplo), (mask)))
 
 /*
  * Wrappers for the rcu_node::lock acquire and release.
@@ -477,6 +502,7 @@ void rcu_force_quiescent_state(void);
 void rcu_bh_force_quiescent_state(void);
 void rcu_sched_force_quiescent_state(void);
 extern struct workqueue_struct *rcu_gp_wq;
+extern struct workqueue_struct *rcu_par_gp_wq;
 #endif /* #else #ifdef CONFIG_TINY_RCU */
 
 #ifdef CONFIG_RCU_NOCB_CPU
