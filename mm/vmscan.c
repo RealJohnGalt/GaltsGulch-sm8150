@@ -138,13 +138,6 @@ struct scan_control {
 	struct vm_area_struct *target_vma;
 };
 
-/*
- * Number of active kswapd threads
- */
-#define DEF_KSWAPD_THREADS_PER_NODE 1
-int kswapd_threads = DEF_KSWAPD_THREADS_PER_NODE;
-int kswapd_threads_current = DEF_KSWAPD_THREADS_PER_NODE;
-
 #ifdef ARCH_HAS_PREFETCH
 #define prefetch_prev_lru_page(_page, _base, _field)			\
 	do {								\
@@ -3882,7 +3875,7 @@ static bool age_lruvec(struct lruvec *lruvec, struct scan_control *sc,
 }
 
 /* to protect the working set of the last N jiffies */
-static unsigned long lru_gen_min_ttl __read_mostly = 8 * HZ;
+static unsigned long lru_gen_min_ttl __read_mostly;
 
 static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 {
@@ -5416,10 +5409,6 @@ static bool shrink_node(pg_data_t *pgdat, struct scan_control *sc)
 			shrink_node_memcg(pgdat, memcg, sc, &lru_pages);
 			node_lru_pages += lru_pages;
 
-			if (memcg)
-				shrink_slab(sc->gfp_mask, pgdat->node_id,
-					    memcg, sc->priority);
-
 			/* Record the group's reclaim efficiency */
 			vmpressure(sc->gfp_mask, memcg, false,
 				   sc->nr_scanned - scanned,
@@ -5441,10 +5430,6 @@ static bool shrink_node(pg_data_t *pgdat, struct scan_control *sc)
 				break;
 			}
 		} while ((memcg = mem_cgroup_iter(root, memcg, &reclaim)));
-
-		if (global_reclaim(sc))
-			shrink_slab(sc->gfp_mask, pgdat->node_id, NULL,
-				    sc->priority);
 
 		/*
 		 * Record the subtree's reclaim efficiency. The reclaimed
@@ -6439,6 +6424,43 @@ kswapd_try_sleep:
 	return 0;
 }
 
+static int kshrinkd(void *pgdat)
+{
+	pg_data_t *p = pgdat;
+
+	/* This is technically a kswapd thread */
+	current->flags |= PF_KSWAPD;
+	set_freezable();
+	while (1) {
+		unsigned int pri = DEF_PRIORITY;
+		bool stop;
+
+		wait_event_freezable(p->kshrinkd_wait,
+				     (stop = kthread_should_stop()) ||
+				     atomic_long_read(&kshrinkd_waiters));
+		if (unlikely(stop))
+			break;
+
+		/* Shrink slabs on both kswapd and direct reclaimers' behalf */
+		while (1) {
+			struct mem_cgroup *memcg = NULL;
+
+			do {
+				shrink_slab(GFP_KERNEL, p->node_id, memcg, pri);
+			} while ((memcg = mem_cgroup_iter(NULL, memcg, NULL)));
+
+			if (!atomic_long_read(&kshrinkd_waiters))
+				break;
+
+			/* Iterate down each possible priority and then wrap */
+			pri = (pri - 1) % (DEF_PRIORITY + 1);
+		}
+	}
+	current->flags &= ~PF_KSWAPD;
+
+	return 0;
+}
+
 /*
  * A zone is low on free memory, so wake its kswapd task to service it.
  */
@@ -6474,6 +6496,7 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 
 	trace_mm_vmscan_wakeup_kswapd(pgdat->node_id, classzone_idx, order);
 	wake_up_interruptible(&pgdat->kswapd_wait);
+	wake_up_interruptible(&pgdat->kshrinkd_wait);
 }
 
 #ifdef CONFIG_HIBERNATION
@@ -6518,116 +6541,6 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 }
 #endif /* CONFIG_HIBERNATION */
 
-#ifdef CONFIG_MULTIPLE_KSWAPD
-static void update_kswapd_threads_node(int nid)
-{
-	pg_data_t *pgdat;
-	int drop, increase;
-	int last_idx, start_idx, hid;
-	int nr_threads = kswapd_threads_current;
-
-	pgdat = NODE_DATA(nid);
-	last_idx = nr_threads - 1;
-	if (kswapd_threads < nr_threads) {
-		drop = nr_threads - kswapd_threads;
-		for (hid = last_idx; hid > (last_idx - drop); hid--) {
-			if (pgdat->mkswapd[hid]) {
-				kthread_stop(pgdat->mkswapd[hid]);
-				pgdat->mkswapd[hid] = NULL;
-			}
-		}
-	} else {
-		increase = kswapd_threads - nr_threads;
-		start_idx = last_idx + 1;
-		for (hid = start_idx; hid < (start_idx + increase); hid++) {
-			pgdat->mkswapd[hid] = kthread_run(kswapd, pgdat,
-						"kswapd%d:%d", nid, hid);
-			if (IS_ERR(pgdat->mkswapd[hid])) {
-				pr_err("Failed to start kswapd%d on node %d\n",
-					hid, nid);
-				pgdat->mkswapd[hid] = NULL;
-				/*
-				 * We are out of resources. Do not start any
-				 * more threads.
-				 */
-				break;
-			}
-		}
-	}
-}
-
-void update_kswapd_threads(void)
-{
-	int nid;
-
-	if (kswapd_threads_current == kswapd_threads)
-		return;
-
-	/*
-	 * Hold the memory hotplug lock to avoid racing with memory
-	 * hotplug initiated updates
-	 */
-	mem_hotplug_begin();
-	for_each_node_state(nid, N_MEMORY)
-		update_kswapd_threads_node(nid);
-
-	pr_info("kswapd_thread count changed, old:%d new:%d\n",
-		kswapd_threads_current, kswapd_threads);
-	kswapd_threads_current = kswapd_threads;
-	mem_hotplug_done();
-}
-
-static int multi_kswapd_run(int nid)
-{
-	pg_data_t *pgdat = NODE_DATA(nid);
-	int hid, nr_threads = kswapd_threads;
-	int ret = 0;
-
-	pgdat->mkswapd[0] = pgdat->kswapd;
-	for (hid = 1; hid < nr_threads; ++hid) {
-		pgdat->mkswapd[hid] = kthread_run(kswapd, pgdat, "kswapd%d:%d",
-								nid, hid);
-		if (IS_ERR(pgdat->mkswapd[hid])) {
-			/* failure at boot is fatal */
-			WARN_ON(system_state < SYSTEM_RUNNING);
-			pr_err("Failed to start kswapd%d on node %d\n",
-				hid, nid);
-			ret = PTR_ERR(pgdat->mkswapd[hid]);
-			pgdat->mkswapd[hid] = NULL;
-		}
-	}
-	kswapd_threads_current = nr_threads;
-
-	return ret;
-}
-
-static void multi_kswapd_stop(int nid)
-{
-	int hid = 0;
-	int nr_threads = kswapd_threads_current;
-	struct task_struct *kswapd;
-
-	NODE_DATA(nid)->mkswapd[hid] = NULL;
-	for (hid = 1; hid < nr_threads; hid++) {
-		kswapd = NODE_DATA(nid)->mkswapd[hid];
-		if (kswapd) {
-			kthread_stop(kswapd);
-			NODE_DATA(nid)->mkswapd[hid] = NULL;
-		}
-	}
-}
-
-static void multi_kswapd_cpu_online(pg_data_t *pgdat,
-					const struct cpumask *mask)
-{
-	int hid;
-	int nr_threads = kswapd_threads_current;
-
-	for (hid = 1; hid < nr_threads; hid++)
-		set_cpus_allowed_ptr(pgdat->mkswapd[hid], mask);
-}
-#endif
-
 /* It's optimal to keep kswapds on the same CPUs as their memory, but
    not required for correctness.  So if the last cpu in a node goes
    away, we get changed to run anywhere: as the first one comes back,
@@ -6642,11 +6555,9 @@ static int kswapd_cpu_online(unsigned int cpu)
 
 		mask = cpumask_of_node(pgdat->node_id);
 
-		if (cpumask_any_and(cpu_online_mask, mask) < nr_cpu_ids) {
+		if (cpumask_any_and(cpu_online_mask, mask) < nr_cpu_ids)
 			/* One of our CPUs online: restore mask */
 			set_cpus_allowed_ptr(pgdat->kswapd, mask);
-			multi_kswapd_cpu_online(pgdat, mask);
-		}
 	}
 	return 0;
 }
@@ -6663,16 +6574,28 @@ int kswapd_run(int nid)
 	if (pgdat->kswapd)
 		return 0;
 
-	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d:0", nid);
+	pgdat->kshrinkd = kthread_run_perf_critical(cpu_hp_mask,
+					kshrinkd, pgdat, "kshrinkd%d", nid);
+	if (IS_ERR(pgdat->kshrinkd)) {
+		/* failure at boot is fatal */
+		BUG_ON(system_state < SYSTEM_RUNNING);
+		pr_err("Failed to start kshrinkd on node %d\n", nid);
+		ret = PTR_ERR(pgdat->kshrinkd);
+		pgdat->kshrinkd = NULL;
+		return ret;
+	}
+
+	pgdat->kswapd = kthread_run_perf_critical(cpu_hp_mask, kswapd,
+					pgdat, "kswapd%d", nid);
 	if (IS_ERR(pgdat->kswapd)) {
 		/* failure at boot is fatal */
 		BUG_ON(system_state < SYSTEM_RUNNING);
 		pr_err("Failed to start kswapd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kswapd);
 		pgdat->kswapd = NULL;
+		kthread_stop(pgdat->kshrinkd);
+		pgdat->kshrinkd = NULL;
 	}
-	ret = multi_kswapd_run(nid);
-
 	return ret;
 }
 
@@ -6683,12 +6606,16 @@ int kswapd_run(int nid)
 void kswapd_stop(int nid)
 {
 	struct task_struct *kswapd = NODE_DATA(nid)->kswapd;
+	struct task_struct *kshrinkd = NODE_DATA(nid)->kshrinkd;
 
 	if (kswapd) {
 		kthread_stop(kswapd);
 		NODE_DATA(nid)->kswapd = NULL;
 	}
-	multi_kswapd_stop(nid);
+	if (kshrinkd) {
+		kthread_stop(kshrinkd);
+		NODE_DATA(nid)->kshrinkd = NULL;
+	}
 }
 
 static int __init kswapd_init(void)
