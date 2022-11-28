@@ -4390,6 +4390,7 @@ retry:
 	/* Boost when memory is low so allocation latency doesn't get too bad */
 	cpu_input_boost_kick_max(100, false);
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
+	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
 
 	reserve_flags = __gfp_pfmemalloc_flags(gfp_mask);
 	if (reserve_flags)
@@ -4417,6 +4418,11 @@ retry:
 	/* Avoid recursion of direct reclaim */
 	if (current->flags & PF_MEMALLOC)
 		goto nopage;
+
+	/* Boost when memory is low so allocation latency doesn't get too bad */
+	cpu_input_boost_kick_max(250, true);
+	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 250);
+	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 250);
 
 	/* Try direct reclaim and then allocating */
 	if (!used_vmpressure)
