@@ -25,7 +25,7 @@
 static unsigned int default_efficient_freq_lp[] = {0};
 static u64 default_up_delay_lp[] = {0};
 
-static unsigned int default_efficient_freq_hp[] = {1401600};
+static unsigned int default_efficient_freq_hp[] = {1612800};
 static u64 default_up_delay_hp[] = {70 * NSEC_PER_MSEC};
 static u64 default_up_delay_hp_batt[] = {1000 * NSEC_PER_MSEC};
 
