@@ -986,8 +986,10 @@ static void set_hbm_mode(struct work_struct *work)
 		}
 		break;
 	case 1:
-		dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_ON);
-		dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
+		if (HBM_flag) {
+			dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_ON);
+			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
+		}
 		break;
 	}
 	mutex_unlock(&panel->panel_lock);
@@ -5182,12 +5184,18 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 	panel->need_power_on_backlight = true;
 
-	if (panel->hw_type == DSI_PANEL_SAMSUNG_S6E3HC2 && (gamma_read_flag == GAMMA_READ_SUCCESS)) {
+	if (gamma_read_flag == GAMMA_READ_SUCCESS) {
 		if (mode_fps == 60) {
 			rc = dsi_panel_tx_gamma_cmd_set(panel, DSI_GAMMA_CMD_SET_SWITCH_60HZ);
 			pr_debug("Send DSI_GAMMA_CMD_SET_SWITCH_60HZ cmds\n");
 			if (rc)
 				pr_debug("[%s] Failed to send DSI_GAMMA_CMD_SET_SWITCH_60HZ cmds, rc=%d\n",
+					panel->name, rc);
+		} else if (mode_fps == 90) {
+			rc = dsi_panel_tx_gamma_cmd_set(panel, DSI_GAMMA_CMD_SET_SWITCH_90HZ);
+			pr_debug("Send DSI_GAMMA_CMD_SET_SWITCH_90HZ cmds\n");
+			if (rc)
+				pr_debug("[%s] Failed to send DSI_GAMMA_CMD_SET_SWITCH_90HZ cmds, rc=%d\n",
 					panel->name, rc);
 		}
 	}
