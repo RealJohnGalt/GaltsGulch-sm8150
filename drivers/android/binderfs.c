@@ -59,18 +59,10 @@ enum binderfs_stats_mode {
 	STATS_GLOBAL,
 };
 
-struct binder_features {
-	bool oneway_spam_detection;
-};
-
 static const match_table_t tokens = {
 	{ Opt_max, "max=%d" },
 	{ Opt_stats_mode, "stats=%s" },
 	{ Opt_err, NULL     }
-};
-
-static struct binder_features binder_features = {
-	.oneway_spam_detection = true,
 };
 
 static inline struct binderfs_info *BINDERFS_I(const struct inode *inode)
@@ -368,6 +360,7 @@ static const struct super_operations binderfs_super_ops = {
 static inline bool is_binderfs_control_device(const struct dentry *dentry)
 {
 	struct binderfs_info *info = dentry->d_sb->s_fs_info;
+
 	return info->control_dentry == dentry;
 }
 
@@ -562,6 +555,7 @@ out:
 	return dentry;
 }
 
+#ifdef CONFIG_ANDROID_BINDER_LOGS
 static struct dentry *binderfs_create_dir(struct dentry *parent,
 					  const char *name)
 {
@@ -595,33 +589,6 @@ static struct dentry *binderfs_create_dir(struct dentry *parent,
 out:
 	inode_unlock(parent_inode);
 	return dentry;
-}
-
-static int binder_features_show(struct seq_file *m, void *unused)
-{
-	bool *feature = m->private;
-
-	seq_printf(m, "%d\n", *feature);
-
-	return 0;
-}
-DEFINE_SHOW_ATTRIBUTE(binder_features);
-
-static int init_binder_features(struct super_block *sb)
-{
-	struct dentry *dentry, *dir;
-
-	dir = binderfs_create_dir(sb->s_root, "features");
-	if (IS_ERR(dir))
-		return PTR_ERR(dir);
-
-	dentry = binderfs_create_file(dir, "oneway_spam_detection",
-				      &binder_features_fops,
-				      &binder_features.oneway_spam_detection);
-	if (IS_ERR(dentry))
-		return PTR_ERR(dentry);
-
-	return 0;
 }
 
 static int init_binder_logs(struct super_block *sb)
@@ -687,13 +654,19 @@ static int init_binder_logs(struct super_block *sb)
 out:
 	return ret;
 }
+#else
+static inline int init_binder_logs(struct super_block *sb)
+{
+	return 0;
+}
+#endif
 
 static int binderfs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	int ret;
 	struct binderfs_info *info;
 	struct inode *inode = NULL;
-	struct binderfs_device device_info = { { 0 } };
+	struct binderfs_device device_info = {};
 	const char *name;
 	size_t len;
 
@@ -764,10 +737,6 @@ static int binderfs_fill_super(struct super_block *sb, void *data, int silent)
 		if (*name == ',')
 			name++;
 	}
-
-	ret = init_binder_features(sb);
-	if (ret)
-		return ret;
 
 	if (info->mount_opts.stats_mode == STATS_GLOBAL)
 		return init_binder_logs(sb);
