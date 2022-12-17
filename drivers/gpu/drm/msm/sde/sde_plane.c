@@ -1342,6 +1342,53 @@ static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 	}
 }
 
+#define _sde_plane_dump_csc_cfg(psde, cfg, tag)					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s rr: 0x%08x, rg: 0x%08x, rb: 0x%08x\n", (tag),	\
+			(cfg)->csc_mv[0],					\
+			(cfg)->csc_mv[1],					\
+			(cfg)->csc_mv[2]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s gr: 0x%08x, gg: 0x%08x, gb: 0x%08x\n", (tag),	\
+			(cfg)->csc_mv[3],					\
+			(cfg)->csc_mv[4],					\
+			(cfg)->csc_mv[5]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s br: 0x%08x, bg: 0x%08x, bb: 0x%08x\n", (tag),	\
+			(cfg)->csc_mv[6],					\
+			(cfg)->csc_mv[7],					\
+			(cfg)->csc_mv[8]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s pre_bv r: 0x%08x, g: 0x%08x, b: 0x%08x\n", (tag),	\
+			(cfg)->csc_pre_bv[0],					\
+			(cfg)->csc_pre_bv[1],					\
+			(cfg)->csc_pre_bv[2]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s post_bv r: 0x%08x, g: 0x%08x, b: 0x%08x\n", (tag),	\
+			(cfg)->csc_post_bv[0],					\
+			(cfg)->csc_post_bv[1],					\
+			(cfg)->csc_post_bv[2]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s pre_lv rl: 0x%08x, gl: 0x%08x, bl: 0x%08x\n", (tag),\
+			(cfg)->csc_pre_lv[0],					\
+			(cfg)->csc_pre_lv[2],					\
+			(cfg)->csc_pre_lv[4]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s pre_lv rh: 0x%08x, gh: 0x%08x, bh: 0x%08x\n", (tag),\
+			(cfg)->csc_pre_lv[1],					\
+			(cfg)->csc_pre_lv[3],					\
+			(cfg)->csc_pre_lv[5]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s post_lv rl: 0x%08x, gl: 0x%08x, bl: 0x%08x\n", (tag),\
+			(cfg)->csc_post_lv[0],					\
+			(cfg)->csc_post_lv[2],					\
+			(cfg)->csc_post_lv[4]);					\
+	SDE_ERROR_PLANE(psde,							\
+			"%s post_lv rh: 0x%08x, gh: 0x%08x, bh: 0x%08x\n", (tag),\
+			(cfg)->csc_post_lv[1],					\
+			(cfg)->csc_post_lv[3],					\
+			(cfg)->csc_post_lv[5]);
+
 static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
@@ -1527,9 +1574,13 @@ static inline void _sde_plane_setup_csc_pcc(struct sde_plane *psde,
 		}
 	}
 
+	_sde_plane_dump_csc_cfg(psde, csc_ptr, "before");
+
 	_sde_plane_mul_csc_pcc(psde, csc_ptr);
 
 	psde->csc_pcc_ptr = &psde->csc_pcc_cfg;
+
+	_sde_plane_dump_csc_cfg(psde, psde->csc_pcc_ptr, "after");
 }
 
 static void sde_color_process_plane_setup(struct drm_plane *plane)
