@@ -449,6 +449,7 @@ struct sde_format {
 	DECLARE_BITMAP(flag, SDE_FORMAT_FLAG_BIT_MAX);
 	u16 tile_width;
 	u16 tile_height;
+	const char *name;
 };
 #define to_sde_format(x) container_of(x, struct sde_format, base)
 
