@@ -1511,10 +1511,12 @@ static inline void _sde_plane_setup_csc_pcc(struct sde_plane *psde,
 
 	if (!csc_ptr) {
 		if (psde->features & BIT(SDE_SSPP_CSC_10BIT)) {
-			if (format_is_bgr(fmt->base.pixel_format))
+			if (format_is_bgr(fmt->base.pixel_format)) {
 				csc_ptr = &sde_identity_csc10_bgr_cfg;
-			else
+			} else {
+				SDE_ERROR_PLANE(psde, "format: %s\n", fmt->name);
 				csc_ptr = &sde_identity_csc10_cfg;
+			}
 		} else if (psde->features & BIT(SDE_SSPP_CSC)) {
 			csc_ptr = &sde_identity_csc_cfg;
 		} else if (psde->features & BIT(SDE_SSPP_DGM_CSC)) {
