@@ -1521,6 +1521,9 @@ static inline void _sde_plane_setup_csc_pcc(struct sde_plane *psde,
 			csc_ptr = &sde_identity_csc_cfg;
 		} else if (psde->features & BIT(SDE_SSPP_DGM_CSC)) {
 			csc_ptr = &sde_identity_csc_dgm_cfg;
+		} else {
+			SDE_ERROR_PLANE(psde, "CSC not supported\n");
+			return;
 		}
 	}
 
