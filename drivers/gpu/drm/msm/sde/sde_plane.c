@@ -1389,6 +1389,22 @@ static void _sde_plane_setup_pixel_ext(struct sde_plane *psde,
 			(cfg)->csc_post_lv[3],					\
 			(cfg)->csc_post_lv[5]);
 
+#define _sde_plane_dump_pcc_cfg_prim(psde, cfg, tag, n)				\
+	SDE_ERROR_PLANE(psde,							\
+			"%s %s: c: 0x%08x, r: 0x%08x, g: 0x%08x, b: 0x%08x, "	\
+			"rg: 0x%08x, gb: 0x%08x, rb: 0x%08x, rgb: 0x%08x\n",	\
+			(tag), __stringify(n),					\
+			cfg->n.c,						\
+			cfg->n.r, cfg->n.g, cfg->n.b,				\
+			cfg->n.rg, cfg->n.gb, cfg->n.rb,			\
+			cfg->n.rgb)
+
+#define _sde_plane_dump_pcc_cfg(psde, cfg, tag)					\
+	_sde_plane_dump_pcc_cfg_prim(psde, cfg, tag, r);			\
+	_sde_plane_dump_pcc_cfg_prim(psde, cfg, tag, g);			\
+	_sde_plane_dump_pcc_cfg_prim(psde, cfg, tag, b);
+
+
 static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
@@ -1555,6 +1571,8 @@ static inline void _sde_plane_setup_csc_pcc(struct sde_plane *psde,
 
 	if (!psde->pcc_cfg)
 		return;
+
+	_sde_plane_dump_pcc_cfg(psde, psde->pcc_cfg, "pcc");
 
 	if (!csc_ptr) {
 		if (psde->features & BIT(SDE_SSPP_CSC_10BIT)) {
