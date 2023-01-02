@@ -5775,3 +5775,9 @@ CONFIG_SBITMAP=y
 #
 # Tech packages
 #
+
+#
+# RmNet extensions
+#
+CONFIG_RMNET_PERF=y
+CONFIG_RMNET_SHS=y
