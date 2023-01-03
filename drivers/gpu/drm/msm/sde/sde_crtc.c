@@ -5900,7 +5900,7 @@ static void sde_crtc_fod_atomic_check(struct sde_crtc_state *cstate,
 
 	force_fod_ui = dsi_panel_get_force_fod_ui(display->panel);
 
-	if (fod_plane_idx != cnt || force_fod_ui) {
+	if (fod_plane_idx != cnt || force_fod_ui || HBM_flag) {
 		struct dsi_display *display = get_main_display();
 		alpha = dsi_panel_get_fod_dim_alpha(display->panel);
 	}

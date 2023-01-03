@@ -210,8 +210,10 @@ static void sde_hw_lm_setup_dim_layer(struct sde_hw_mixer *ctx,
 		return;
 	}
 
+/*
 	ctx->dim.enabled = true;
 	ctx->dim.stage[dim_layer->stage] = true;
+*/
 	alpha = dim_layer->color_fill.color_3 & 0xFF;
 	val = ((dim_layer->color_fill.color_1 << 2) & 0xFFF) << 16 |
 			((dim_layer->color_fill.color_0 << 2) & 0xFFF);
@@ -283,10 +285,12 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	ops->setup_misr = sde_hw_lm_setup_misr;
 	ops->collect_misr = sde_hw_lm_collect_misr;
 
+/*
 	if (test_bit(SDE_DIM_LAYER, &features)) {
 		ops->setup_dim_layer = sde_hw_lm_setup_dim_layer;
 		ops->clear_dim_layer = sde_hw_lm_clear_dim_layer;
 	}
+*/
 };
 
 static struct sde_hw_blk_ops sde_hw_ops = {
