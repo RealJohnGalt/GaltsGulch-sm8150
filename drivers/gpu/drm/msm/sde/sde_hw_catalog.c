@@ -3248,6 +3248,7 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	} else {
 		SDE_DEBUG("unknown smart dma version\n");
 	}
+	cfg->smart_dma_rev = 0;
 
 	cfg->has_src_split = PROP_VALUE_ACCESS(prop_value, SRC_SPLIT, 0);
 	cfg->has_dim_layer = PROP_VALUE_ACCESS(prop_value, DIM_LAYER, 0);
