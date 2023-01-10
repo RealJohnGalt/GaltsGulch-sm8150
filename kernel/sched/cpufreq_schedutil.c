@@ -25,13 +25,15 @@
 static unsigned int default_efficient_freq_lp[] = {0};
 static u64 default_up_delay_lp[] = {0};
 
-static unsigned int default_efficient_freq_hp[] = {1612800};
-static u64 default_up_delay_hp[] = {70 * NSEC_PER_MSEC};
-static u64 default_up_delay_hp_batt[] = {1000 * NSEC_PER_MSEC};
+static unsigned int default_efficient_freq_hp[] = {1401600};
+static unsigned int default_efficient_freq_hp_batt[] = {1286400};
+static u64 default_up_delay_hp[] = {50 * NSEC_PER_MSEC};
+static u64 default_up_delay_hp_batt[] = {150 * NSEC_PER_MSEC};
 
 static unsigned int default_efficient_freq_pr[] = {1804800};
-static u64 default_up_delay_pr[] = {70 * NSEC_PER_MSEC};
-static u64 default_up_delay_pr_batt[] = {1000 * NSEC_PER_MSEC};
+static unsigned int default_efficient_freq_pr_batt[] = {1401600};
+static u64 default_up_delay_pr[] = {50 * NSEC_PER_MSEC};
+static u64 default_up_delay_pr_batt[] = {150 * NSEC_PER_MSEC};
 
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
@@ -696,10 +698,17 @@ static ssize_t efficient_freq_store(struct gov_attr_set *attr_set,
 	    tunables->efficient_freq = new_efficient_freq;
 	    tunables->nefficient_freq = new_num;
 	    tunables->current_step = 0;
-	    if (old != default_efficient_freq_lp
-	     && old != default_efficient_freq_hp
-	     && old != default_efficient_freq_pr)
-	        kfree(old);
+	    if (kp_active_mode() == 1) {
+	    	if (old != default_efficient_freq_lp
+	     	&& old != default_efficient_freq_hp_batt
+	     	&& old != default_efficient_freq_pr_batt)
+	        	kfree(old);
+	    } else {
+	    	if (old != default_efficient_freq_lp
+	     	&& old != default_efficient_freq_hp
+	     	&& old != default_efficient_freq_pr)
+	        	kfree(old);
+	    }
 	}
 
 	return count;
@@ -950,22 +959,26 @@ static int sugov_init(struct cpufreq_policy *policy)
 		tunables->up_delay = default_up_delay_lp;
 		tunables->nup_delay = ARRAY_SIZE(default_up_delay_lp);
 	} else if (cpumask_test_cpu(sg_policy->policy->cpu, cpu_perf_mask)) {
-		tunables->efficient_freq = default_efficient_freq_hp;
-    		tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_hp);
 		if (kp_active_mode() == 1) {
+			tunables->efficient_freq = default_efficient_freq_hp_batt;
+			tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_hp_batt);
 			tunables->up_delay = default_up_delay_hp_batt;
 			tunables->nup_delay = ARRAY_SIZE(default_up_delay_hp_batt);
 		} else {
+			tunables->efficient_freq = default_efficient_freq_hp;
+			tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_hp);
 			tunables->up_delay = default_up_delay_hp;
 			tunables->nup_delay = ARRAY_SIZE(default_up_delay_hp);
 		}
 	} else if (cpumask_test_cpu(sg_policy->policy->cpu, cpu_prime_mask)) {
-		tunables->efficient_freq = default_efficient_freq_pr;
-    		tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_pr);
 		if (kp_active_mode() == 1) {
+			tunables->efficient_freq = default_efficient_freq_pr_batt;
+			tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_pr_batt);
 			tunables->up_delay = default_up_delay_pr_batt;
 			tunables->nup_delay = ARRAY_SIZE(default_up_delay_pr_batt);
 		} else {
+			tunables->efficient_freq = default_efficient_freq_pr;
+			tunables->nefficient_freq = ARRAY_SIZE(default_efficient_freq_pr);
 			tunables->up_delay = default_up_delay_pr;
 			tunables->nup_delay = ARRAY_SIZE(default_up_delay_pr);
 		}
