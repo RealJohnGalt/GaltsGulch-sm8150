@@ -1171,10 +1171,6 @@ extern  ssize_t oneplus_display_notify_fp_press(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count);
 
-extern  ssize_t oneplus_display_notify_dim(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count);
-
 extern  ssize_t oneplus_display_notify_aod_hid(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count);
@@ -1207,7 +1203,6 @@ static DEVICE_ATTR_RO(panel_mismatch);
 static DEVICE_ATTR_RO(dynamic_fps);
 static DEVICE_ATTR(dim_alpha, S_IRUGO|S_IWUSR, oneplus_display_get_dim_alpha, oneplus_display_set_dim_alpha);
 static DEVICE_ATTR(notify_fppress, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_fp_press);
-static DEVICE_ATTR(notify_dim, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_dim);
 static DEVICE_ATTR(notify_aod, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_aod_hid);
 static DEVICE_ATTR(dimlayer_bl_en, S_IRUGO|S_IWUSR, op_display_get_dimlayer_enable, op_display_set_dimlayer_enable);
 static DEVICE_ATTR(dp_en, S_IRUGO|S_IWUSR, op_display_get_dp_enable, op_display_set_dp_enable);
@@ -1242,7 +1237,6 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_dim_alpha.attr,
 	&dev_attr_dynamic_fps.attr,
 	&dev_attr_notify_fppress.attr,
-	&dev_attr_notify_dim.attr,
 	&dev_attr_notify_aod.attr,
 	&dev_attr_dimlayer_bl_en.attr,
 	&dev_attr_dp_en.attr,
