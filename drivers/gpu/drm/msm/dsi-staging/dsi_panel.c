@@ -5366,10 +5366,6 @@ bool aod_fod_flag;
 bool aod_complete;
 bool real_aod_mode;
 
-extern bool oneplus_dimlayer_hbm_enable;
-bool backup_dimlayer_hbm = false;
-extern int oneplus_dim_status;
-int backup_dim_status = 0;
 int dsi_panel_enable(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -5601,10 +5597,13 @@ int dsi_panel_set_hbm_mode(struct dsi_panel *panel, int level)
 		u32 count;
 		struct dsi_display_mode *mode;
 
-		if (!panel || !panel->cur_mode) {
+		if (!panel) {
 			pr_debug("Invalid params\n");
 			return -EINVAL;
 		}
+
+		if (!panel->panel_initialized)
+			goto error;
 
 		mutex_lock(&panel->panel_lock);
 		mode = panel->cur_mode;

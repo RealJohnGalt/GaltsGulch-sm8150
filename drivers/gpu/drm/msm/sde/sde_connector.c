@@ -517,8 +517,6 @@ extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
 extern bool sde_crtc_get_fingerprint_pressed(struct drm_crtc_state *crtc_state);
 extern int dsi_display_set_hbm_mode(struct drm_connector *connector, int level);
 int aod_layer_hide = 0;
-extern int oneplus_dim_status;
-extern int oneplus_onscreenfp_status;
 extern bool aod_fod_flag;
 extern bool real_aod_mode;
 extern bool aod_complete;
@@ -651,7 +649,6 @@ static void sde_connector_pre_update_fod_hbm(struct sde_connector *c_conn)
 
 	if (status) {
 		level = 5;
-		oneplus_dim_status = 5;
 		finger_type = true;
 	}
 

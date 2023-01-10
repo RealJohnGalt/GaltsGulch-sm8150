@@ -3390,7 +3390,6 @@ int bl_to_alpha_dc(int brightness)
 	return alpha;
 }
 
-bool oneplus_dimlayer_hbm_enable;
 int oneplus_get_panel_brightness_to_alpha(void)
 {
 	struct dsi_display *display = get_main_display();
@@ -3399,8 +3398,6 @@ int oneplus_get_panel_brightness_to_alpha(void)
 		return 0;
 	if (oneplus_panel_alpha)
 		return oneplus_panel_alpha;
-    if (oneplus_dimlayer_hbm_enable)
-		return brightness_to_alpha(display->panel->hbm_backlight);
     else
 	return bl_to_alpha_dc(display->panel->hbm_backlight);
 }
@@ -3481,13 +3478,6 @@ ssize_t oneplus_display_notify_fp_press(struct device *dev,
 	drm_modeset_unlock_all(drm_dev);
 	return count;
 }
-extern int aod_layer_hide;
-extern int backup_dim_status;
-extern bool backup_dimlayer_hbm;
-extern int dsi_panel_tx_cmd_set (struct dsi_panel *panel, enum dsi_cmd_set_type type);
-int oneplus_dim_status = 0;
-int oneplus_aod_fod = 0;
-int oneplus_aod_dc = 0;
 /***************************************************************************/
 
 /**
@@ -5561,19 +5551,9 @@ extern int op_dp_enable;
 static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 		struct plane_state *pstates, int cnt)
 {
-	int fp_index = -1;
-	int fppressed_index = -1;
-    int aod_index = -1;
-	int fppressed_index_rt = -1;
 	int zpos = INT_MAX;
-	int mode;
-	int fp_mode = oneplus_onscreenfp_status;
-	int dim_mode = oneplus_dim_status;
-	int aod_mode = -1;
 	int i = 0;
-	int dim_backlight = 0;
 	struct dsi_display *display = get_main_display();
-	static int dim_backlight_pre;
 
 	if (finger_type) {
 		if (zpos == INT_MAX) {
