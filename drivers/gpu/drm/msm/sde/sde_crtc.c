@@ -5824,18 +5824,6 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	if (rc)
 		goto end;
 
-	if (!sde_is_custom_client()) {
-		int stage_old = pstates[0].stage;
-
-		z_pos = 0;
-		for (i = 0; i < cnt; i++) {
-			if (stage_old != pstates[i].stage)
-				++z_pos;
-			stage_old = pstates[i].stage;
-			pstates[i].stage = z_pos;
-		}
-	}
-
 	z_pos = -1;
 	for (i = 0; i < cnt; i++) {
 		/* reset counts at every new blend stage */
