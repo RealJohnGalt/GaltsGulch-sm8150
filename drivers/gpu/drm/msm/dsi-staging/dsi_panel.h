@@ -150,6 +150,7 @@ struct dsi_backlight_config {
 	u32 bl_scale;
 	u32 bl_scale_ad;
 	bool bl_inverted_dbv;
+	u32 real_bl_level;
 
 	int en_gpio;
 	/* PWM params */
@@ -200,6 +201,12 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+};
+
+#define BRIGHTNESS_ALPHA_PAIR_LEN 2
+struct brightness_alpha_pair {
+	u16 brightness;
+	u8 alpha;
 };
 
 struct dsi_panel {
@@ -303,6 +310,14 @@ struct dsi_panel {
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
 	enum dsi_panel_hw_type hw_type;
+
+	struct brightness_alpha_pair *fod_dim_lut;
+	unsigned int fod_dim_lut_len;
+	u8 fod_dim_alpha;
+	bool fod_hbm_enabled;
+	bool fod_ui;
+	bool force_fod_ui;
+	bool force_fod_dim_alpha;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -425,7 +440,6 @@ void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
 int dsi_panel_set_hbm_mode(struct dsi_panel *panel, int level);
 int dsi_panel_set_acl_mode(struct dsi_panel *panel, int level);
 int dsi_panel_set_hbm_brightness(struct dsi_panel *panel, int level);
-int dsi_panel_op_set_hbm_mode(struct dsi_panel *panel, int level);
 extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 int dsi_panel_set_aod_mode(struct dsi_panel *panel, int level);
 int dsi_panel_set_dci_p3_mode(struct dsi_panel *panel, int level);
@@ -447,5 +461,11 @@ int dsi_panel_update_dsi_seed_command(struct dsi_cmd_desc *cmds,
 int dsi_panel_send_dsi_seed_command(struct dsi_panel *panel);
 int dsi_panel_set_customer_srgb_mode(struct dsi_panel *panel, int level);
 int dsi_panel_set_customer_p3_mode(struct dsi_panel *panel, int level);
+u8 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel);
+
+int dsi_panel_set_fod_hbm(struct dsi_panel *panel, bool status);
+bool dsi_panel_get_fod_ui(struct dsi_panel *panel);
+void dsi_panel_set_fod_ui(struct dsi_panel *panel, bool status);
+bool dsi_panel_get_force_fod_ui(struct dsi_panel *panel);
 
 #endif /* _DSI_PANEL_H_ */

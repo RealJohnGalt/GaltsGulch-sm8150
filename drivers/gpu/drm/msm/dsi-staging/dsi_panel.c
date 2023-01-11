@@ -35,7 +35,6 @@
 #include "dsi_drm.h"
 #include "dsi_display.h"
 #include "sde_crtc.h"
-#include "sde_hw_mdss.h"
 #include "sde_rm.h"
 /**
  * topology is currently defined by a set of following 3 values:
@@ -740,8 +739,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 				enum dsi_cmd_set_type type)
 {
-	int rc = 0, i = 0, wait_multi = 1000;
-	bool wait = true;
+	int rc = 0, i = 0;
 	ssize_t len;
 	struct dsi_cmd_desc *cmds;
 	u32 count;
@@ -777,21 +775,9 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 			pr_debug("failed to set cmds(%d), rc=%d\n", type, rc);
 			goto error;
 		}
-
-		//Custom FOD logic below:
-		if (type == DSI_CMD_LOADING_EFFECT_ON || type == DSI_CMD_LOADING_EFFECT_OFF)
-			wait = false;
-
-		if ((panel->hw_type == DSI_PANEL_SAMSUNG_SOFEF03F_M) &&
-			((type == DSI_CMD_SET_HBM_ON_5)
-			|| (type == DSI_CMD_SET_HBM_OFF)
-			|| (type == DSI_CMD_AOD_OFF_HBM_ON_SETTING)
-			|| (type == DSI_CMD_SET_AOD_ON_5)))
-			wait_multi = 725;
-
-		if (cmds->post_wait_ms && wait)
-			usleep_range(cmds->post_wait_ms*wait_multi,
-					((cmds->post_wait_ms*wait_multi)+10));
+		if (cmds->post_wait_ms)
+			usleep_range(cmds->post_wait_ms*1000,
+					((cmds->post_wait_ms*1000)+10));
 		cmds++;
 	}
 error:
@@ -966,51 +952,61 @@ error:
 	return rc;
 }
 
-bool hbm_active;
-int hbm_level;
-static void set_hbm_mode(struct work_struct *work)
-{
-	struct dsi_panel *panel = get_main_display()->panel;
-	int level = hbm_level;
-
-	mutex_lock(&panel->panel_lock);
-	switch (level) {
-	case 0:
-		if (!HBM_flag) {
-			dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_OFF);
-			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_OFF);
-			pr_debug(
-				"When HBM OFF -->hbm_backight = %d panel->bl_config.bl_level =%d\n",
-				panel->hbm_backlight, panel->bl_config.bl_level);
-			dsi_panel_update_backlight(panel, panel->hbm_backlight);
-		}
-		break;
-	case 1:
-		if (HBM_flag) {
-			dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_ON);
-			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
-		}
-		break;
-	}
-	mutex_unlock(&panel->panel_lock);
-
-	pr_debug("Set HBM Mode = %d\n", level);
-}
-
-DECLARE_WORK(hbm_work, set_hbm_mode);
-/*
- * This function is used only for "op_friginer_print_hbm".
- *
- * As we are triggering hbm_work after dim layer is committed,
- * remove the call here.
- */
 int dsi_panel_op_set_hbm_mode(struct dsi_panel *panel, int level)
 {
-	hbm_active = !!level;
+	int rc = 0;
+	u32 count;
+	struct dsi_display_mode *mode;
 
-	// queue_work(system_highpri_wq, &hbm_work);
+	if (!panel || !panel->cur_mode) {
+		pr_debug("Invalid params\n");
+		return -EINVAL;
+	}
 
-	return 0;
+	mutex_lock(&panel->panel_lock);
+
+	mode = panel->cur_mode;
+	if (panel->hbm_mode == 5) {
+        level = 1;
+    }
+	switch (level) {
+	case 0:
+		count = mode->priv_info->cmd_sets[DSI_CMD_SET_HBM_OFF].count;
+		if (!count) {
+			pr_debug("This panel does not support HBM mode off.\n");
+			goto error;
+		} else {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_OFF);
+			printk(KERN_DEBUG
+			       "When HBM OFF -->hbm_backight = %d panel->bl_config.bl_level =%d\n",
+			       panel->hbm_backlight, panel->bl_config.bl_level);
+			rc = dsi_panel_update_backlight(panel,
+							panel->hbm_backlight);
+		}
+		break;
+
+	case 1:
+		count = mode->priv_info->cmd_sets[DSI_CMD_SET_HBM_ON_5].count;
+		if (!count) {
+			pr_debug("This panel does not support HBM mode.\n");
+			goto error;
+		} else {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
+		}
+		break;
+	default:
+		break;
+
+	}
+	pr_debug("Set HBM Mode = %d\n", level);
+	if (level == 5) {
+		pr_debug("HBM == 5 for fingerprint\n");
+	}
+
+error:
+	mutex_unlock(&panel->panel_lock);
+
+	return rc;
 }
 
 static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
@@ -1064,6 +1060,47 @@ error:
 	return rc;
 }
 
+u8 dsi_panel_get_fod_dim_alpha(struct dsi_panel *panel)
+{
+	u8 alpha;
+
+	mutex_lock(&panel->panel_lock);
+	alpha = panel->fod_dim_alpha;
+	mutex_unlock(&panel->panel_lock);
+
+	return alpha;
+}
+
+static u32 interpolate(uint32_t x, uint32_t xa, uint32_t xb,
+		       uint32_t ya, uint32_t yb)
+{
+	return ya - (ya - yb) * (x - xa) / (xb - xa);
+}
+
+static u32 dsi_panel_calc_fod_dim_alpha(struct dsi_panel *panel, u32 bl_level)
+{
+	int i;
+
+	if (!panel->fod_dim_lut)
+		return 0;
+
+	for (i = 0; i < panel->fod_dim_lut_len; i++)
+		if (panel->fod_dim_lut[i].brightness >= bl_level)
+			break;
+
+	if (i == 0)
+		return panel->fod_dim_lut[i].alpha;
+
+	if (i == panel->fod_dim_lut_len)
+		return panel->fod_dim_lut[i - 1].alpha;
+
+	return interpolate(bl_level,
+			   panel->fod_dim_lut[i - 1].brightness,
+			   panel->fod_dim_lut[i].brightness,
+			   panel->fod_dim_lut[i - 1].alpha,
+			   panel->fod_dim_lut[i].alpha);
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -1096,6 +1133,11 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		input_event(brightness_input_dev, EV_MSC, MSC_RAW, bl_lvl);
 		input_sync(brightness_input_dev);
 	}
+
+	bl->real_bl_level = bl_lvl;
+
+	if (!panel->force_fod_dim_alpha)
+		panel->fod_dim_alpha = dsi_panel_calc_fod_dim_alpha(panel, bl_lvl);
 
 	return rc;
 }
@@ -1150,6 +1192,23 @@ static int dsi_panel_pwm_register(struct dsi_panel *panel)
 	}
 
 	return 0;
+}
+
+bool dsi_panel_get_fod_ui(struct dsi_panel *panel)
+{
+	return panel->fod_ui;
+}
+
+void dsi_panel_set_fod_ui(struct dsi_panel *panel, bool status)
+{
+	panel->fod_ui = status;
+
+	sysfs_notify(&panel->parent->kobj, NULL, "fod_ui");
+}
+
+bool dsi_panel_get_force_fod_ui(struct dsi_panel *panel)
+{
+	return panel->force_fod_ui;
 }
 
 static int dsi_panel_bl_register(struct dsi_panel *panel)
@@ -2653,7 +2712,8 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 	pr_debug("%s: ulps feature %s\n", __func__,
 		(panel->ulps_feature_enabled ? "enabled" : "disabled"));
 
-	panel->ulps_suspend_enabled = true;
+	panel->ulps_suspend_enabled =
+		utils->read_bool(utils->data, "qcom,suspend-ulps-enabled");
 
 	pr_debug("%s: ulps during suspend feature %s", __func__,
 		(panel->ulps_suspend_enabled ? "enabled" : "disabled"));
@@ -2859,6 +2919,60 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_fod_dim_lut(struct dsi_panel *panel,
+		struct dsi_parser_utils *utils)
+{
+	const char *prop_name = "qcom,fod-dim-lut";
+	unsigned int i;
+	u32 *array;
+	int count;
+	int rc;
+
+	count = utils->count_u32_elems(utils->data, prop_name);
+	if (count <= 0 || count % BRIGHTNESS_ALPHA_PAIR_LEN) {
+		pr_err("[%s] invalid number of elements %d\n",
+			panel->name, count);
+		rc = -EINVAL;
+		goto count_fail;
+	}
+
+	array = kcalloc(count, sizeof(u32), GFP_KERNEL);
+	if (!array) {
+		rc = -ENOMEM;
+		goto alloc_array_fail;
+	}
+
+	rc = utils->read_u32_array(utils->data, prop_name, array, count);
+	if (rc) {
+		pr_err("[%s] failed to read array, rc=%d\n", panel->name, rc);
+		goto read_fail;
+	}
+
+	count /= BRIGHTNESS_ALPHA_PAIR_LEN;
+	panel->fod_dim_lut = kcalloc(count, sizeof(*panel->fod_dim_lut),
+				     GFP_KERNEL);
+	if (!panel->fod_dim_lut) {
+		rc = -ENOMEM;
+		goto alloc_lut_fail;
+	}
+
+	panel->fod_dim_lut_len = count;
+
+	for (i = 0; i < count; i++) {
+		struct brightness_alpha_pair *pair = &panel->fod_dim_lut[i];
+		pair->brightness = array[i * BRIGHTNESS_ALPHA_PAIR_LEN + 0];
+		pair->alpha = array[i * BRIGHTNESS_ALPHA_PAIR_LEN + 1];
+	}
+
+alloc_lut_fail:
+read_fail:
+	kfree(array);
+alloc_array_fail:
+count_fail:
+
+	return rc;
+}
+
 static int dsi_panel_parse_bl_pwm_config(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -2922,6 +3036,7 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 
 	panel->bl_config.bl_scale = MAX_BL_SCALE_LEVEL;
 	panel->bl_config.bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;
+	panel->bl_config.real_bl_level = 0;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-bl-min-level", &val);
 	if (rc) {
@@ -2972,6 +3087,10 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 
 	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
 		"qcom,mdss-dsi-bl-inverted-dbv");
+
+	rc = dsi_panel_parse_fod_dim_lut(panel, utils);
+	if (rc)
+		pr_err("[%s] failed to parse fod dim lut\n", panel->name);
 
 	if (panel->bl_config.type == DSI_BACKLIGHT_PWM) {
 		rc = dsi_panel_parse_bl_pwm_config(panel);
@@ -4131,8 +4250,111 @@ error:
 	return ERR_PTR(rc);
 }
 
+static ssize_t sysfs_fod_ui_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	struct dsi_panel *panel = display->panel;
+	bool status;
+
+	mutex_lock(&panel->panel_lock);
+	status = panel->fod_ui;
+	mutex_unlock(&panel->panel_lock);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", status);
+}
+
+static ssize_t sysfs_force_fod_ui_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	struct dsi_panel *panel = display->panel;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", panel->force_fod_ui);
+}
+
+ssize_t sysfs_force_fod_ui_write(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	struct dsi_panel *panel = display->panel;
+
+	kstrtobool(buf, &panel->force_fod_ui);
+
+	return count;
+}
+
+static ssize_t sysfs_fod_dim_alpha_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	struct dsi_panel *panel = display->panel;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", panel->fod_dim_alpha);
+}
+
+ssize_t sysfs_fod_dim_alpha_write(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	struct dsi_panel *panel = display->panel;
+	int value;
+
+	sscanf(buf, "%d", &value);
+
+	if (value > 255)
+		return -EINVAL;
+
+	panel->force_fod_dim_alpha = value >= 0;
+
+	if (!panel->force_fod_dim_alpha)
+		goto exit;
+
+	panel->fod_dim_alpha = value;
+
+exit:
+	return count;
+}
+
+static DEVICE_ATTR(fod_ui, 0444, sysfs_fod_ui_read, NULL);
+static DEVICE_ATTR(force_fod_ui, 0644,
+		   sysfs_force_fod_ui_read,
+		   sysfs_force_fod_ui_write);
+static DEVICE_ATTR(fod_dim_alpha, 0644,
+		   sysfs_fod_dim_alpha_read,
+		   sysfs_fod_dim_alpha_write);
+
+static struct attribute *panel_attrs[] = {
+	&dev_attr_fod_ui.attr,
+	&dev_attr_fod_dim_alpha.attr,
+	&dev_attr_force_fod_ui.attr,
+	NULL,
+};
+
+static struct attribute_group panel_attrs_group = {
+	.attrs = panel_attrs,
+};
+
+static int dsi_panel_sysfs_init(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	rc = sysfs_create_group(&panel->parent->kobj, &panel_attrs_group);
+	if (rc)
+		pr_err("failed to create panel sysfs attributes\n");
+
+	return rc;
+}
+
+static void dsi_panel_sysfs_deinit(struct dsi_panel *panel)
+{
+	sysfs_remove_group(&panel->parent->kobj, &panel_attrs_group);
+}
+
 void dsi_panel_put(struct dsi_panel *panel)
 {
+	dsi_panel_sysfs_deinit(panel);
+
 	/* free resources allocated for ESD check */
 	dsi_panel_esd_config_deinit(&panel->esd_config);
 
@@ -4258,6 +4480,10 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 			       panel->name, rc);
 		goto error_gpio_release;
 	}
+
+	rc = dsi_panel_sysfs_init(panel);
+	if (rc)
+		goto exit;
 
 	//create brightness_event_num
 	prEntry_tmp = proc_create("brightness_event_num", 0664,
@@ -4723,7 +4949,6 @@ error:
 	return rc;
 }
 
-extern int oneplus_panel_status;
 int dsi_panel_set_lp1(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -4755,7 +4980,6 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		       panel->name, rc);
 
 	panel->need_power_on_backlight = true;
-	oneplus_panel_status = 3; // DISPLAY_POWER_DOZE
 
 exit:
 	mutex_unlock(&panel->panel_lock);
@@ -4779,7 +5003,6 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 	if (rc)
 		pr_debug("[%s] failed to send DSI_CMD_SET_LP2 cmd, rc=%d\n",
 		       panel->name, rc);
-	oneplus_panel_status = 4; // DISPLAY_POWER_DOZE_SUSPEND
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4810,7 +5033,6 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	if (rc)
 		pr_debug("[%s] failed to send DSI_CMD_SET_NOLP cmd, rc=%d\n",
 		       panel->name, rc);
-	oneplus_panel_status = 2; // DISPLAY_POWER_ON
 exit:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -5201,8 +5423,6 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 
 	panel->panel_initialized = true;
-	oneplus_panel_status = 2; // DISPLAY_POWER_ON
-	pr_debug("dsi_panel_enable aod_mode =%d\n",panel->aod_mode);
 
 	blank = MSM_DRM_BLANK_UNBLANK_CHARGE;
 	notifier_data.data = &blank;
@@ -5314,7 +5534,6 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	}
 	panel->panel_initialized = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
-	oneplus_panel_status = 0; // DISPLAY_POWER_OFF
 
 	mutex_unlock(&panel->panel_lock);
 	printk(KERN_ERR"dsi_panel_disable --\n");
@@ -5404,13 +5623,13 @@ int dsi_panel_set_hbm_mode(struct dsi_panel *panel, int level)
 			if (!count) {
 				pr_debug("This panel does not support HBM mode off.\n");
 				goto error;
-			} else {
+			}
+			else {
 				HBM_flag = false;
 				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_OFF);
-				dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_OFF);
 				pr_debug("Send DSI_CMD_SET_HBM_OFF cmds.\n");
 				pr_debug("hbm_backight = %d, panel->bl_config.bl_level = %d\n",panel->hbm_backlight, panel->bl_config.bl_level);
-				rc = dsi_panel_update_backlight(panel,panel->hbm_backlight);
+				rc= dsi_panel_update_backlight(panel,panel->hbm_backlight);
 			}
 			break;
 
@@ -5470,8 +5689,7 @@ int dsi_panel_set_hbm_mode(struct dsi_panel *panel, int level)
 			}
 			else {
 				HBM_flag = true;
-				dsi_panel_tx_cmd_set(panel, DSI_CMD_LOADING_EFFECT_ON);
-				dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
+				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_ON_5);
 				pr_debug("Send DSI_CMD_SET_HBM_ON_5 cmds.\n");
 			}
 			break;
@@ -6072,7 +6290,6 @@ int dsi_panel_tx_gamma_cmd_set(struct dsi_panel *panel,
 			pr_debug("failed to set cmds(%d), rc=%d\n", type, rc);
 			goto error;
 		}
-
 		if (cmds->post_wait_ms)
 			usleep_range(cmds->post_wait_ms*1000,
 					((cmds->post_wait_ms*1000)+10));

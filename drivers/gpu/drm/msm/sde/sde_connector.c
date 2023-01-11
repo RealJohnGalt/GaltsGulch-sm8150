@@ -517,7 +517,6 @@ extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
 extern bool sde_crtc_get_fingerprint_pressed(struct drm_crtc_state *crtc_state);
 extern int dsi_display_set_hbm_mode(struct drm_connector *connector, int level);
 int aod_layer_hide = 0;
-extern bool HBM_flag ;
 extern int oneplus_dim_status;
 extern int oneplus_onscreenfp_status;
 extern bool aod_fod_flag;
@@ -540,151 +539,6 @@ int sde_connector_update_backlight(struct drm_connector *connector)
 		_sde_connector_update_bl_scale(c_conn);
 	}
 
-	return 0;
-}
-
-extern int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
-				enum dsi_cmd_set_type type);
-
-static int _sde_connector_update_hbm(struct sde_connector *c_conn)
-{
-	struct drm_connector *connector = &c_conn->base;
-	struct dsi_display *dsi_display;
-	struct sde_connector_state *c_state;
-	int rc = 0;
-	int fingerprint_mode;
-
-	if (!c_conn) {
-		SDE_ERROR("Invalid params sde_connector null\n");
-		return -EINVAL;
-	}
-
-	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI)
-		return 0;
-
-	c_state = to_sde_connector_state(connector->state);
-
-	dsi_display = c_conn->display;
-	if (!dsi_display || !dsi_display->panel) {
-		SDE_ERROR("Invalid params(s) dsi_display %pK, panel %pK\n",
-			dsi_display,
-			((dsi_display) ? dsi_display->panel : NULL));
-		return -EINVAL;
-	}
-
-	if (!c_conn->encoder || !c_conn->encoder->crtc ||
-	    !c_conn->encoder->crtc->state) {
-		return 0;
-	}
-	if (!finger_type) {
-		if (dsi_display->panel->aod_status == 1) {
-			if (real_aod_mode && !aod_complete) {
-				pr_debug("aod not complete\n");
-				return 0;
-			}
-			if (!(sde_crtc_get_fingerprint_mode(c_conn->encoder->crtc->state)))
-				fingerprint_mode = false;
-			else
-				fingerprint_mode = sde_crtc_get_fingerprint_mode(c_conn->encoder->crtc->state);
-			} else {
-		if (!(sde_crtc_get_fingerprint_mode(c_conn->encoder->crtc->state)))
-            fingerprint_mode = false;
-		else if (oneplus_dim_status == 1)
-            fingerprint_mode = !!oneplus_dim_status;
-        else
-            fingerprint_mode = sde_crtc_get_fingerprint_mode(c_conn->encoder->crtc->state);
-        }
-		} else {
-			if (dsi_display->panel->aod_status == 1) {
-				if (oneplus_dim_status == 5)
-					fingerprint_mode = false;
-				else if (oneplus_dim_status == 2)
-					fingerprint_mode = !!oneplus_dim_status;
-			} else {
-				return 0;
-			}
-		}
-
-	if (fingerprint_mode != dsi_display->panel->is_hbm_enabled) {
-		//struct drm_encoder *drm_enc = c_conn->encoder;
-		dsi_display->panel->is_hbm_enabled = fingerprint_mode;
-		if (fingerprint_mode) {
-			mutex_lock(&dsi_display->panel->panel_lock);
-			HBM_flag=true;
-			if (dsi_display->panel->aod_status==1 && !finger_type) {
-				if (dsi_display->panel->aod_mode == 2) {
-					dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_OFF_HBM_ON_SETTING);
-					pr_debug("Send DSI_CMD_AOD_OFF_HBM_ON_SETTING cmds\n");
-				} else {
-					dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_REAL_AOD_OFF_HBM_ON_SETTING);
-					pr_debug("Send DSI_CMD_REAL_AOD_OFF_HBM_ON_SETTING cmds\n");
-				}
-				aod_fod_flag = true;
-			}
-			else if (dsi_display->panel->aod_status == 1 && finger_type) {
-				dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_AOD_OFF_NEW);
-				pr_debug("qdt aod off\n");
-			}
-			else {
-				//sde_encoder_poll_line_counts(drm_enc);
-				dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_LOADING_EFFECT_ON);
-				dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_HBM_ON_5);
-				pr_debug("Send DSI_CMD_SET_HBM_ON_5 cmds\n");
-			}
-			mutex_unlock(&dsi_display->panel->panel_lock);
-		}
-		else {
-			HBM_flag = false;
-			//_sde_connector_update_bl_scale(c_conn);
-			mutex_lock(&dsi_display->panel->panel_lock);
-			if (dsi_display->panel->aod_status == 1 && !finger_type) {
-				if(oneplus_dim_status == 5){
-					dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_HBM_OFF);
-					dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_LOADING_EFFECT_OFF);
-					pr_debug("Send DSI_CMD_SET_HBM_OFF cmds\n");
-					aod_fod_flag = true;
-					dsi_display->panel->aod_status = 0;
-					oneplus_dim_status = 0;
-					aod_layer_hide = 1;
-				} else {
-					dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_LOADING_EFFECT_OFF);
-					if (oneplus_onscreenfp_status == 4) {
-						if (dsi_display->panel->aod_mode == 5 || dsi_display->panel->aod_mode == 4) {
-							rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_AOD_ON_5);
-							pr_debug("Send DSI_CMD_SET_AOD_ON_5 cmds\n");
-						} else if (dsi_display->panel->aod_mode == 1) {
-							rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_AOD_ON_1);
-							pr_debug("Send DSI_CMD_SET_AOD_ON_1 cmds\n");
-						} else if (dsi_display->panel->aod_mode == 3) {
-							rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_AOD_ON_3);
-							pr_debug("Send DSI_CMD_SET_AOD_ON_3 cmds\n");
-						}
-					} else if (oneplus_onscreenfp_status == 0) {
-						dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_HBM_OFF_AOD_ON_SETTING);
-						aod_layer_hide = 1;
-						pr_debug("Send DSI_CMD_HBM_OFF_AOD_ON_SETTING  cmds\n");
-					}
-				}
-			}
-			else if (dsi_display->panel->aod_status == 1 && finger_type) {
-				if(oneplus_dim_status == 5) {
-					pr_debug("qdt aod off dim 5\n");
-				} else {
-					rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_AOD_ON_2);
-					pr_debug("qdt aod on dim 0\n");
-				}
-			}
-			else {
-				HBM_flag = false;
-				//sde_encoder_poll_line_counts(drm_enc);
-				dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_HBM_OFF);
-				dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_LOADING_EFFECT_OFF);
-				pr_debug("Send DSI_CMD_SET_HBM_OFF cmds\n");
-			}
-			mutex_unlock(&dsi_display->panel->panel_lock);
-			_sde_connector_update_bl_scale(c_conn);
-		}
-	}
 	return 0;
 }
 
@@ -764,6 +618,48 @@ static int _sde_connector_update_dirty_properties(
 	return 0;
 }
 
+static bool sde_connector_is_fod_enabled(struct sde_connector *c_conn)
+{
+	struct drm_connector *connector = &c_conn->base;
+
+	if (!connector->state || !connector->state->crtc)
+		return false;
+
+	return sde_crtc_is_fod_enabled(connector->state->crtc->state);
+}
+
+struct dsi_panel *sde_connector_panel(struct sde_connector *c_conn)
+{
+	struct dsi_display *display = (struct dsi_display *)c_conn->display;
+
+	return display ? display->panel : NULL;
+}
+
+static void sde_connector_pre_update_fod_hbm(struct sde_connector *c_conn)
+{
+	struct dsi_panel *panel;
+	int level = 0;
+	bool status;
+
+	panel = sde_connector_panel(c_conn);
+	if (!panel)
+		return;
+
+	status = sde_connector_is_fod_enabled(c_conn);
+	if (status == dsi_panel_get_fod_ui(panel))
+		return;
+
+	if (status) {
+		level = 5;
+		oneplus_dim_status = 5;
+		finger_type = true;
+	}
+
+	dsi_panel_set_hbm_mode(panel, level);
+
+	dsi_panel_set_fod_ui(panel, status);
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
@@ -784,11 +680,6 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	}
 
 	rc = _sde_connector_update_dirty_properties(connector);
-	rc = _sde_connector_update_hbm(c_conn);
-	if (rc) {
-		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
-		goto end;
-	}
 
 	if (!c_conn->ops.pre_kickoff)
 		return 0;
@@ -797,6 +688,9 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	params.hdr_meta = &c_state->hdr_meta;
 
 	SDE_EVT32_VERBOSE(connector->base.id);
+
+	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI)
+		sde_connector_pre_update_fod_hbm(c_conn);
 
 	rc = c_conn->ops.pre_kickoff(connector, c_conn->display, &params);
 

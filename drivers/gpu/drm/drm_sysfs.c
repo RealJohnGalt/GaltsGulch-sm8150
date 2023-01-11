@@ -456,42 +456,6 @@ static ssize_t hbm_brightness_store(struct device *dev,
 	return count;
 }
 
-static ssize_t op_friginer_print_hbm_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct drm_connector *connector = to_drm_connector(dev);
-	int ret = 0;
-	int op_hbm_mode = 0;
-
-	op_hbm_mode = dsi_display_get_fp_hbm_mode(connector);
-
-	ret = scnprintf(buf, PAGE_SIZE, "OP_FP mode = %d\n"
-											"0--finger-hbm mode(off)\n"
-											"1--finger-hbm mode(600)\n",
-											op_hbm_mode);
-	return ret;
-}
-
-static ssize_t op_friginer_print_hbm_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct drm_connector *connector = to_drm_connector(dev);
-	int ret = 0;
-	int op_hbm_mode = 0;
-
-	ret = kstrtoint(buf, 10, &op_hbm_mode);
-	if (ret) {
-		pr_err("kstrtoint failed. ret=%d\n", ret);
-		return ret;
-	}
-
-	ret = dsi_display_set_fp_hbm_mode(connector, op_hbm_mode);
-	if (ret)
-		pr_err("set hbm mode(%d) fail\n", op_hbm_mode);
-
-	return count;
-}
-
 static ssize_t aod_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1132,7 +1096,6 @@ static ssize_t panel_mismatch_show(struct device *dev,
 }
 
 int oneplus_panel_alpha =0;
-int oneplus_force_screenfp = 0;
 int op_dimlayer_bl_enable = 0;
 int op_dp_enable = 0;
 int op_dither_enable = 0;
@@ -1149,57 +1112,6 @@ static ssize_t oneplus_display_set_dim_alpha(struct device *dev,
                                const char *buf, size_t count)
 {
 	sscanf(buf, "%d", &oneplus_panel_alpha);
-	return count;
-}
-
-static ssize_t oneplus_display_get_forcescreenfp(struct device *dev,
-                                struct device_attribute *attr, char *buf)
-{
-
-	struct drm_connector *connector = to_drm_connector(dev);
-	int ret = 0;
-	oneplus_force_screenfp = dsi_display_get_fp_hbm_mode(connector);
-
-	ret = scnprintf(buf, PAGE_SIZE, "OP_FP mode = %d\n"
-											"0--finger-hbm mode(off)\n"
-											"1--finger-hbm mode(600)\n",
-											oneplus_force_screenfp);
-	return sprintf(buf, "%d\n", oneplus_force_screenfp);
-	
-}
-
-static ssize_t oneplus_display_set_forcescreenfp(struct device *dev,
-                               struct device_attribute *attr,
-                               const char *buf, size_t count)
-{
-	//sscanf(buf, "%x", &oneplus_force_screenfp);
-	struct drm_connector *connector = to_drm_connector(dev);
-	int ret = 0;
-	ret = kstrtoint(buf, 10, &oneplus_force_screenfp);
-	if (ret) {
-		pr_err("kstrtoint failed. ret=%d\n", ret);
-		return ret;
-	}
-
-	ret = dsi_display_set_fp_hbm_mode(connector, oneplus_force_screenfp);
-	if (ret)
-		pr_err("set hbm mode(%d) fail\n", oneplus_force_screenfp);
-	return count;
-}
-
-int oneplus_panel_status = 0;
-static ssize_t op_display_get_power_status(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", oneplus_panel_status);
-}
-
-static ssize_t op_display_set_power_status(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	sscanf(buf, "%d", &oneplus_panel_status);
-
 	return count;
 }
 
@@ -1274,7 +1186,6 @@ static DEVICE_ATTR_RO(modes);
 static DEVICE_ATTR_RW(acl);
 static DEVICE_ATTR_RW(hbm);
 static DEVICE_ATTR_RW(hbm_brightness);
-static DEVICE_ATTR_RW(op_friginer_print_hbm);
 static DEVICE_ATTR_RW(aod);
 static DEVICE_ATTR_RW(aod_disable);
 static DEVICE_ATTR_RW(DCI_P3);
@@ -1295,14 +1206,12 @@ static DEVICE_ATTR_RW(dynamic_dsitiming);
 static DEVICE_ATTR_RO(panel_mismatch);
 static DEVICE_ATTR_RO(dynamic_fps);
 static DEVICE_ATTR(dim_alpha, S_IRUGO|S_IWUSR, oneplus_display_get_dim_alpha, oneplus_display_set_dim_alpha);
-static DEVICE_ATTR(force_screenfp, S_IRUGO|S_IWUSR, oneplus_display_get_forcescreenfp, oneplus_display_set_forcescreenfp);
 static DEVICE_ATTR(notify_fppress, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_fp_press);
 static DEVICE_ATTR(notify_dim, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_dim);
 static DEVICE_ATTR(notify_aod, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_aod_hid);
 static DEVICE_ATTR(dimlayer_bl_en, S_IRUGO|S_IWUSR, op_display_get_dimlayer_enable, op_display_set_dimlayer_enable);
 static DEVICE_ATTR(dp_en, S_IRUGO|S_IWUSR, op_display_get_dp_enable, op_display_set_dp_enable);
 static DEVICE_ATTR(dither_en, S_IRUGO|S_IWUSR, op_display_get_dither_enable, op_display_set_dither_enable);
-static DEVICE_ATTR(power_status, S_IRUGO|S_IWUSR, op_display_get_power_status, op_display_set_power_status);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
@@ -1312,7 +1221,6 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_acl.attr,
 	&dev_attr_hbm.attr,
 	&dev_attr_hbm_brightness.attr,
-	&dev_attr_op_friginer_print_hbm.attr,
 	&dev_attr_aod.attr,
 	&dev_attr_aod_disable.attr,
 	&dev_attr_DCI_P3.attr,
@@ -1331,7 +1239,6 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_dsi_seed_command.attr,
 	&dev_attr_dynamic_dsitiming.attr,
 	&dev_attr_panel_mismatch.attr,
-	&dev_attr_force_screenfp.attr,
 	&dev_attr_dim_alpha.attr,
 	&dev_attr_dynamic_fps.attr,
 	&dev_attr_notify_fppress.attr,
@@ -1340,7 +1247,6 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_dimlayer_bl_en.attr,
 	&dev_attr_dp_en.attr,
 	&dev_attr_dither_en.attr,
-	&dev_attr_power_status.attr,
 	NULL
 };
 
