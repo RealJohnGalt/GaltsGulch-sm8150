@@ -2514,8 +2514,8 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 							cc.classzone_idx);
 	count_compact_event(KCOMPACTD_WAKE);
 
-	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
-	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100);
+	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100, false);
+	devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 100, false);
 	cpu_input_boost_kick_max(100, true);
 
 	for (zoneid = 0; zoneid <= cc.classzone_idx; zoneid++) {
