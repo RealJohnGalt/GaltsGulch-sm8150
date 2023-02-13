@@ -409,7 +409,7 @@ static int pm_qos_update_target_cpus(struct pm_qos_constraints *c,
  * This function returns 1 if the aggregated constraint value has changed, 0
  *  otherwise.
  */
-int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
+int __always_inline pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 			 enum pm_qos_req_action action, int value)
 {
 	return pm_qos_update_target_cpus(c, node, action, value, 0);
@@ -536,7 +536,7 @@ int pm_qos_request_for_cpumask(int pm_qos_class, struct cpumask *mask)
 }
 EXPORT_SYMBOL(pm_qos_request_for_cpumask);
 
-static void __pm_qos_update_request(struct pm_qos_request *req,
+static __always_inline void __pm_qos_update_request(struct pm_qos_request *req,
 			   s32 new_value)
 {
 	trace_pm_qos_update_request(req->pm_qos_class, new_value);
@@ -545,21 +545,6 @@ static void __pm_qos_update_request(struct pm_qos_request *req,
 		pm_qos_update_target(
 			pm_qos_array[req->pm_qos_class]->constraints,
 			&req->node, PM_QOS_UPDATE_REQ, new_value);
-}
-
-/**
- * pm_qos_work_fn - the timeout handler of pm_qos_update_request_timeout
- * @work: work struct for the delayed work (timeout)
- *
- * This cancels the timeout request by falling back to the default at timeout.
- */
-static void pm_qos_work_fn(struct work_struct *work)
-{
-	struct pm_qos_request *req = container_of(to_delayed_work(work),
-						  struct pm_qos_request,
-						  work);
-
-	__pm_qos_update_request(req, PM_QOS_DEFAULT_VALUE);
 }
 
 #ifdef CONFIG_SMP
@@ -655,7 +640,6 @@ void pm_qos_add_request(struct pm_qos_request *req,
 	}
 
 	req->pm_qos_class = pm_qos_class;
-	INIT_DELAYED_WORK(&req->work, pm_qos_work_fn);
 	trace_pm_qos_add_request(pm_qos_class, value);
 	pm_qos_update_target(pm_qos_array[pm_qos_class]->constraints,
 			     &req->node, PM_QOS_ADD_REQ, value);
@@ -690,7 +674,7 @@ EXPORT_SYMBOL_GPL(pm_qos_add_request);
  *
  * Attempts are made to make this code callable on hot code paths.
  */
-void pm_qos_update_request(struct pm_qos_request *req,
+void __always_inline pm_qos_update_request(struct pm_qos_request *req,
 			   s32 new_value)
 {
 	if (!req) /*guard against callers passing in null */
@@ -701,39 +685,9 @@ void pm_qos_update_request(struct pm_qos_request *req,
 		return;
 	}
 
-	cancel_delayed_work_sync(&req->work);
 	__pm_qos_update_request(req, new_value);
 }
 EXPORT_SYMBOL_GPL(pm_qos_update_request);
-
-/**
- * pm_qos_update_request_timeout - modifies an existing qos request temporarily.
- * @req : handle to list element holding a pm_qos request to use
- * @new_value: defines the temporal qos request
- * @timeout_us: the effective duration of this qos request in usecs.
- *
- * After timeout_us, this qos request is cancelled automatically.
- */
-void pm_qos_update_request_timeout(struct pm_qos_request *req, s32 new_value,
-				   unsigned long timeout_us)
-{
-	if (!req)
-		return;
-	if (WARN(!pm_qos_request_active(req),
-		 "%s called for unknown object.", __func__))
-		return;
-
-	cancel_delayed_work_sync(&req->work);
-
-	trace_pm_qos_update_request_timeout(req->pm_qos_class,
-					    new_value, timeout_us);
-	if (new_value != req->node.prio)
-		pm_qos_update_target(
-			pm_qos_array[req->pm_qos_class]->constraints,
-			&req->node, PM_QOS_UPDATE_REQ, new_value);
-
-	schedule_delayed_work(&req->work, usecs_to_jiffies(timeout_us));
-}
 
 /**
  * pm_qos_remove_request - modifies an existing qos request
@@ -753,8 +707,6 @@ void pm_qos_remove_request(struct pm_qos_request *req)
 		WARN(1, "%s called for unknown object\n", __func__);
 		return;
 	}
-
-	cancel_delayed_work_sync(&req->work);
 
 #ifdef CONFIG_SMP
 	if (req->type == PM_QOS_REQ_AFFINE_IRQ) {
