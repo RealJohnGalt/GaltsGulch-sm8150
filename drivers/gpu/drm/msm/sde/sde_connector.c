@@ -21,7 +21,6 @@
 #include <linux/string.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
-#include <linux/msm_drm_notify.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
 #include "sde_crtc.h"
@@ -642,9 +641,7 @@ extern bool HBM_flag;
 static void sde_connector_pre_update_fod_hbm(struct sde_connector *c_conn)
 {
 	struct dsi_panel *panel;
-	struct msm_drm_notifier notifier_data;
 	u32 refresh_rate;
-	int blank;
 	int level = 0;
 	bool status;
 
@@ -664,20 +661,9 @@ static void sde_connector_pre_update_fod_hbm(struct sde_connector *c_conn)
 		level = 5;
 		oneplus_dim_status = 5;
 		finger_type = true;
-		blank = 1;
-		notifier_data.data = &blank;
-		notifier_data.id = connector_state_crtc_index;
-		msm_drm_notifier_call_chain(MSM_DRM_ONSCREENFINGERPRINT_EVENT, &notifier_data);
 		cpu_input_boost_kick_max(1200, true);
 		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1200, true);
 		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW, 1200, true);
-	} else {
-		blank = 0;
-		notifier_data.data = &blank;
-		notifier_data.id = connector_state_crtc_index;
-		msm_drm_notifier_call_chain(MSM_DRM_ONSCREENFINGERPRINT_EVENT, &notifier_data);
-		oneplus_dim_status = 0;
-		finger_type = false;
 	}
 
 	if (status && (panel->hw_type == DSI_PANEL_SAMSUNG_SOFEF03F_M ||
